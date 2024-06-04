@@ -1,0 +1,53 @@
+{
+  "name": "pullse_ai_base_framework",
+  "version": "1.0.0",
+  "description": "Pullse AI Base Framework",
+  "main": "server.js",
+  "scripts": {
+    "test": "mocha",
+    "start": "nodemon --env-file=.env server.js"
+  },
+  "keywords": [],
+  "author": "Utkarsh Pandey",
+  "license": "SEE LICENSE IN License.md",
+  "dependencies": {
+    "@azure/storage-blob": "^12.17.0",
+    "@fastify/cookie": "^9.2.0",
+    "@fastify/cors": "^8.4.0",
+    "@fastify/formbody": "^7.4.0",
+    "@fastify/static": "^6.11.2",
+    "@fastify/swagger": "^8.12.0",
+    "@fastify/swagger-ui": "^1.9.3",
+    "@sendgrid/mail": "^8.1.0",
+    "amqplib": "^0.10.3",
+    "axios": "^1.5.0",
+    "bcrypt": "^5.1.1",
+    "bluebird": "^3.7.2",
+    "case-anything": "^2.1.13",
+    "convict": "^6.2.4",
+    "fastify": "^4.0.0",
+    "fastify-file-upload": "^4.0.0",
+    "fastify-socket.io": "^5.0.0",
+    "json-rules-engine": "^6.5.0",
+    "jsonwebtoken": "^9.0.2",
+    "lodash": "^4.17.21",
+    "moment": "^2.29.4",
+    "mongoose": "^8.1.0",
+    "mongoose-paginate-v2": "^1.8.0",
+    "nodemailer": "^6.9.8",
+    "papaparse": "^5.4.1",
+    "prompts": "^2.4.2",
+    "request-ip": "^3.3.0",
+    "socket.io": "^4.7.4",
+    "socket.io-client": "^4.7.4",
+    "ua-parser-js": "^1.0.37",
+    "uuid": "^9.0.1",
+    "winston": "^3.10.0"
+  },
+  "devDependencies": {
+    "@faker-js/faker": "^8.3.1",
+    "chai": "^4.3.10",
+    "mocha": "^10.2.0",
+    "nodemon": "^3.0.1"
+  }
+}

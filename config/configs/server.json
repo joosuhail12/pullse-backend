@@ -1,0 +1,23 @@
+{
+    "host": {
+        "doc": "server host",
+        "format": "String",
+        "default": "127.0.0.1",
+        "env": "SERVER_HOST",
+        "arg": "server_host"
+    },
+    "port": {
+        "doc": "server port",
+        "format": "Number",
+        "default": 3000,
+        "env": "SERVER_PORT",
+        "arg": "server_port"
+    },
+	"info": {
+		"doc": "Server information.",
+		"format": "String",
+		"default": "Server information",
+		"env": "SERVER_INFO",
+		"arg": "server_info"
+	}
+}

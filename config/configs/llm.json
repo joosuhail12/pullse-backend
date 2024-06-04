@@ -1,0 +1,16 @@
+{
+    "open_api_key": {
+        "doc": "LLM OPEN API KEY",
+        "format": "String",
+        "default": "__YOUR_OPEN_API_KEY__",
+        "env": "LLM_OPEN_API_KEY",
+        "arg": "llm_open_api_key"
+    },
+    "callback_url": {
+        "doc": "LLM CALLBACK URL",
+        "format": "String",
+        "default": "CALLBACK/URL",
+        "env": "LLM_CALLBACK_URL",
+        "arg": "llm_callback_url"
+    }
+}

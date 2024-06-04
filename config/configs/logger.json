@@ -1,0 +1,9 @@
+{
+    "enable": {
+        "doc": "Enable logs",
+        "format": "Boolean",
+        "default": true,
+        "env": "LOGGER_ENABLE",
+        "arg": "logger_enable"
+    }
+}

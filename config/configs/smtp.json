@@ -1,0 +1,51 @@
+{
+    "debug": {
+        "doc": "to enable debugger in emailer.",
+        "format": "Boolean",
+        "default": false,
+        "env": "SMTP_DEBUG",
+        "arg": "smtp_debug"
+    },
+    "from": {
+        "doc": "from email",
+        "format": "String",
+        "default": "no-reply@pullse.ai",
+        "env": "SMTP_FROM",
+        "arg": "smtp_from"
+    },
+    "host": {
+        "doc": "smtp host",
+        "format": "String",
+        "default": "sandbox.smtp.mailtrap.io",
+        "env": "SMTP_HOST",
+        "arg": "smtp_HOST"
+    },
+    "port": {
+        "doc": "SMTP PORT",
+        "format": "Number",
+        "default": 2525,
+        "env": "SMTP_PORT",
+        "arg": "smtp_port"
+    },
+    "user": {
+        "doc": "SMTP USER",
+        "format": "String",
+        "default": "b2635598ee834a",
+        "env": "SMTP_USER",
+        "arg": "smtp_user"
+    },
+    "password": {
+        "doc": "SMTP PASSWORD",
+        "format": "String",
+        "default": "7ea7425da8395e",
+        "env": "SMTP_PASSWORD",
+        "arg": "smtp_password"
+    },
+    "secure": {
+        "doc": "enable secure emailer.",
+        "format": "Boolean",
+        "default": false,
+        "env": "SMTP_secure",
+        "arg": "smtp_secure"
+    }
+}

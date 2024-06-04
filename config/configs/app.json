@@ -1,0 +1,62 @@
+{
+	"name": {
+		"doc": "Application Name.",
+		"format": "String",
+		"default": "My Service",
+		"env": "APP_NAME",
+		"arg": "app_name"
+	},
+	"info": {
+		"doc": "Application Information.",
+		"format": "String",
+		"default": "Application Information",
+		"env": "APP_INFO",
+		"arg": "app_info"
+	},
+	"version": {
+		"doc": "Application Version",
+		"format": "String",
+		"default": "0.0.1",
+		"env": "APP_VERSION",
+		"arg": "app_version"
+	},
+	"environment": {
+		"doc": "Environment type(prod/dev)",
+		"format": "String",
+		"default": "dev",
+		"env": "APP_ENVIRONMENT",
+		"arg": "app_environment"
+	},
+	"protocol": {
+		"doc": "Application protocol.",
+		"format": "String",
+		"default": "http",
+		"env": "APP_PROTOCOL",
+		"arg": "app_protocol"
+	},
+	"base_url": {
+		"doc": "Application Base url.",
+		"format": "String",
+		"default": "localhost:3000",
+		"env": "APP_BASE_URL",
+		"arg": "app_base_url"
+	},
+	"whitelisted_urls": {
+		"doc": "URLs which will use APIs of this app. ie: App will allow CORS for URLs which are defined here.",
+		"default": "http://localhost:3000",
+		"env": "APP_WHITELISTED_URLS",
+		"arg": "app_whitelisted_urls"
+	},
+	"static_token": {
+		"doc": "Static Token used by other services by auth.",
+		"default": "CHANGE_PULLSE_AI_DEFAULT_TOKEN_1234567890",
+		"env": "APP_STATIC_TOKEN",
+		"arg": "app_static_token"
+	},
+	"email_domain": {
+		"doc": "App Email Domain(support.pullseai.com)",
+		"default": "support.pullseai.com",
+		"env": "APP_EMAIL_DOMAIN",
+		"arg": "app_email_domain"
+	}
+}

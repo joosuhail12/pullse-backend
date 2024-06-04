@@ -1,0 +1,16 @@
+{
+	"username": {
+		"doc": "Global Admin Username",
+		"format": "String",
+		"default": "local-admin@pullse.ai",
+		"env": "GLOBAL_ADMIN_USERNAME",
+		"arg": "global_admin_username"
+	},
+    "password": {
+		"doc": "Global Admin password",
+		"format": "String",
+		"default": "secret_password",
+		"env": "GLOBAL_ADMIN_PASSWORD",
+		"arg": "global_admin_password"
+	}
+}

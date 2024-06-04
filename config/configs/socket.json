@@ -1,0 +1,16 @@
+{
+  "server_url": {
+    "doc": "Socket server url.",
+    "format": "String",
+    "default": "http://localhost:4000",
+    "env": "SOCKET_SERVER_URL",
+    "arg": "socket_server_url"
+  },
+  "token": {
+    "doc": "server host",
+    "format": "String",
+    "default": "SOME_S3CrEt_t0K3N",
+    "env": "SOCKET_SERVER_TOKEN",
+    "arg": "socket_server_token"
+  }
+}

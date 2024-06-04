@@ -1,0 +1,52 @@
+{
+    "db_protocol": {
+        "doc": "Database host protocol",
+        "format": "String",
+        "default": "mongodb",
+        "env": "DB_PROTOCOL",
+        "arg": "db_protocol"
+    },
+    "db_host": {
+        "doc": "Database host name/IP",
+        "format": "String",
+        "default": "0.0.0.0:55000",
+        "env": "DB_HOST",
+        "arg": "db_host"
+    },
+    "db_name": {
+        "doc": "Database name",
+        "format": "String",
+        "default": "commentService",
+        "env": "DB_NAME",
+        "arg": "db_name"
+    },
+    "is_auth_enable": {
+        "doc": "if db authentication enables or not",
+        "format": "Boolean",
+        "default": false,
+        "env": "IS_DB_AUTH_ENABLE",
+        "arg": "is_db_auth_enable"
+    },
+    "db_user": {
+        "doc": "Database username",
+        "format": "String",
+        "default": "test",
+        "env": "DB_USER",
+        "arg": "db_user"
+    },
+    "db_pass": {
+        "doc": "Database password",
+        "format": "String",
+        "default": "test",
+        "env": "DB_PASSWORD",
+        "arg": "db_password"
+    },
+    "db_auth_source": {
+        "doc": "db auth source",
+        "format": "String",
+        "default": "admin",
+        "env": "DB_AUTH_SOURCE",
+        "arg": "db_auth_source"
+    },
+    "options": {}
+}

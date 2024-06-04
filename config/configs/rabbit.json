@@ -1,0 +1,9 @@
+{
+    "host": {
+        "doc": "Rabbit host",
+        "format": "String",
+        "default": "localhost",
+        "env": "RABBIT_HOST",
+        "arg": "rabbit_host"
+    }
+}

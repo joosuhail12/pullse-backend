@@ -1,0 +1,69 @@
+const demoRequestRoute = require('./demoRequestRoutes');
+const authRoute = require('./authRoutes');
+
+const rolePermissionRoute = require('./rolePermissionRoute');
+const roleRoute = require('./roleRoutes');
+const workspaceRoute = require('./workspaceRoutes');
+const workspaceSettingRoute = require('./workspaceSettingRoutes');
+const profileRoute = require('./profileRoutes');
+const userRoute = require('./userRoutes');
+const clientRoute = require('./clientRoutes');
+const ticketRoute = require('./ticketRoutes');
+const conversationRoute = require('./conversationRoutes');
+const customerRoute = require('./customerRoutes');
+const companyRoute = require('./companyRoutes');
+const ticketTopicRoutes = require('./ticketTopicRoutes');
+const ticketStatusRoute = require('./ticketStatusRoutes');
+const ticketTypeRoutes = require('./ticketTypeRoutes');
+const tagRoutes = require('./tagRoutes');
+const teamRoutes = require('./teamRoutes');
+const chatbotProfileRoute = require('./chatbotProfileRoutes');
+const chatbotDocumentRoute = require('./chatbotDocumentRoutes');
+
+const customFieldRoute = require('./customFieldRoutes');
+const workflowRoute = require('./workflowRoutes');
+const aiToolRoute = require('./aiToolRoutes');
+const cannedResponseRoute = require('./cannedResponseRoutes');
+const webhookRoute = require('./webhookRoutes');
+const reportRoute = require('./reportRoutes');
+const customSupportEmailRoute = require('./customSupportEmailRoutes');
+const emailDomainRoute = require('./emailDomainRoutes');
+const eventWorkflowRoute = require('./eventWorkflowRoutes');
+const emailTemplateRoute = require('./emailTemplateRoutes');
+
+
+module.exports = {
+  async activate(app) {
+    await demoRequestRoute.activate(app);
+    await workspaceRoute.activate(app);
+    await workspaceSettingRoute.activate(app);
+    await authRoute.activate(app);
+    await rolePermissionRoute.activate(app);
+    await roleRoute.activate(app);
+    await profileRoute.activate(app);
+    await userRoute.activate(app);
+    await clientRoute.activate(app);
+    await ticketRoute.activate(app);
+    await conversationRoute.activate(app);
+    await customerRoute.activate(app);
+    await companyRoute.activate(app);
+    await ticketTopicRoutes.activate(app);
+    await ticketStatusRoute.activate(app);
+    await ticketTypeRoutes.activate(app);
+    await tagRoutes.activate(app);
+    await teamRoutes.activate(app);
+    await chatbotProfileRoute.activate(app);
+    await chatbotDocumentRoute.activate(app);
+    await customFieldRoute.activate(app);
+    await workflowRoute.activate(app);
+    await aiToolRoute.activate(app);
+    await cannedResponseRoute.activate(app);
+    await webhookRoute.activate(app);
+    await reportRoute.activate(app);
+    await customSupportEmailRoute.activate(app);
+    await emailDomainRoute.activate(app);
+    await eventWorkflowRoute.activate(app);
+    await emailTemplateRoute.activate(app);
+
+  }
+};
