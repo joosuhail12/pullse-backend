@@ -10,14 +10,17 @@ class EmailDomainService extends BaseService {
         super();
         this.utilityInst = new EmailDomainUtility();
         this.entityName = 'EmailDomain';
-        this.listingFields = ["id", "name", "domain", "-_id"];
-        this.updatableFields = [ "name", "domain", "description"];
+        this.listingFields = ["id", "EmailDomain", "senderName", "fromEmail", "checkboxDefault", "ReplytoEmail", "DKIM", "-_id"];
+        this.updatableFields = [ "EmailDomain", "senderName", "fromEmail", "checkboxDefault", "ReplytoEmail", "DKIM", "description"];
     }
 
     async createEmailDomain(emailDomainData) {
         try {
-            let { name, domain, clientId, workspaceId, createdBy } = emailDomainData;
-            let emailDomain = await this.findOne({ domain, clientId, workspaceId });
+            let { EmailDomain, senderName, fromEmail, checkboxDefault, ReplytoEmail, DKIM, clientId, workspaceId, createdBy } = emailDomainData;
+            let emailDomain = await this.findOne({ EmailDomain, clientId, workspaceId });
+            // let alldata = await this.find();
+            // console.log(alldata);
+            
             if (!_.isEmpty(emailDomain)) {
                 return Promise.reject(new errors.AlreadyExist(this.entityName + " already exist."));
             }
@@ -49,7 +52,6 @@ class EmailDomainService extends BaseService {
         }
     }
 
-
     async deleteEmailDomain({ id, workspaceId, clientId }) {
         try {
             let emailDomain = await this.getDetails(id, workspaceId, clientId);
@@ -60,13 +62,13 @@ class EmailDomainService extends BaseService {
         }
     }
 
-    parseFilters({ name, createdFrom, createdTo, workspaceId, clientId }) {
+    parseFilters({ EmailDomain, createdFrom, createdTo, workspaceId, clientId }) {
         let filters = {};
         filters.workspaceId = workspaceId;
         filters.clientId = clientId;
 
-        if (name) {
-            filters.name = { $regex : `^${name}`, $options: "i" };
+        if (EmailDomain) {
+            filters.EmailDomain = { $regex : `^${EmailDomain}`, $options: "i" };
         }
 
         if (createdFrom) {

@@ -1,7 +1,6 @@
 const BaseHandler = require('./BaseHandler');
 const EmailDomainService = require('../services/EmailDomainService');
 
-
 class EmailDomainHandler extends BaseHandler {
 
   constructor() {
@@ -22,8 +21,12 @@ class EmailDomainHandler extends BaseHandler {
     let clientId = req.authUser.clientId;
 
     let filters = {
-      name: req.query.name,
-      domain: req.query.domain,
+      EmailDomain: req.query.EmailDomain,
+      senderName: req.query.senderName,
+      fromEmail: req.query.fromEmail,
+      checkboxDefault: req.query.checkboxDefault,
+      ReplytoEmail: req.query.ReplytoEmail,
+      DKIM: req.query.DKIM,
       createdFrom: req.query.created_from,
       createdTo: req.query.created_to,
       skip: req.query.skip,
@@ -61,7 +64,7 @@ class EmailDomainHandler extends BaseHandler {
     let workspaceId = req.query.workspace_id;
     let clientId = req.authUser.clientId;
 
-
+    
     let inst = new EmailDomainService();
     return this.responder(req, reply, inst.deleteEmailDomain({ id, workspaceId, clientId }));
   }

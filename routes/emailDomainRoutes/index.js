@@ -23,14 +23,27 @@ async function activate(app) {
         additionalProperties: false,
         type: 'object',
         properties: {
-          name:  {
+          EmailDomain:{
             type: 'string',
             minLength: 2
           },
-          domain: {
+          senderName:{
             type: 'string',
-            // minLength: 2,
+            minLength: 2
+          },
+          fromEmail:{
+            type: 'string',
             // pattern: '/^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/;'
+          },
+          checkboxDefault:{
+            type: 'boolean',
+          },
+          ReplytoEmail:{
+            type: 'string',
+            // pattern: '/^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/;'
+          },
+          DKIM:{
+            type: 'boolean',
           },
           description:  {
             type: 'string',
@@ -45,6 +58,7 @@ async function activate(app) {
       }
     },
     handler: async (req, reply) => {
+      // return null;
       return handler.createEmailDomain(req, reply);
     }
   });

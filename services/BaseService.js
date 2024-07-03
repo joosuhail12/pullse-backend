@@ -82,6 +82,16 @@ class BaseService {
             return this.handleError(err);
         }
     }
+    
+    // we can find all the field by using the find funtion and there no find funtion implement in the system
+    async find(filter = {}, fields = null) {
+        try {
+            let data = await this.utilityInst.find(filter, fields);
+            return data;
+        } catch(err) {
+            return this.handleError(err);
+        }
+    }
 
 
     async count(filter = {}) {

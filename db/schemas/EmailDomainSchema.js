@@ -7,19 +7,34 @@ const EmailDomainSchema = {
             required: true,
             index: true,
             default: function() {
-                return uuid()
+                return uuid();
             }
         },
-        name: {
+        EmailDomain: {
             type: String,
             required: true,
         },
-        domain: {
+        senderName: {
             type: String,
             required: true,
         },
-        description: {
+        fromEmail: {
             type: String,
+            required: true,
+        },
+        checkboxDefault: {
+            type: Boolean,
+            required: true,
+            default: false,
+        },
+        ReplytoEmail: {
+            type: String,
+            required: true,
+        },
+        DKIM: {
+            type: Boolean,
+            required: true,
+            default: false,
         },
         workspaceId: {
             type: String,
@@ -34,19 +49,19 @@ const EmailDomainSchema = {
             required: true,
         },
         deletedAt: {
-            type: Date
-        }
+            type: Date,
+        },
     },
     schemaName: "emailDomain",
     options: {
-        timestamps: true
+        timestamps: true,
     },
     indexes: [
         {
-            fields: { id: 1, deletedAt: 1},
-            options: { unique: true }
-        }
-    ]
+            fields: { id: 1, deletedAt: 1 },
+            options: { unique: true },
+        },
+    ],
 };
 
 module.exports = EmailDomainSchema;

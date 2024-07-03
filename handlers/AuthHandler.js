@@ -35,7 +35,7 @@ class AuthHandler extends BaseHandler {
       return this.responder(req, reply, Promise.resolve(res));
     } catch (error) {
       console.log(error);
-      return this.responder(req, reply, Promise.reject(res));
+      return this.responder(req, reply, Promise.reject(error));
     }
 
   }
