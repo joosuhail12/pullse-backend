@@ -9,7 +9,7 @@ class UserUtility extends BaseUtility {
     constructor() {
         super(UserSchema);
         this.populateFields = {
-            roles: {
+             roles: {
                 multiple: true,
                 utility: new UserRoleUtility(),
                 field: 'roleIds',
@@ -21,7 +21,7 @@ class UserUtility extends BaseUtility {
                 field: 'clientId',
                 getFields: {'id': 1, 'name': 1, "_id": 0 }
             },
-            defaultWorkspace: {
+            defaultWorkspaceId: {
                 multiple: false,
                 utility: new WorkspaceUtility(),
                 field: 'defaultWorkspaceId',

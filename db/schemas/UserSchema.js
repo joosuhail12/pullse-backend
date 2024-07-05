@@ -34,7 +34,7 @@ const UserSchema = {
         roleIds: [
             {
                 type: String,
-                required: true
+               // required: true
             },
         ],
         status: {
@@ -43,6 +43,8 @@ const UserSchema = {
         },
         defaultWorkspaceId: {
             type: String,
+            required: true,
+            default: "c15b5f69-c5f9-4378-a0e9-7230acf3742a"
         },
         teamId: {
             type: String,

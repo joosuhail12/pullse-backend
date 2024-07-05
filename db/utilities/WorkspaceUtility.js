@@ -11,7 +11,7 @@ class WorkspaceUtility extends BaseUtility {
         multiple: false,
         utility: new ClientUtility(),
         field: 'clientId',
-        getFields: {'id': 1, 'name': 1, "_id": 0 }
+        getFields: {'id': 1,'workspace_alternate_id': 1, 'name': 1, "_id": 0 }
       },
     };
   }

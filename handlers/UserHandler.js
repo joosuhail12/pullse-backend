@@ -16,7 +16,7 @@ class UserHandler extends BaseHandler {
       fName: req.body.first_name,
       lName: req.body.last_name,
       email: req.body.email,
-      roleIds: req.body.roleId,
+      
       password: req.body.password,
       confirmPassword: req.body.confirm_password,
       createdBy: createdBy,

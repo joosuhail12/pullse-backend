@@ -21,6 +21,17 @@ let app;
 const start = async () => {
   try {
     app = fastify({ logger: config.logger.enable });
+    
+    // Register @fastify/express plugin
+    await app.register(require('@fastify/express'));
+    const express = app.express;
+
+    // Use CORS middleware with Express
+    express.use(require('cors')());
+
+    // Disable 'x-powered-by' header
+    express.disable('x-powered-by');
+
     await db.connect(config.db);
     app.register(cookie, {
       secret: "my-secret",
@@ -73,7 +84,7 @@ const start = async () => {
 
 
 
-    app.listen({ port: config.server.port, host: config.server.host});
+    await app.listen({ port: config.server.port, host: config.server.host});
     await app.ready()
     .then(async () => {
       Socket.init(app.io);

@@ -18,17 +18,17 @@ class UserService extends BaseService {
         if (fields) {
             this.listingFields = fields;
         }
-        this.updatableFields = [ "fName", "lName", "name", "roleIds", "teamId", "status", ];
+        this.updatableFields = [ "fName", "lName", "name", "teamId", "status", ]; //removed roleids
     }
-
-    async createUser({ fName, lName, email, roleIds, confirmPassword, password, createdBy, clientId }) {
+    
+    async createUser({ fName, lName, email, confirmPassword, password, createdBy, clientId }) {
         try {
             let name = this.name(fName, lName);
             if (confirmPassword && confirmPassword != password) {
                 return new errors.BadRequest("confirm password and password does not match.");
             }
             password = await this.bcryptToken(password);
-            return this.create({ fName, lName, name, email, password, roleIds, createdBy, clientId }).catch(err => {
+            return this.create({ fName, lName, name, email, password, createdBy, clientId }).catch(err => {
                 if (err instanceof errors.Conflict) {
                     return new errors.AlreadyExist("User already exist.");
                 }

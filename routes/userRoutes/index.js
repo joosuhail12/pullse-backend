@@ -18,7 +18,7 @@ async function activate(app) {
       summary: 'Create User',
       description: 'API to create user.',
       body: {
-        required: [ "first_name", "last_name", "email", "roleId", "password", ],
+        required: [ "first_name", "last_name", "email", "password", ], //role removed
         additionalProperties: false,
         type: 'object',
         properties: {
@@ -37,11 +37,11 @@ async function activate(app) {
             description: "User email",
             format: 'email'
           },
-          roleId: {
-            type: 'string',
-            description: "Id of user's role",
-            minLength: 2
-          },
+          // roleId: {
+          //   type: 'string',
+          //   description: "Id of user's role",
+          //   minLength: 2
+          // },
           password: {
             type: 'string',
             description: "User password",
@@ -148,7 +148,7 @@ async function activate(app) {
       tags: ['User'],
       summary: 'Update User',
       description: 'API to update a User.',
-      required: [ "first_name", "last_name", "email", "role", "password", ],
+      required: [ "first_name", "last_name", "email", "password", ], //role removed
       body: {
         first_name: {
           type: 'string',
@@ -169,12 +169,12 @@ async function activate(app) {
         status: {
           type: 'string',
         },
-        roleIds: {
-          type: 'array',
-          items: {
-            type: 'string',
-          }
-        },
+        // roleIds: {
+        //   type: 'array',
+        //   items: {
+        //     type: 'string',
+        //   }
+        // },
         teamId: {
           type: 'string',
           description: "Id of user's team",
