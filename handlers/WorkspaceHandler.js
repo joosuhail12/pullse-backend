@@ -57,12 +57,22 @@ class WorkspaceHandler extends BaseHandler {
       clientId,
     };
     let inst = this.ServiceInst;
-    let workspaces = this.responder(req, reply, inst.paginate(filters));
-    
+    try{
+
+      let workspaces =  this.responder(req, reply, inst.paginate(filters));
+    }catch(e) {
+      console.log('error in workspaces',e)
+    }
+    console.log("reply===>",reply)
+    // console.log("WorkSpaces:-", workspaces);
+    console.log("WorkSpaces:-", JSON.stringify(workspaces));
+    console.log("------------------------------------");
     // Fetch creator's email for each workspace
-    //let populatedWorkspaces = await inst.populateWorkspaceCreators({workspaces});
-    
-    return workspaces;
+    let populatedWorkspaces = await inst.populateWorkspaceCreators(workspaces);
+ 
+    return populatedWorkspaces;
+    // console.log(workspaces);
+    // return workspaces;
   }
  
   async showWorkspaceDetail(req, reply) {

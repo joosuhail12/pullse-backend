@@ -95,34 +95,73 @@ class WorkspaceService extends BaseService {
     }
   }
  
-  // -----------------------------------------------------------
-//   async populateWorkspaceCreators(workspaces) {
-//     return await Promise.all(
-//       workspaces.map(async (workspace) => {
-//         try {
-//           const populatedWorkspace = await mongoose
-//             .model("workspace")
-//             .findOne({
-//               _id: workspace._id,
-//             })
-//             .populate("createdBy", "email")
-//             .exec();
- 
-//           if (populatedWorkspace) {
-//             return {
-//               ...workspace.toObject(),
-//               createdBy: populatedWorkspace.createdBy.email,
-//             };
-//           } else {
-//             return workspace.toObject();
-//           }
-//         } catch (error) {
-//           console.error("Error populating creator email:", error);
-//           return workspace.toObject();
-//         }
-//       })
-//     );
-//   }
+ // -----------------------------------------------------------
+ async populateWorkspaceCreators(workspaces) {
+  try {
+    // Log the initial workspaces data
+    console.log(
+      "Original workspaces data:",
+      JSON.stringify(workspaces, null, 2)
+    );
+
+    console.log(
+      "------------------------------------------------------------"
+    );
+    
+    const populatedDocs = await Promise.all(
+     // console.log("MY WORKSPACES", workspaces);
+      // Map through each workspace in the docs array
+      workspaces.data.data.docs.map(async (workspace) => {
+        // Log the current workspace being processed
+        console.log("Processing workspace:", workspace);
+        console.log("Processing workspace:", workspace.id);
+
+        const populatedWorkspace = await mongoose
+          .model("workspace")
+          .findOne({ id: workspace.id }) // Use workspace.id as the identifier
+          .populate("createdBy") // Populate the createdBy field with the email
+          .exec();
+
+        // Log the populated workspace data
+        console.log(
+          "------------------------------------------------------------"
+        );
+        console.log("Populated workspace:", populatedWorkspace.length);
+
+        return populatedWorkspace
+          ? {
+              ...workspace, // Spread the original workspace object
+              createdBy: populatedWorkspace.createdBy.email, // Overwrite the createdBy field with the email
+            }
+          : workspace; // If not found, return the original workspace object
+      })
+    );
+
+    // Construct the output with the same structure as the input
+    const result = {
+      ...workspaces, // Spread the original workspaces object
+      data: {
+        ...workspaces.data, // Spread the original data object
+        data: {
+          ...workspaces.data.data, // Spread the nested data object
+          docs: populatedDocs, // Replace the docs array with the populatedDocs
+        },
+      },
+    };
+
+    // Log the final result
+    console.log(
+      "Final populated workspaces data:",
+      JSON.stringify(result, null, 2)
+    );
+
+    return result;
+  } catch (error) {
+    console.error("Error populating creator email:", error);
+    // Return the original workspaces object in case of an error
+    return workspaces;
+  }
+} 
  
   async findByWorkspaceId({ id }) {
     try {
