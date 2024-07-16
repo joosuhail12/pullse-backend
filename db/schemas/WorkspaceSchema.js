@@ -1,7 +1,7 @@
 const { v4: uuid } = require("uuid");
 const { Schema, model } = require("mongoose");
 const User = require("./UserSchema");
- 
+
 const WorkspaceSchema = {
   fields: {
     id: {
@@ -49,7 +49,7 @@ const WorkspaceSchema = {
       ref: "users",
       required: true,
     },
- 
+
     // createdBy: {
     //   type: String, // id of user
     //   required: true,
@@ -77,5 +77,5 @@ const WorkspaceSchema = {
     },
   ],
 };
- 
+
 module.exports = WorkspaceSchema;

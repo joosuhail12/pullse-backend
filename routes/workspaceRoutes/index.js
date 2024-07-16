@@ -1,13 +1,13 @@
 const Handler = require("../../handlers/WorkspaceHandler");
- 
+
 const authMiddlewares = require("../../middlewares/auth");
 const AuthType = require("../../constants/AuthType");
- 
+
 async function activate(app) {
   let handler = new Handler();
- 
+
   let base_url = "/api/workspace";
- 
+
   app.route({
     url: base_url,
     method: "POST",
@@ -39,7 +39,7 @@ async function activate(app) {
       return handler.createWorkspace(req, reply);
     },
   });
- 
+
   app.route({
     url: base_url + "/:workspace_id/users/search",
     method: "GET",
@@ -138,7 +138,7 @@ async function activate(app) {
       return handler.listWorkspace(req, reply);
     },
   });
- 
+
   app.route({
     url: base_url + "/:workspace_id",
     method: "GET",
@@ -182,9 +182,10 @@ async function activate(app) {
     },
     handler: async (req, reply) => {
       return handler.viewUsers(req, reply);
+      
     },
   });
- 
+
   app.route({
     url: base_url + "/:workspace_id",
     method: "PUT",
@@ -209,7 +210,7 @@ async function activate(app) {
       return handler.updateWorkspace(req, reply);
     },
   });
- 
+
   app.route({
     url: base_url + "/:workspace_id",
     method: "DELETE",
@@ -227,7 +228,7 @@ async function activate(app) {
     },
   });
 }
- 
+
 module.exports = {
   activate,
 };
