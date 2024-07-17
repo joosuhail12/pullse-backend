@@ -1,204 +1,306 @@
-const _ = require("lodash");
 const Promise = require("bluebird");
-const BaseService = require("./BaseService");
-const WorkflowUtility = require('../db/utilities/WorkflowUtility');
 const errors = require("../errors");
-const DecisionEngine = require('../DecisionEngine');
-const { v4: uuid } = require('uuid');
-const moment = require('moment');
+const WorkspaceUtility = require("../db/utilities/WorkspaceUtility");
+const UserUtility = require("../db/utilities/UserUtility");
+const BaseService = require("./BaseService");
 
-class WorkflowService extends BaseService {
+const mongoose = require("mongoose"); // Ensure mongoose is imported
 
-    constructor(fields=null, dependencies={}) {
-        super();
-        this.utilityInst = new WorkflowUtility();
-        this.WorkflowRuleService = dependencies.WorkflowRuleService;
-        this.WorkflowActionService = dependencies.WorkflowActionService;
-        this.TicketService = dependencies.TicketService;
-        this.EmailService = dependencies.EmailService;
-        this.entityName = 'Workflow';
-        this.listingFields = [ "id", "name", "description", "status", "affectedTicketsCount", "-_id" ];
-        this.updatableFields = [ "name", "summary", "description", "status", "ruleIds", "actionIds", "lastUpdatedBy" ];
-        this.DecisionEngine = dependencies.DecisionEngine || null;
-    }
+const _ = require("lodash");
+const config = require("../config");
 
-    async createWorkflow(workflowData) {
-        try {
-            /*
-            * Workflow Validation
-            */
-            let { name, createdBy, workspaceId, clientId } = workflowData;
-            // { name, description, ruleIds, actionIds, workspaceId, clientId, createdBy }
-            if (_.isEmpty(name)) {
-                name = `Workflow ${uuid()}`;
-            }
-            let workflow = await this.findOne({ name: { $regex : `^${name}$`, $options: "i" }, workspaceId, clientId });
-            if (!_.isEmpty(workflow)) {
-                return Promise.reject(new errors.AlreadyExist(`${this.entityName} with name "${name}" already exist.`));
-            }
+class WorkspaceService extends BaseService {
+  constructor(fields = null, dependencies = {}) {
+    super();
+    this.utilityInst = new WorkspaceUtility();
+    this.userUtilityInst = new UserUtility();
+    this.AuthService = dependencies.AuthService;
 
-            /*
-            * Rules Validation
-            */
-            let ruleInst = new this.WorkflowRuleService(null, {TicketService: this.TicketService, WorkflowActionService: this.WorkflowActionService , EmailService: this.EmailService});
-            let { ruleIds, error: ruleErrors } = await ruleInst.createOrUpdateRules(workflowData.rules, workflowData.createdBy, workflowData.workspaceId, workflowData.clientId);
-            if (!_.isEmpty(ruleErrors)) {
-                return Promise.reject(new errors.BadRequest("Error in rules.", {entity: "rules", error: ruleErrors }));
-            }
-            if (_.isEmpty(ruleIds)) {
-                return Promise.reject(new errors.BadRequest("No rules found.", { entity: "rules", error: ruleErrors } ));
-            }
-            delete workflowData.rules;
-            workflowData.ruleIds = ruleIds;
+    this.entityName = "Workspace";
+    this.listingFields = [
+      "id",
+      "name",
+      "-_id",
+      "clientId",
+      "createdAt",
+      "createdBy",
+      "description",
+      "users",
+    ];
 
-            /*
-            * Actions Validation
-            *
-            */
-            let actionInst = new this.WorkflowActionService(null, {TicketService: this.TicketService, WorkflowRuleService: this.WorkflowRuleService, EmailService: this.EmailService});
-            let { actionIds, error: actionErrors } = await actionInst.createOrUpdateActions(workflowData.actions, workflowData.createdBy, workflowData.workspaceId, workflowData.clientId);
-            if (!_.isEmpty(actionErrors)) {
-                return Promise.reject(new errors.BadRequest("Error in actions.", {entity: "actions", error: actionErrors }));
-            }
-            if (_.isEmpty(actionIds)) {
-                return Promise.reject(new errors.BadRequest("No actions found.", { entity: "actions", error: actionErrors } ));
-            }
-            delete workflowData.actions;
-            workflowData.actionIds = actionIds;
+    this.updatableFields = [
+      "name",
+      "description",
+      "chatbotSetting",
+      "sentimentSetting",
+      "qualityAssuranceSetting",
+      "users",
+    ];
+  }
 
-            let res = await this.create({ ...workflowData, name, createdBy, workspaceId, clientId })
-            .catch(err => {
-                if (err instanceof errors.Conflict) {
-                    return new errors.AlreadyExist("Workflow already exist.")
-                }
-                return Promise.reject(err);
-            });
-        } catch(err) {
-            return this.handleError(err);
-        }
-    }
+  /**
+     * Creates a new workspace
+     * @param {Object} workspaceData - Workspace data object containing name, clientId, and createdBy.
+     * @returns {Object} Created workspace object
+     * @description
+     - Finds an existing workspace by name and clientId to check for duplicates.
+    - Creates a new workspace using the provided workspace data if no duplicate is found.
+    - Catches any errors and handles them.
+    */
+  // async createWorkspace(workspaceData) {
+  //     try {
+  //         let { name, clientId } = workspaceData;
+  //         let workspace = await this.findOne({ name: { $regex : `^${name}$`, $options: "i" } , clientId });
+  //         if (!_.isEmpty(workspace)) {
+  //             return Promise.reject(new errors.NotFound(this.entityName + " not found."));
+  //         }
+  //         workspace = await this.create(workspaceData);
+  //         return workspace;
+  //     } catch(err) {
+  //         return this.handleError(err);
+  //     }
+  // }
+  async createWorkspace(workspaceData) {
+    try {
+      let { workspace_alternate_id, name, clientId, createdBy } = workspaceData;
 
-    async getWorkflowDetails(id, workspaceId, clientId, populate=false) {
-        try {
-            let workflow = await this.findOne({ id, workspaceId, clientId });
-            if (_.isEmpty(workflow)) {
-                return Promise.reject(new errors.NotFound(this.entityName + " not found."));
-            }
-            if (!populate) {
-                return workflow;
-            }
-            let workflows = await this.utilityInst.populate('rules', [workflow]);
-            workflows = await this.utilityInst.populate('actions', [workflow]);
-            return workflows[0];
-        }  catch(err) {
-            return this.handleError(err);
-        }
-    }
-
-    async updateWorkflow({ id, workspaceId, clientId }, toUpdate) {
-        try {
-            let workflow = await this.getWorkflowDetails(id, workspaceId, clientId);
-
-            if (!_.isEmpty(toUpdate.rules)) {
-                let ruleInst = new this.WorkflowRuleService();
-                let { ruleIds, error } = await ruleInst.createOrUpdateRules(toUpdate.rules, workflow.createdBy, workflow.workspaceId, workflow.clientId);
-                if (!_.isEmpty(error)) {
-                    return Promise.reject(new errors.BadRequest("Error in rules.", {entity: "rules", error }));
-                }
-                if (_.isEmpty(ruleIds)) {
-                    return Promise.reject(new errors.BadRequest("No rules found.", { entity: "rules", error } ));
-                }
-                delete toUpdate.rules;
-                toUpdate.ruleIds = ruleIds;
-            }
-
-            if (!_.isEmpty(toUpdate.actions)) {
-                let actionInst = new this.WorkflowActionService();
-                let { actionIds, error: actionErrors } = await actionInst.createOrUpdateActions(toUpdate.actions, workflow.createdBy, workflow.workspaceId, workflow.clientId);
-                if (!_.isEmpty(actionErrors)) {
-                    return Promise.reject(new errors.BadRequest("Error in actions.", {entity: "actions", error: actionErrors }));
-                }
-                if (_.isEmpty(actionIds)) {
-                    return Promise.reject(new errors.BadRequest("No actions found.", { entity: "actions", error: actionErrors } ));
-                }
-                delete toUpdate.actions;
-                toUpdate.actionIds = actionIds;
-            }
-
-            await this.update({ id, workspaceId, clientId }, toUpdate);
-
-            return Promise.resolve();
-        } catch(err) {
-            return this.handleError(err);
-        }
-    }
-
-    async deleteWorkflow({ id, workspaceId, clientId }) {
-        try {
-            let ticket = await this.getWorkflowDetails(id, workspaceId, clientId);
-            let res = await this.softDelete(ticket.id);
-            return res;
-        } catch(err) {
-            return this.handleError(err);
-        }
-    }
-
-    parseFilters({ ids, name, status, ruleId, actionId, createdFrom, createdTo, workspaceId, clientId }) {
-      let filters = {};
-      filters.workspaceId = workspaceId;
-      filters.clientId = clientId;
-
-      if (ids) {
-        filters.id =  { "$in": ids };
-      }
-      if (name) {
-        filters.name = { $regex : `^${name}`, $options: "i" };
+      // Check if a workspace with the same name and clientId exists
+      let workspaceByName = await this.findOne({
+        name: { $regex: `^${name}$`, $options: "i" },
+        clientId,
+      });
+      if (!_.isEmpty(workspaceByName)) {
+        return Promise.reject(
+          new errors.NotFound(this.entityName + " not found.")
+        );
       }
 
-      if (status) {
-        filters.status = status;
+      // Check if workspace_alternate_id already exists
+      let workspaceByAlternateId = await this.findOne({
+        workspace_alternate_id,
+      });
+      if (!_.isEmpty(workspaceByAlternateId)) {
+        return Promise.reject(
+          new errors.BadRequest("workspace_alternate_id already exists.")
+        );
       }
+      // Ensure createdBy is an ObjectId reference
+      workspaceData.createdBy = mongoose.Types.ObjectId(createdBy);
 
-      if (ruleId) {
-        filters.ruleId = ruleId;
+      // Create the workspace
+      let workspace = await this.create(workspaceData);
+      return workspace;
+    } catch (err) {
+      return this.handleError(err);
+    }
+  }
+
+  // -----------------------------------------------------------
+  async populateWorkspaceCreators(workspaces) {
+    try {
+      // Log the initial workspaces data
+      console.log(
+        "Original workspaces data:",
+        JSON.stringify(workspaces, null, 2)
+      );
+
+      console.log(
+        "------------------------------------------------------------"
+      );
+      console.log("MY WORKSPACES", workspaces);
+      const populatedDocs = await Promise.all(
+        // Map through each workspace in the docs array
+        workspaces.data.data.docs.map(async (workspace) => {
+          // Log the current workspace being processed
+          console.log("Processing workspace:", workspace);
+          console.log("Processing workspace:", workspace.id);
+
+          const populatedWorkspace = await mongoose
+            .model("workspace")
+            .findOne({ id: workspace.id }) // Use workspace.id as the identifier
+            .populate("createdBy") // Populate the createdBy field with the email
+            .exec();
+
+          // Log the populated workspace data
+          console.log(
+            "------------------------------------------------------------"
+          );
+          console.log("Populated workspace:", populatedWorkspace.length);
+
+          return populatedWorkspace
+            ? {
+                ...workspace, // Spread the original workspace object
+                createdBy: populatedWorkspace.createdBy.email, // Overwrite the createdBy field with the email
+              }
+            : workspace; // If not found, return the original workspace object
+        })
+      );
+
+      // Construct the output with the same structure as the input
+      const result = {
+        ...workspaces, // Spread the original workspaces object
+        data: {
+          ...workspaces.data, // Spread the original data object
+          data: {
+            ...workspaces.data.data, // Spread the nested data object
+            docs: populatedDocs, // Replace the docs array with the populatedDocs
+          },
+        },
+      };
+
+      // Log the final result
+      console.log(
+        "Final populated workspaces data:",
+        JSON.stringify(result, null, 2)
+      );
+
+      return result;
+    } catch (error) {
+      console.error("Error populating creator email:", error);
+      // Return the original workspaces object in case of an error
+      return workspaces;
+    }
+  }
+
+  async findByWorkspaceId(id) {
+    try {
+      let users = await this.userUtilityInst.find({ defaultWorkspaceId: id });
+
+      return users;
+    } catch (err) {
+      return this.handleError(err);
+    }
+  }
+  // async findUserById(id) {
+  //   try {
+  //     let user = await this.userUtilityInst.findOne({ id: id });
+  //     console.log("----------------------------------");
+  //     console.log("==================================");
+  //     console.log(user);
+  //     console.log("==================================");
+  //     console.log("----------------------------------");
+  //     return user || "empty";
+  //   } catch (err) {
+  //     return this.handleError(err);
+  //   }
+  // }
+  async getDetails(id, clientId) {
+    console.log(id);
+    try {
+      let workspace = await this.findOne(
+        { id, clientId },
+        "id name clientId createdAt createdBy description users"
+      );
+      if (_.isEmpty(workspace)) {
+        return Promise.reject(
+          new errors.NotFound(this.entityName + " not found.")
+        );
       }
+      workspace = await this.utilityInst.populate("client", workspace);
+      //
+      // workspace = await this.utilityInst.populate("createdBy", workspace);
+      workspace.email = `${workspace.id}@${config.app.email_domain}`;
+      let authInst = new this.AuthService();
+      workspace.clientToken = authInst.generateJWTToken({
+        client: new Buffer(`${workspace.id}:${clientId}`).toString("base64"),
+      });
+      let usersList = await this.findByWorkspaceId(id);
+      // let user = await this.findUserById(workspace.createdBy);
+      // let username = user.name;
 
-      if (actionId) {
-        filters.actionId = actionId;
-      }
+      // console.log(username);
 
+      let usersCount = usersList.length;
 
-      if (createdFrom) {
-        if (!moment(createdFrom, moment.ISO_8601, true).isValid()) {
-            return Promise.reject(new errors.BadRequest("Invalid created from date format."));
-        }
-        if (!filters.createdAt) {
-            filters.createdAt = {}
-        }
-        filters.createdAt['$gte'] = new Date(createdFrom);
-      }
-      if (createdTo) {
-          if (!moment(createdTo, moment.ISO_8601, true).isValid()) {
-              return Promise.reject(new errors.BadRequest("Invalid created to date format."));
-          }
-          if (!filters.createdAt) {
-              filters.createdAt = {}
-          }
-          filters.createdAt['$lt'] = new Date(createdTo);
-      }
+      workspace.users = usersCount;
+      // workspace.createdBy = username;
+      await this.updateOne({ users: usersCount });
 
-      return filters;
+      return workspace;
+    } catch (err) {
+      return this.handleError(err);
+    }
+  }
+
+  async updateWorkspace({ id, clientId }, updateValues) {
+    try {
+      let workspace = await this.getDetails(id, clientId);
+      await this.update({ id: workspace.id }, updateValues);
+      return Promise.resolve();
+    } catch (e) {
+      return Promise.reject(e);
+    }
+  }
+
+  async updateChatbotSetting({ id, clientId }, chatbotSetting) {
+    try {
+      let workspace = await this.getDetails(id, clientId);
+      let updateValues = { chatbotSetting };
+      await this.update({ id: workspace.id }, updateValues);
+      return Promise.resolve();
+    } catch (error) {
+      return this.handleError(error);
+    }
+  }
+
+  async updateSentimentSetting({ id, clientId }, sentimentSetting) {
+    try {
+      let workspace = await this.getDetails(id, clientId);
+      let updateValues = { sentimentSetting };
+      await this.update({ id: workspace.id }, updateValues);
+      return Promise.resolve();
+    } catch (error) {
+      return this.handleError(error);
+    }
+  }
+
+  async updateQualityAssuranceSetting(
+    { id, clientId },
+    qualityAssuranceSetting
+  ) {
+    try {
+      let workspace = await this.getDetails(id, clientId);
+      let updateValues = { qualityAssuranceSetting };
+      await this.update({ id: workspace.id }, updateValues);
+      return Promise.resolve();
+    } catch (error) {
+      return this.handleError(error);
+    }
+  }
+
+  async deleteWorkspace({ id, clientId }) {
+    try {
+      let workspace = await this.getDetails(id, clientId);
+      let res = await this.softDelete(workspace.id);
+      return res;
+    } catch (err) {
+      return this.handleError(err);
+    }
+  }
+
+  parseFilters({ name, createdFrom, createdTo, clientId }) {
+    let filters = {};
+    filters.clientId = clientId;
+
+    if (name) {
+      filters.name = { $regex: `^${name}`, $options: "i" };
     }
 
-    async getWorkflowEntities() {
-        let entities = [
-            { id: "ticket",  name: "Ticket",  },
-            { id: "customer",  name: "Customer",  },
-            { id: "company",  name: "Company",  },
-        ];
-        return Promise.resolve(entities);
+    if (createdFrom) {
+      if (!filters.createdAt) {
+        filters.createdAt = {};
+      }
+      filters.createdAt["$gte"] = new Date(createdFrom);
+    }
+    if (createdTo) {
+      if (!filters.createdAt) {
+        filters.createdAt = {};
+      }
+      filters.createdAt["$lt"] = new Date(createdTo);
     }
 
+    return filters;
+  }
 }
 
-module.exports = WorkflowService;
+module.exports = WorkspaceService;

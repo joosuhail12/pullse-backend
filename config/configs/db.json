@@ -2,7 +2,7 @@
     "db_protocol": {
         "doc": "Database host protocol",
         "format": "String",
-        "default": "mongodb",
+        "default": "mongodb+srv",
         "env": "DB_PROTOCOL",
         "arg": "db_protocol"
     },
