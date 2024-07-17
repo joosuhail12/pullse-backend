@@ -147,7 +147,6 @@ class WorkspaceService extends BaseService {
           },
         },
       };
-
       // Log the final result
       console.log(
         "Final populated workspaces data:",

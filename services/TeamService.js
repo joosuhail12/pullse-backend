@@ -14,7 +14,7 @@ class TeamService extends BaseService {
         if (fields) {
             this.listingFields = fields;
         }
-        this.updatableFields = [ "name", "description", ];
+        this.updatableFields = [ "name", "description", "officehours", "assignment_options"];
     }
 
     async createTeam(data) {

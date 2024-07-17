@@ -19,8 +19,22 @@ const TeamSchema = {
         },
         workspaceId: {
             type: String,
-            required: true,
+            // required: true,
         },
+        officeHours: {
+            type: Map,
+            of: {
+                start: String,
+                end: String
+            },
+            default: {}
+        },
+        assigningMethod: {
+            type: String,
+            enum: ['manual', 'round_robin', 'load_balanced'],
+            default: 'manual'
+        },
+
         clientId: {
             type: String,
             required: true,

@@ -9,7 +9,7 @@ async function activate(app) {
 
   let base_url = '/api/team'
   app.route({
-    url: base_url,
+    url: base_url+ '/create',
     method: 'POST',
     name: "CreateTeam",
     preHandler: authMiddlewares.checkToken(AuthType.user),
@@ -29,9 +29,20 @@ async function activate(app) {
           description:  {
             type: 'string',
           },
-          workspaceId:  {
-            type: 'string',
+          officeHours: {
+            type: 'object',
+            additionalProperties: {
+              type: 'object',
+              properties: {
+                start: { type: 'string' },
+                end: { type: 'string' }
+              }
+            }
           },
+          assigningMethod: {
+            type: 'string',
+            enum: ['manual', 'round_robin', 'load_balanced']
+          }
         }
       },
     },
