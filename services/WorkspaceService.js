@@ -167,7 +167,7 @@ class WorkspaceService extends BaseService {
     try {
       let users = await this.userUtilityInst.find({ defaultWorkspaceId: id});
 
-      return users;
+      return users||{};
     } catch (err) {
       return this.handleError(err);
     }
@@ -211,11 +211,11 @@ class WorkspaceService extends BaseService {
 
       // console.log(username);
 
-      let usersCount = usersList.length;
+      let usersCount = usersList.length||0;
 
       workspace.users = usersCount;
       // workspace.createdBy = username;
-      await this.updateOne({ users: usersCount });
+      await this.updateOne({ id: workspace.id }, { users: usersCount });
 
       return workspace;
     } catch (err) {
