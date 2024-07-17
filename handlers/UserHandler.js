@@ -1,9 +1,7 @@
-const BaseHandler = require('./BaseHandler');
-const UserService = require('../services/UserService');
-
+const BaseHandler = require("./BaseHandler");
+const UserService = require("../services/UserService");
 
 class UserHandler extends BaseHandler {
-
   constructor() {
     super();
   }
@@ -20,7 +18,7 @@ class UserHandler extends BaseHandler {
       password: req.body.password,
       confirmPassword: req.body.confirm_password,
       createdBy: createdBy,
-      clientId: clientId
+      clientId: clientId,
     };
     return this.responder(req, reply, inst.createUser(userData));
   }
@@ -43,13 +41,21 @@ class UserHandler extends BaseHandler {
   async showUserProfile(req, reply) {
     let clientId = req.authUser.clientId;
     let inst = new UserService();
-    return this.responder(req, reply, inst.getDetails(req.authUser.id, clientId));
+    return this.responder(
+      req,
+      reply,
+      inst.getDetails(req.authUser.id, clientId)
+    );
   }
 
   async showUserDetail(req, reply) {
     let clientId = req.authUser.clientId;
     let inst = new UserService();
-    return this.responder(req, reply, inst.getDetails(req.params.user_id, clientId));
+    return this.responder(
+      req,
+      reply,
+      inst.getDetails(req.params.user_id, clientId)
+    );
   }
 
   async updateUser(req, reply) {
@@ -57,7 +63,11 @@ class UserHandler extends BaseHandler {
     let clientId = req.authUser.clientId;
     let toUpdate = req.body;
     let inst = new UserService();
-    return this.responder(req, reply, inst.updateUser({ user_id, clientId }, toUpdate));
+    return this.responder(
+      req,
+      reply,
+      inst.updateUser({ user_id, clientId }, toUpdate)
+    );
   }
 
   async deleteUser(req, reply) {
@@ -65,7 +75,6 @@ class UserHandler extends BaseHandler {
     let inst = new UserService();
     return this.responder(req, reply, inst.deleteUser(user_id));
   }
-
 }
 
 module.exports = UserHandler;

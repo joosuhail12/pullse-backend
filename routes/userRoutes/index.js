@@ -1,41 +1,40 @@
-const Handler = require('../../handlers/UserHandler');
+const Handler = require("../../handlers/UserHandler");
 
-const authMiddlewares = require('../../middlewares/auth');
-const AuthType = require('../../constants/AuthType');
+const authMiddlewares = require("../../middlewares/auth");
+const AuthType = require("../../constants/AuthType");
 
 async function activate(app) {
-
   let handler = new Handler();
 
-  let base_url = '/api/user'
+  let base_url = "/api/user";
   let CreateUserRouteConfig = {
     url: base_url,
-    method: 'POST',
+    method: "POST",
     name: "CreateUser",
     preHandler: authMiddlewares.checkToken(AuthType.user),
     schema: {
-      tags: ['User'],
-      summary: 'Create User',
-      description: 'API to create user.',
+      tags: ["User"],
+      summary: "Create User",
+      description: "API to create user.",
       body: {
-        required: [ "first_name", "last_name", "email", "password", ], //role removed
+        required: ["first_name", "last_name", "email", "password"], //role removed
         additionalProperties: false,
-        type: 'object',
+        type: "object",
         properties: {
           first_name: {
-            type: 'string',
+            type: "string",
             description: "User first_name",
-            minLength: 2
+            minLength: 2,
           },
           last_name: {
-            type: 'string',
+            type: "string",
             description: "User last_name",
-            minLength: 2
+            minLength: 2,
           },
           email: {
-            type: 'string',
+            type: "string",
             description: "User email",
-            format: 'email'
+            format: "email",
           },
           // roleId: {
           //   type: 'string',
@@ -43,25 +42,25 @@ async function activate(app) {
           //   minLength: 2
           // },
           password: {
-            type: 'string',
+            type: "string",
             description: "User password",
-            minLength: 8
+            minLength: 8,
           },
           confirm_password: {
-            type: 'string',
+            type: "string",
             description: "confirm password(same password)",
-            minLength: 8
+            minLength: 8,
           },
           teamId: {
-            type: 'string',
+            type: "string",
             description: "Id of user's team",
           },
-        }
+        },
       },
     },
     handler: async (req, reply) => {
       return handler.createUser(req, reply);
-    }
+    },
   };
   app.route(CreateUserRouteConfig);
   // CreateUserRouteConfig.url = base_url+'/internal';
@@ -69,105 +68,105 @@ async function activate(app) {
 
   app.route({
     url: base_url,
-    method: 'GET',
+    method: "GET",
     name: "ListUsers",
     preHandler: authMiddlewares.checkToken(AuthType.user),
     schema: {
-      tags: ['User'],
-      summary: 'List Users',
-      description: 'API to list all users.',
+      tags: ["User"],
+      summary: "List Users",
+      description: "API to list all users.",
       required: [],
       query: {
         name: {
-          type: 'string',
+          type: "string",
         },
         email: {
-          type: 'string'
+          type: "string",
         },
         roleId: {
-          type: 'string'
+          type: "string",
         },
         teamId: {
-          type: 'string',
+          type: "string",
           description: "Id of user's team",
         },
         page: {
-          type: 'string',
+          type: "string",
         },
         skip: {
-          type: 'number'
+          type: "number",
         },
         limit: {
-          type: 'number'
-        }
-      }
+          type: "number",
+        },
+      },
     },
     handler: async (req, reply) => {
       return handler.listUsers(req, reply);
-    }
+    },
   });
 
   app.route({
     url: base_url + "/profile",
-    method: 'GET',
+    method: "GET",
     name: "ShowUserProfile",
     preHandler: authMiddlewares.checkToken(AuthType.user),
     schema: {
-      tags: ['User'],
-      summary: 'Show User Profile',
-      description: 'API to show user profile.',
+      tags: ["User"],
+      summary: "Show User Profile",
+      description: "API to show user profile.",
       required: [],
     },
     handler: async (req, reply) => {
       return handler.showUserProfile(req, reply);
-    }
+    },
   });
 
   app.route({
     url: base_url + "/:user_id",
-    method: 'GET',
+    method: "GET",
     name: "ShowUserDetail",
     preHandler: authMiddlewares.checkToken(AuthType.user),
     schema: {
-      tags: ['User'],
-      summary: 'Show User Detail',
-      description: 'API to show detail of a User.',
+      tags: ["User"],
+      summary: "Show User Detail",
+      description: "API to show detail of a User.",
       required: [],
     },
     handler: async (req, reply) => {
       return handler.showUserDetail(req, reply);
-    }
+    },
   });
 
   app.route({
     url: base_url + "/:user_id",
-    method: 'PUT',
+    method: "PUT",
     name: "UpdateUser",
     preHandler: authMiddlewares.checkToken(AuthType.user),
     schema: {
-      tags: ['User'],
-      summary: 'Update User',
-      description: 'API to update a User.',
-      required: [ "first_name", "last_name", "email", "password", ], //role removed
+      tags: ["User"],
+      summary: "Update User",
+      description: "API to update a User.",
+      required: ["first_name", "last_name", "email", "password"], //role removed
       body: {
         first_name: {
-          type: 'string',
-          minLength: 2
+          type: "string",
+          minLength: 2,
         },
         last_name: {
-          type: 'string',
-          minLength: 2
+          type: "string",
+          minLength: 2,
         },
         email: {
-          type: 'string',
-          format: 'email'
+          type: "string",
+          format: "email",
         },
         password: {
-          type: 'string',
-          minLength: 2
+          type: "string",
+          minLength: 2,
         },
         status: {
-          type: 'string',
+          type: "string",
         },
         // roleIds: {
         //   type: 'array',
@@ -176,36 +175,34 @@ async function activate(app) {
         //   }
         // },
         teamId: {
-          type: 'string',
+          type: "string",
           description: "Id of user's team",
         },
-      }
+      },
     },
     handler: async (req, reply) => {
       return handler.updateUser(req, reply);
-    }
+    },
   });
 
   app.route({
-    url: base_url+ "/:user_id",
-    method: 'DELETE',
+    url: base_url + "/:user_id",
+    method: "DELETE",
     name: "DeleteUser",
     preHandler: authMiddlewares.checkToken(AuthType.user),
     schema: {
-      tags: ['User'],
-      summary: 'Delete User',
-      description: 'API to delete a User.',
+      tags: ["User"],
+      summary: "Delete User",
+      description: "API to delete a User.",
       required: [],
-      body: {
-      }
+      body: {},
     },
     handler: async (req, reply) => {
       return handler.deleteUser(req, reply);
-    }
+    },
   });
-
 }
 
 module.exports = {
-  activate
+  activate,
 };

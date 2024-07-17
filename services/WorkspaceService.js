@@ -147,6 +147,7 @@ class WorkspaceService extends BaseService {
           },
         },
       };
+
       // Log the final result
       console.log(
         "Final populated workspaces data:",
@@ -161,10 +162,9 @@ class WorkspaceService extends BaseService {
     }
   }
 
-  async findByWorkspaceId( id ) {
-    
+  async findByWorkspaceId(id) {
     try {
-      let users = await this.userUtilityInst.find({ defaultWorkspaceId: id});
+      let users = await this.userUtilityInst.find({ defaultWorkspaceId: id });
 
       return users;
     } catch (err) {
@@ -185,7 +185,7 @@ class WorkspaceService extends BaseService {
   //   }
   // }
   async getDetails(id, clientId) {
-    console.log(id)
+    console.log(id);
     try {
       let workspace = await this.findOne(
         { id, clientId },

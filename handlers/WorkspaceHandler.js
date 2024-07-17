@@ -33,7 +33,7 @@ class WorkspaceHandler extends BaseHandler {
       page: req.query.page,
       sort_by: req.query.sort_by,
       sort_order: req.query.sort_order,
-      workspaceId,
+      defaultWorkspaceId: workspaceId,
       clientId,
     };
 
@@ -91,16 +91,16 @@ class WorkspaceHandler extends BaseHandler {
   //   );
   // }
 
-  async viewUsers(req, reply) {
-    console.log("================================,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,")
-    console.log(req.params.workspace_id)
-    let inst = this.ServiceInst;
-    return this.responder(
-      req,
-      reply,
-      inst.findByWorkspaceId(req.params.workspace_id)
-    );
-  }
+  // async viewUsers(req, reply) {
+
+  //   console.log(req.params.workspace_id);
+  //   let inst = this.ServiceInst;
+  //   return this.responder(
+  //     req,
+  //     reply,
+  //     inst.findByWorkspaceId(req.params.workspace_id)
+  //   );
+  // }
 
   async updateWorkspace(req, reply) {
     let workspaceId = req.query.workspace_id;

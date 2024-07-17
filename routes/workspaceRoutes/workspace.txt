@@ -1,0 +1,299 @@
+# Workspace Routes Flow
+
+## 1. Create Workspace
+- **Route**: POST /api/workspace
+- **Handler**: WorkspaceHandler.createWorkspace
+- **Service Call**: WorkspaceService.createWorkspace
+- **Flow**:
+  1. The request is authenticated using `authMiddlewares.checkToken`.
+  2. The handler `createWorkspace` is called.
+  3. The handler sets `createdBy` and `clientId` from the authenticated user.
+  4. The handler calls `WorkspaceService.createWorkspace` with the request body.
+  5. The service creates a new workspace and returns the result.
+
+## 2. List Users in a Workspace
+- **Route**: GET /api/workspace/:workspace_id/users/search
+- **Handler**: WorkspaceHandler.listUsers
+- **Service Call**: UserService.paginate
+- **Flow**:
+  1. The request is authenticated using `authMiddlewares.checkToken`.
+  2. The handler `listUsers` is called.
+  3. The handler extracts filters from the query parameters.
+  4. The handler calls `UserService.paginate` with the filters.
+  5. The service returns a paginated list of users.
+
+## 3. List Workspaces
+- **Route**: GET /api/workspace
+- **Handler**: WorkspaceHandler.listWorkspace
+- **Service Call**: WorkspaceService.paginate
+- **Flow**:
+  1. The request is authenticated using `authMiddlewares.checkToken`.
+  2. The handler `listWorkspace` is called.
+  3. The handler extracts filters from the query parameters.
+  4. The handler calls `WorkspaceService.paginate` with the filters.
+  5. The service returns a paginated list of workspaces.
+  6. The handler calls `WorkspaceService.populateWorkspaceCreators` to fetch creator's email for each
+     workspace.
+
+## 4. Show Workspace Detail
+- **Route**: GET /api/workspace/:workspace_id
+- **Handler**: WorkspaceHandler.showWorkspaceDetail
+- **Service Call**: WorkspaceService.getDetails
+- **Flow**:
+  1. The request is authenticated using `authMiddlewares.checkToken`.
+  2. The handler `showWorkspaceDetail` is called.
+  3. The handler calls `WorkspaceService.getDetails` with the workspace ID and client ID.
+  4. The service returns the workspace details.
+
+## 5. View Users in a Workspace
+- **Route**: GET /api/workspace/:workspace_id/users
+- **Handler**: WorkspaceHandler.viewUsers
+- **Service Call**: WorkspaceService.findByWorkspaceId
+- **Flow**:
+  1. The request is authenticated using `authMiddlewares.checkToken`.
+  2. The handler `viewUsers` is called.
+  3. The handler calls `WorkspaceService.findByWorkspaceId` with the workspace ID.
+  4. The service returns the list of users in the workspace.
+
+## 6. Update Workspace
+- **Route**: PUT /api/workspace/:workspace_id
+- **Handler**: WorkspaceHandler.updateWorkspace
+- **Service Call**: WorkspaceService.updateWorkspace
+- **Flow**:
+  1. The request is authenticated using `authMiddlewares.checkToken`.
+  2. The handler `updateWorkspace` is called.
+  3. The handler calls `WorkspaceService.updateWorkspace` with the workspace ID, client ID, and the
+     update data.
+  4. The service updates the workspace and returns the result.
+
+## 7. Delete Workspace
+- **Route**: DELETE /api/workspace/:workspace_id
+- **Handler**: WorkspaceHandler.deleteWorkspace
+- **Service Call**: WorkspaceService.deleteWorkspace
+- **Flow**:
+  1. The request is authenticated using `authMiddlewares.checkToken`.
+  2. The handler `deleteWorkspace` is called.
+  3. The handler calls `WorkspaceService.deleteWorkspace` with the workspace ID and client ID.
+  4. The service deletes the workspace and returns the result.
+
+##############################################################################################################################################
+Relational Database:-
+
+### Potential Errors and Steps to Solve Them
+
+#### 1. Type Mismatch for `createdBy` Field
+
+**Potential Error:**
+The `createdBy` field in `WorkspaceSchema` is defined as `Schema.Types.ObjectId`, but it is being set
+as a string in `WorkspaceHandler`.
+
+**Solution:**
+Ensure `createdBy` is converted to `ObjectId` in `WorkspaceHandler` and `WorkspaceService`.
+
+**Code Reference:**
+  typescript:handlers/WorkspaceHandler.js
+  startLine: 14
+  endLine: 15
+**Updated Code:**
+  javascript
+  req.body.createdBy = mongoose.Types.ObjectId(req.authUser.id);
+  req.body.clientId = req.authUser.clientId;
+
+**Code Reference:**
+  typescript:services/WorkspaceService.js
+  startLine: 87
+  endLine: 88
+
+**Updated Code:**
+  javascript
+  workspaceData.createdBy = mongoose.Types.ObjectId(createdBy);
+
+#### 2. Population of `createdBy` Field
+
+**Potential Error:**
+The `populate` method is used to populate the `createdBy` field with user details. Ensure that the 
+`UserSchema` is correctly referenced in the `WorkspaceSchema`.
+
+**Solution:**
+Use the `populate` method correctly to fetch and populate related user details in the workspace.
+
+**Code Reference:**
+  typescript:services/WorkspaceService.js
+  startLine: 118
+  endLine: 121
+**Updated Code:**
+  javascript
+  const populatedWorkspace = await mongoose
+    .model("workspace")
+    .findOne({ id: workspace.id })
+    .populate("createdBy", "email") // Populate the createdBy field with the email
+    .exec();
+    
+#### 3. Validation for `defaultWorkspaceId` in `UserSchema`
+
+**Potential Error:**
+The `defaultWorkspaceId` field in `UserSchema` should be validated as an `ObjectId`.
+
+**Solution:**
+Update the `UserSchema` to ensure `defaultWorkspaceId` is a valid `ObjectId`.
+
+**Code Reference:**
+  typescript:db/schemas/UserSchema.js
+  startLine: 44
+  endLine: 46
+**Updated Code:**
+  javascript
+  defaultWorkspaceId: {
+    type: Schema.Types.ObjectId,
+    ref: "workspace",
+  },
+  
+#### 4. Validation for `createdBy` in `WorkspaceSchema`
+
+**Potential Error:**
+The `createdBy` field in `WorkspaceSchema` should be validated as an `ObjectId`.
+
+**Solution:**
+Update the `WorkspaceSchema` to ensure `createdBy` is a valid `ObjectId`.
+
+**Code Reference:**
+  typescript:db/schemas/WorkspaceSchema.js
+  startLine: 47
+  endLine: 51
+**Updated Code:**
+  javascript
+  createdBy: {
+    type: Schema.Types.ObjectId,
+    ref: "users",
+    required: true,
+  },
+
+### Summary
+These changes ensure that the `createdBy` field is consistently treated as an `ObjectId` and that the 
+`defaultWorkspaceId` field in `UserSchema` is validated as an `ObjectId`. This should resolve any 
+issues related to type mismatches and ensure proper population of related fields. For more details on 
+Mongoose schema and population, refer to the 
+[Mongoose Schema Documentation](https://mongoosejs.com/docs/guide.html) and 
+[Mongoose Populate Documentation](https://mongoosejs.com/docs/populate.html).
+
+##############################################################################################################################################
+
+### Workflow and Possible Errors in Users Count in Workspace Detail
+
+#### Workflow of Users Count in Workspace Detail
+
+1. **Retrieve Workspace Details**:
+   - The `getDetails` method in `WorkspaceService` retrieves the workspace details using the `findOne` method.
+   - It searches for a workspace with the given `id` and `clientId`.
+
+2. **Populate Client Details**:
+   - The method populates the `client` field of the workspace using the `populate` method.
+
+3. **Generate Client Token**:
+   - A client token is generated for the workspace using the `AuthService`.
+
+4. **Find Users by Workspace ID**:
+   - The method calls `findByWorkspaceId` with the workspace ID to find all users whose `defaultWorkspaceId` matches the workspace ID.
+
+5. **Count Users**:
+   - The number of users found is then assigned to the `users` field of the workspace object.
+
+6. **Update Workspace**:
+   - The workspace object is updated with the user count.
+
+7. **Return Workspace Details**:
+   - The method returns the workspace details.
+
+#### Possible Errors and Steps to Correct Them
+
+1. **Workspace Not Found**
+
+**Potential Error:**
+If the workspace with the given `id` and `clientId` is not found, the method will throw a `NotFound` error.
+
+**Solution:**
+Ensure that the `findOne` method correctly handles the case where the workspace is not found.
+
+**Code Reference:**
+  typescript:services/WorkspaceService.js
+  startLine: 191
+  endLine: 195
+**Updated Code:**
+  javascript
+  if (.isEmpty(workspace)) {
+  return Promise.reject(
+  new errors.NotFound(this.entityName + " not found.")
+  );
+  }
+
+2. **Error in Populating Client Details**
+
+**Potential Error:**
+If there is an error in populating the `client` field, the method may fail.
+
+**Solution:**
+Ensure that the `populate` method is used correctly and handle any errors that may occur.
+
+**Code Reference:**
+  typescript:services/WorkspaceService.js
+  startLine: 196
+  endLine: 197
+**Updated Code:**
+  javascript
+  workspace = await this.utilityInst.populate("client", workspace);
+
+3. **Error in Generating Client Token**
+
+**Potential Error:**
+If there is an error in generating the client token, the method may fail.
+
+**Solution:**
+Ensure that the `AuthService` is correctly used to generate the client token and handle any errors that may occur.
+
+**Code Reference:**
+  typescript:services/WorkspaceService.js
+  startLine: 198
+  endLine: 201
+**Updated Code:**
+  javascript
+  let authInst = new this.AuthService();
+  workspace.clientToken = authInst.generateJWTToken({
+  client: new Buffer(${workspace.id}:${clientId}).toString("base64"),
+  });
+  
+4. **Error in Finding Users by Workspace ID**
+
+**Potential Error:**
+If there is an error in finding users by workspace ID, the method may fail.
+
+**Solution:**
+Ensure that the `findByWorkspaceId` method is correctly used and handle any errors that may occur.
+
+**Code Reference:**
+  typescript:services/WorkspaceService.js
+  startLine: 202
+  endLine: 203
+**Updated Code:**
+  javascript
+  let usersList = await this.findByWorkspaceId(id);
+  
+5. **Error in Updating Workspace**
+
+**Potential Error:**
+If there is an error in updating the workspace with the user count, the method may fail.
+
+**Solution:**
+Ensure that the `updateOne` method is correctly used and handle any errors that may occur.
+
+**Code Reference:**
+  typescript:services/WorkspaceService.js
+  startLine: 209
+  endLine: 210
+**Updated Code:**
+  javascript
+  await this.updateOne({ users: usersCount });
+  
+### Summary
+The `getDetails` method in `WorkspaceService` retrieves the details of a workspace, including the number of users associated with it. Potential errors include workspace not found, errors in populating client details, errors in generating client token, errors in finding users by workspace ID, and errors in updating the workspace. These errors can be corrected by ensuring that the respective methods are correctly used and handling any errors that may occur.
+
+##################################################################################################################################################################################################

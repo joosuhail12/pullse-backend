@@ -41,7 +41,7 @@ async function activate(app) {
   });
 
   app.route({
-    url: base_url + "/:workspace_id/users/search",
+    url: base_url + "/:workspace_id/users",
     method: "GET",
     name: "ListUsers",
     preHandler: authMiddlewares.checkToken(AuthType.user),
@@ -60,6 +60,9 @@ async function activate(app) {
           format: "email",
         },
         roleId: {
+          type: "string",
+        },
+        defaultWorkspaceId: {
           type: "string",
         },
         teamId: {
@@ -169,22 +172,22 @@ async function activate(app) {
   //     return handler.viewUser(req, reply);
   //   },
   // });
-  app.route({
-    url: base_url + "/:workspace_id/users",
-    method: "GET",
-    name: "ViewUsers",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
-    schema: {
-      tags: ["Workspace"],
-      summary: "View Users",
-      description: "API to View Users of a Workspace",
-      required: [],
-    },
-    handler: async (req, reply) => {
-      return handler.viewUsers(req, reply);
-      
-    },
-  });
+  // app.route({
+  //   url: base_url + "/:workspace_id/users",
+  //   method: "GET",
+  //   name: "ViewUsers",
+  //   preHandler: authMiddlewares.checkToken(AuthType.user),
+  //   schema: {
+  //     tags: ["Workspace"],
+  //     summary: "View Users",
+  //     description: "API to View Users of a Workspace",
+  //     required: [],
+  //   },
+  //   handler: async (req, reply) => {
+  //     return handler.listUsers(req, reply);
+  //     // return handler.viewUsers(req, reply);
+  //   },
+  // });
 
   app.route({
     url: base_url + "/:workspace_id",
