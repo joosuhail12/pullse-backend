@@ -1,5 +1,7 @@
 // const camelcaseKeys = require('camelcase-keys');
 const _ = require("lodash");
+
+ 
 const Promise = require("bluebird");
 const UserUtility = require("../db/utilities/UserUtility");
 const BaseService = require("./BaseService");
@@ -8,36 +10,7 @@ const WorkspaceService = require("./WorkspaceService");
 
 class UserService extends BaseService {
 
-    constructor(fields=null, dependencies=null) {
-        super();
-        this.entityName = "User";
-        this.utilityInst = new UserUtility();
-        this.WorkspaceService = WorkspaceService;
-        this.listingFields = [ "id", "name", "roleIds", "status", "teamId", "createdBy", "createdAt", "lastLoggedInAt", "-_id" ];
-        if (fields) {
-            this.listingFields = fields;
-        }
-        this.updatableFields = [ "fName", "lName", "name", "teamId", "status", ]; //removed roleids
-    }
     
-    async createUser({ fName, lName, email, confirmPassword, password, createdBy, clientId }) {
-        try {
-            let name = this.name(fName, lName);
-            if (confirmPassword && confirmPassword != password) {
-                return new errors.BadRequest("confirm password and password does not match.");
-            }
-            password = await this.bcryptToken(password);
-            return this.create({ fName, lName, name, email, password, createdBy, clientId }).catch(err => {
-                if (err instanceof errors.Conflict) {
-                    return new errors.AlreadyExist("User already exist.");
-                }
-                return Promise.reject(err);
-            });
-        } catch(e) {
-            console.log("Error in create() of UserService", e);
-            return Promise.reject(e);
-        }
-    }
   constructor(fields = null, dependencies = null) {
     super();
     this.entityName = "User";

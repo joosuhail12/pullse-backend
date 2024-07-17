@@ -91,16 +91,16 @@ class WorkspaceHandler extends BaseHandler {
   //   );
   // }
 
-  // async viewUsers(req, reply) {
+  async viewUsers(req, reply) {
 
-  //   console.log(req.params.workspace_id);
-  //   let inst = this.ServiceInst;
-  //   return this.responder(
-  //     req,
-  //     reply,
-  //     inst.findByWorkspaceId(req.params.workspace_id)
-  //   );
-  // }
+    console.log(req.params.workspace_id);
+    let inst = this.ServiceInst;
+    return this.responder(
+      req,
+      reply,
+      inst.findByWorkspaceId(req.params.workspace_id)
+    );
+  }
 
   async updateWorkspace(req, reply) {
     let workspaceId = req.query.workspace_id;

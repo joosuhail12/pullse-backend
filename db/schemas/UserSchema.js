@@ -63,6 +63,20 @@ const UserSchema = {
         issuedAt: {
           type: Date,
         },
+        roleIds: [
+            {
+                type: String,
+               // required: true
+            },
+        ],
+        status: {
+            type: String,
+            default: UserStatus.active
+        },
+        defaultWorkspaceId: {
+            type: String,
+            required: true,
+            default: "c15b5f69-c5f9-4378-a0e9-7230acf3742a"},
         expiry: {
           type: Date,
         },

@@ -40,71 +40,71 @@ async function activate(app) {
     },
   });
 
-  app.route({
-    url: base_url + "/:workspace_id/users",
-    method: "GET",
-    name: "ListUsers",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
-    schema: {
-      tags: ["Workspace"],
-      summary: "List Users",
-      description: "API to list all Users within a workspace.",
-      required: [],
-      query: {
-        name: {
-          type: "string",
-          minLength: 2,
-        },
-        email: {
-          type: "string",
-          format: "email",
-        },
-        roleId: {
-          type: "string",
-        },
-        defaultWorkspaceId: {
-          type: "string",
-        },
-        teamId: {
-          type: "string",
-        },
-        created_from: {
-          type: "string",
-          format: "date-time",
-        },
-        created_to: {
-          type: "string",
-          format: "date-time",
-        },
-        page: {
-          type: "string",
-        },
-        skip: {
-          type: "number",
-        },
-        limit: {
-          type: "number",
-        },
-        sort_by: {
-          type: "string",
-        },
-        sort_order: {
-          type: "string",
-        },
-      },
-    },
-    handler: async (req, reply) => {
-      try {
-        const result = await handler.listUsers(req, reply);
-        reply.send(result);
-      } catch (error) {
-        console.error("Error in listUsers:", error);
-        reply
-          .code(error.statusCode || 500)
-          .send({ error: error.message || "Internal Server Error" });
-      }
-    },
-  });
+  // app.route({
+  //   url: base_url + "/:workspace_id/users",
+  //   method: "GET",
+  //   name: "ListUsers",
+  //   preHandler: authMiddlewares.checkToken(AuthType.user),
+  //   schema: {
+  //     tags: ["Workspace"],
+  //     summary: "List Users",
+  //     description: "API to list all Users within a workspace.",
+  //     required: [],
+  //     query: {
+  //       name: {
+  //         type: "string",
+  //         minLength: 2,
+  //       },
+  //       email: {
+  //         type: "string",
+  //         format: "email",
+  //       },
+  //       roleId: {
+  //         type: "string",
+  //       },
+  //       defaultWorkspaceId: {
+  //         type: "string",
+  //       },
+  //       teamId: {
+  //         type: "string",
+  //       },
+  //       created_from: {
+  //         type: "string",
+  //         format: "date-time",
+  //       },
+  //       created_to: {
+  //         type: "string",
+  //         format: "date-time",
+  //       },
+  //       page: {
+  //         type: "string",
+  //       },
+  //       skip: {
+  //         type: "number",
+  //       },
+  //       limit: {
+  //         type: "number",
+  //       },
+  //       sort_by: {
+  //         type: "string",
+  //       },
+  //       sort_order: {
+  //         type: "string",
+  //       },
+  //     },
+  //   },
+  //   handler: async (req, reply) => {
+  //     try {
+  //       const result = await handler.listUsers(req, reply);
+  //       reply.send(result);
+  //     } catch (error) {
+  //       console.error("Error in listUsers:", error);
+  //       reply
+  //         .code(error.statusCode || 500)
+  //         .send({ error: error.message || "Internal Server Error" });
+  //     }
+  //   },
+  // });
   app.route({
     url: base_url,
     method: "GET",
@@ -172,22 +172,22 @@ async function activate(app) {
   //     return handler.viewUser(req, reply);
   //   },
   // });
-  // app.route({
-  //   url: base_url + "/:workspace_id/users",
-  //   method: "GET",
-  //   name: "ViewUsers",
-  //   preHandler: authMiddlewares.checkToken(AuthType.user),
-  //   schema: {
-  //     tags: ["Workspace"],
-  //     summary: "View Users",
-  //     description: "API to View Users of a Workspace",
-  //     required: [],
-  //   },
-  //   handler: async (req, reply) => {
-  //     return handler.listUsers(req, reply);
-  //     // return handler.viewUsers(req, reply);
-  //   },
-  // });
+  app.route({
+    url: base_url + "/:workspace_id/users",
+    method: "GET",
+    name: "ViewUsers",
+    preHandler: authMiddlewares.checkToken(AuthType.user),
+    schema: {
+      tags: ["Workspace"],
+      summary: "View Users",
+      description: "API to View Users of a Workspace",
+      required: [],
+    },
+    handler: async (req, reply) => {
+      
+       return handler.viewUsers(req, reply);
+    },
+  });
 
   app.route({
     url: base_url + "/:workspace_id",
