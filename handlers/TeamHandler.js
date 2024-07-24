@@ -1,9 +1,7 @@
-const BaseHandler = require('./BaseHandler');
-const TeamService = require('../services/TeamService');
-
+const BaseHandler = require("./BaseHandler");
+const TeamService = require("../services/TeamService");
 
 class TeamHandler extends BaseHandler {
-
   constructor() {
     super();
   }
@@ -13,6 +11,12 @@ class TeamHandler extends BaseHandler {
     req.body.createdBy = req.authUser.id;
     req.body.clientId = req.authUser.clientId;
     req.body.workspaceId = req.query.workspace_id;
+
+    // Ensure the new fields are included in the request body
+    req.body.officeHoursStart = req.body.officeHoursStart || [];
+    req.body.officeHoursEnd = req.body.officeHoursEnd || [];
+    req.body.holidays = req.body.holidays || [];
+    req.body.assigning_method = req.body.assigning_method || "manual";
     return this.responder(req, reply, inst.createTeam(req.body));
   }
 
@@ -22,7 +26,7 @@ class TeamHandler extends BaseHandler {
       createdFrom: req.query.created_from,
       createdTo: req.query.created_to,
       workspaceId: req.query.workspace_id,
-      clientId: req.authUser.clientId
+      clientId: req.authUser.clientId,
     };
     let inst = new TeamService();
     return this.responder(req, reply, inst.paginate(filters));
@@ -34,7 +38,11 @@ class TeamHandler extends BaseHandler {
     let clientId = req.authUser.clientId;
     let workspaceId = req.query.workspace_id;
 
-    return this.responder(req, reply, inst.getDetails(teamId, workspaceId, clientId));
+    return this.responder(
+      req,
+      reply,
+      inst.getDetails(teamId, workspaceId, clientId)
+    );
   }
 
   async updateTeam(req, reply) {
@@ -44,7 +52,11 @@ class TeamHandler extends BaseHandler {
 
     let toUpdate = req.body;
     let inst = new TeamService();
-    return this.responder(req, reply, inst.updateTeam({ id: teamId, workspaceId, clientId }, toUpdate));
+    return this.responder(
+      req,
+      reply,
+      inst.updateTeam({ id: teamId, workspaceId, clientId }, toUpdate)
+    );
   }
 
   async deleteTeam(req, reply) {
@@ -53,9 +65,12 @@ class TeamHandler extends BaseHandler {
     let workspaceId = req.query.workspace_id;
 
     let inst = new TeamService();
-    return this.responder(req, reply, inst.deleteTeam({ id: teamId, workspaceId, clientId }));
+    return this.responder(
+      req,
+      reply,
+      inst.deleteTeam({ id: teamId, workspaceId, clientId })
+    );
   }
-
 }
 
 module.exports = TeamHandler;

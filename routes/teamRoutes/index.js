@@ -1,150 +1,193 @@
-const Handler = require('../../handlers/TeamHandler');
+const Handler = require("../../handlers/TeamHandler");
 
-const authMiddlewares = require('../../middlewares/auth');
-const AuthType = require('../../constants/AuthType');
+const authMiddlewares = require("../../middlewares/auth");
+const AuthType = require("../../constants/AuthType");
 
 async function activate(app) {
-
   let handler = new Handler();
 
-  let base_url = '/api/team'
+  let base_url = "/api/team";
   app.route({
-    url: base_url+ '/create',
-    method: 'POST',
+    url: base_url+'/create',
+    method: "POST",
     name: "CreateTeam",
     preHandler: authMiddlewares.checkToken(AuthType.user),
     schema: {
-      tags: ['Team'],
-      summary: 'Create User Team',
-      description: 'API to create user team.',
+      tags: ["Team"],
+      summary: "Create User Team",
+      description: "API to create user team.",
       body: {
-        required: ['name'],
+        required: ["name", "workspaceId", "officeHoursStart", "officeHoursEnd"],
         additionalProperties: false,
-        type: 'object',
+        type: "object",
         properties: {
-          name:  {
-            type: 'string',
-            minLength: 2
+          name: {
+            type: "string",
+            minLength: 2,
           },
-          description:  {
-            type: 'string',
+          description: {
+            type: "string",
           },
-          officeHours: {
-            type: 'object',
-            additionalProperties: {
-              type: 'object',
-              properties: {
-                start: { type: 'string' },
-                end: { type: 'string' }
-              }
-            }
+          workspaceId: {
+            type: "string",
           },
-          assigningMethod: {
-            type: 'string',
-            enum: ['manual', 'round_robin', 'load_balanced']
-          }
-        }
+          workspaceId: {
+            type: "string",
+          },
+          officeHoursStart: {
+            type: "array",
+            items: {
+              type: "string",
+            },
+            minItems: 7,
+            maxItems: 7,
+          },
+          officeHoursEnd: {
+            type: "array",
+            items: {
+              type: "string",
+            },
+            minItems: 7,
+            maxItems: 7,
+          },
+          holidays: {
+            type: "array",
+            items: {
+              type: "string",
+              format: "date",
+            },
+          },
+          assigning_method: {
+            type: "string",
+            enum: ["manual", "automatic", "roundrobin"],
+          },
+        },
       },
     },
     handler: async (req, reply) => {
       return handler.createTeam(req, reply);
-    }
+    },
   });
 
   app.route({
     url: base_url,
-    method: 'GET',
+    method: "GET",
     name: "ListTeams",
     preHandler: authMiddlewares.checkToken(AuthType.user),
     schema: {
-      tags: ['Team'],
-      summary: 'List Teams',
-      description: 'API to list all Teams.',
+      tags: ["Team"],
+      summary: "List Teams",
+      description: "API to list all Teams.",
       required: [],
       query: {
         page: {
-          type: 'string',
+          type: "string",
         },
         skip: {
-          type: 'number'
+          type: "number",
         },
         limit: {
-          type: 'number'
+          type: "number",
         },
         sort_by: {
-          type: 'string',
+          type: "string",
         },
         sort_order: {
-          type: 'string',
-        }
-      }
+          type: "string",
+        },
+      },
     },
     handler: async (req, reply) => {
       return handler.listTeam(req, reply);
-    }
+    },
   });
 
   app.route({
     url: base_url + "/:team_id",
-    method: 'GET',
+    method: "GET",
     name: "ShowTeamDetail",
     preHandler: authMiddlewares.checkToken(AuthType.user),
     schema: {
-      tags: ['Team'],
-      summary: 'Show Team Detail',
-      description: 'API to show detail of a Team.',
+      tags: ["Team"],
+      summary: "Show Team Detail",
+      description: "API to show detail of a Team.",
       required: [],
     },
     handler: async (req, reply) => {
       return handler.showTeamDetail(req, reply);
-    }
+    },
   });
 
   app.route({
     url: base_url + "/:team_id",
-    method: 'PUT',
+    method: "PUT",
     name: "UpdateTeam",
     preHandler: authMiddlewares.checkToken(AuthType.user),
     schema: {
-      tags: ['Team'],
-      summary: 'Update Team',
-      description: 'API to update a Team.',
+      tags: ["Team"],
+      summary: "Update Team",
+      description: "API to update a Team.",
       required: [],
       body: {
-        name:  {
-          type: 'string',
-          minLength: 2
+        name: {
+          type: "string",
+          minLength: 2,
         },
-        description:  {
-          type: 'string',
+        description: {
+          type: "string",
         },
-      }
+        officeHoursStart: {
+          type: "array",
+          items: {
+            type: "string",
+          },
+          minItems: 7,
+          maxItems: 7,
+        },
+        officeHoursEnd: {
+          type: "array",
+          items: {
+            type: "string",
+          },
+          minItems: 7,
+          maxItems: 7,
+        },
+        holidays: {
+          type: "array",
+          items: {
+            type: "string",
+            format: "date",
+          },
+        },
+        assigning_method: {
+          type: "string",
+          enum: ["manual", "automatic", "roundrobin"],
+        },
+      },
     },
     handler: async (req, reply) => {
       return handler.updateTeam(req, reply);
-    }
+    },
   });
 
   app.route({
-    url: base_url+ "/:team_id",
-    method: 'DELETE',
+    url: base_url + "/:team_id",
+    method: "DELETE",
     name: "DeleteTeam",
     preHandler: authMiddlewares.checkToken(AuthType.user),
     schema: {
-      tags: ['Team'],
-      summary: 'Delete Team',
-      description: 'API to delete a Team.',
+      tags: ["Team"],
+      summary: "Delete Team",
+      description: "API to delete a Team.",
       required: [],
-      body: {
-      }
+      body: {},
     },
     handler: async (req, reply) => {
       return handler.deleteTeam(req, reply);
-    }
+    },
   });
-
 }
 
 module.exports = {
-  activate
+  activate,
 };
