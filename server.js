@@ -16,6 +16,7 @@ const path = require('node:path');
 const db = require('./db');
 const swagger = require('./middlewares/swagger');
 const routes = require('./routes');
+const caslPlugin = require('./ability/casl');
 
 let app;
 const start = async () => {
@@ -30,7 +31,7 @@ const start = async () => {
     await swagger(app);
 
     await app.register(formBody);
-
+    await app.register(caslPlugin);
     await app.register(fastifyCors, {
       origin: config.app.whitelisted_urls.split(','),
       credentials: true,
