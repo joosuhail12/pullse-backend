@@ -2,6 +2,7 @@ const Handler = require('../../handlers/ProfileHandler');
 
 const authMiddlewares = require('../../middlewares/auth');
 const AuthType = require('../../constants/AuthType');
+const authorize = require('../../ability/authorize');
 
 async function activate(app) {
 
@@ -13,13 +14,14 @@ async function activate(app) {
     url: base_url,
     method: 'GET',
     name: "ShowUserProfile",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authorize('read','Profile'),
     schema: {
       tags: ['Profile'],
       summary: 'Show User Profile',
       description: 'API to show user profile.',
       required: [],
     },
+
     handler: async (req, reply) => {
       return handler.showUserProfile(req, reply);
     }
@@ -29,7 +31,7 @@ async function activate(app) {
     url: base_url + "/update",
     method: 'PUT',
     name: "UpdateUserProfile",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authorize('update','Profile'),
     schema: {
       tags: ['Profile'],
       summary: 'Update User Profile',
@@ -52,11 +54,37 @@ async function activate(app) {
     }
   });
 
+
+  app.route({
+    url: base_url + "/workspace",
+    method: 'PUT',
+    name: "UpdateWorkspaceUserProfile",
+    preHandler: authorize('update','Profile'),
+    schema: {
+      tags: ['Profile'],
+      summary: 'Update Default Workspace ',
+      additionalProperties: false,
+      description: 'API to update default workspace.',
+      required: [ "workspaceId", ],
+      body: {
+        workspaceId:{
+          type: 'string',
+        },
+      }
+    },
+    handler: async (req, reply) => {
+      return handler.setDefaultWorkspace(req, reply);
+    }
+  });
+
+
+
+
   app.route({
     url: base_url + "/change-password",
     method: 'PATCH',
     name: "ChangePassword",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authorize('update','Profile'),
     schema: {
       tags: ['Profile', "Change Password"],
       summary: 'Change User Password',

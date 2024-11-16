@@ -23,6 +23,16 @@ class ProfileHandler extends BaseHandler {
     return this.responder(req, reply, inst.updateUser({ user_id: id, clientId }, toUpdate));
   }
 
+  async setDefaultWorkspace(req, reply) {
+    const { id, clientId } = req.authUser;
+    const inst = new UserService();
+    const { workspaceId } = req.body;
+    const toUpdate = { defaultWorkspaceId:workspaceId };
+    return this.responder(req, reply, inst.updateUser({ user_id: id, clientId }, toUpdate));
+  }
+
+
+
   async changePassword(req, reply) {
     let email = req.authUser.email;
     let inst = new AuthService();

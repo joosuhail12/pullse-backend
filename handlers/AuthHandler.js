@@ -16,10 +16,11 @@ class AuthHandler extends BaseHandler {
     let username = req.body.username;
     let password = req.body.password;
     let inst = new AuthService();
+    let res = null
     try {
       const clientIp = requestIp.getClientIp(req);
       const userAgent = req.headers['user-agent'];
-      let res = await inst.login(username, password, userAgent, clientIp);
+       res = await inst.login(username, password, userAgent, clientIp);
       reply.setCookie('customerToken', res.accessToken.token, {
         maxAge: res.accessToken.expiry,
         expires: res.accessToken.expiry,

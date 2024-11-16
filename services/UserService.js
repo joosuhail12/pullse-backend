@@ -18,17 +18,17 @@ class UserService extends BaseService {
         if (fields) {
             this.listingFields = fields;
         }
-        this.updatableFields = [ "fName", "lName", "name", "roleIds", "teamId", "status", ];
+        this.updatableFields = [ "fName", "lName", "name", "roleIds", "teamId", "status", "defaultWorkspaceId"];
     }
 
-    async createUser({ fName, lName, email, roleIds, confirmPassword, password, createdBy, clientId }) {
+    async createUser({ fName, lName, email, roleIds=[], confirmPassword, password, createdBy, clientId,role,defaultWorkSpace='' }) {
         try {
             let name = this.name(fName, lName);
             if (confirmPassword && confirmPassword != password) {
                 return new errors.BadRequest("confirm password and password does not match.");
             }
             password = await this.bcryptToken(password);
-            return this.create({ fName, lName, name, email, password, roleIds, createdBy, clientId }).catch(err => {
+            return this.create({ fName, lName, name, email, password, roleIds,role, createdBy, clientId,defaultWorkspaceId:defaultWorkSpace }).catch(err => {
                 if (err instanceof errors.Conflict) {
                     return new errors.AlreadyExist("User already exist.");
                 }
@@ -42,17 +42,49 @@ class UserService extends BaseService {
 
     async getDetails(id, clientId) {
         try {
-            let user = await this.findOne({ id, clientId });
+            let user = await this.aggregate([
+                {
+                    $match: {
+                        $and: [
+                            { "id": id },
+                            { "clientId": clientId }
+                        ]
+                    }
+                },
+                {
+                    $lookup: {
+                        from: "workspaces", // Collection to join
+                        localField: "defaultWorkspaceId", // Field in the current collection
+                        foreignField: "id", // Field in the workspace collection
+                        as: "workspace" // Output array field
+                    }
+                },
+                {
+                    $unwind: {
+                        path: "$workspace",
+                        preserveNullAndEmptyArrays: true // Keep document even if no matching workspace
+                    }
+                },
+                {
+                    $lookup: {
+                        from: "workspacepermissions", // Permissions collection
+                        localField: "workspace.id", // ID in workspace object after unwind
+                        foreignField: "workspaceId", // Field in permissions collection
+                        as: "workspace.permission"  
+                    }
+                },
+                {
+                    $unwind: {
+                        path: "$workspace.permission",
+                        preserveNullAndEmptyArrays: true    
+                    }
+                }
+            ]);
+            
             if (_.isEmpty(user)) {
                 return Promise.reject(new errors.NotFound(this.entityName + " not found."));
             }
-            if (!user.defaultWorkspaceId) {
-                let defaultWorkspace = await this.getUserDefaultWorkspace(user).catch(() => {
-                    return {id: null};
-                });
-                user.defaultWorkspaceId = defaultWorkspace.id;
-            }
-            return user;
+            return user[0];
         }  catch(err) {
             return this.handleError(err);
         }
@@ -78,6 +110,8 @@ class UserService extends BaseService {
     }
 
     async updateUser({ user_id, clientId }, updateValues) {
+
+        console.log(updateValues,"updateValuesupdateValuesupdateValues")
         try {
             await this.update({ id: user_id, clientId }, updateValues);
             return Promise.resolve();

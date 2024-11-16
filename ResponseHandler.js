@@ -26,9 +26,9 @@ function handler(req, res, promise) {
         })
         .catch((data) => {
             console.trace(data);
-            if (data.httpCode) {
+            if (data?.httpCode) {
                 let resp = {
-                    statusCode: data.httpCode || 500,
+                    statusCode: data?.httpCode || 500,
                     code: data.code || 500,
                     error: data.error || 500,
                     message: data.message,

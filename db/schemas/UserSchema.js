@@ -1,5 +1,11 @@
 const { v4: uuid } = require('uuid');
 const UserStatus = require('../../constants/UserStatus');
+// const UserRoles = Object.freeze({
+//     SUPER_ADMIN: "SUPER_ADMIN",
+//     ORGANIZATION_ADMIN: "ORGANIZATION_ADMIN",
+//     WORKSPACE_ADMIN: "WORKSPACE_ADMIN",
+//     WORKSPACE_AGENT: "WORKSPACE_AGENT",
+// });
 
 const UserSchema = {
     fields: {
@@ -31,12 +37,6 @@ const UserSchema = {
             required: true,
             type: String,
         },
-        roleIds: [
-            {
-                type: String,
-                required: true
-            },
-        ],
         status: {
             type: String,
             default: UserStatus.active
@@ -102,3 +102,10 @@ const UserSchema = {
 };
 
 module.exports = UserSchema;
+
+
+
+// role base user admin of workspace 
+// another table 
+// workspace
+// role 
