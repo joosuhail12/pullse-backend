@@ -2,6 +2,7 @@ const Handler = require('../../handlers/TagHandler');
 
 const authMiddlewares = require('../../middlewares/auth');
 const AuthType = require('../../constants/AuthType');
+const authorize = require('../../ability/authorize');
 
 async function activate(app) {
 
@@ -12,7 +13,7 @@ async function activate(app) {
     url: base_url,
     method: 'POST',
     name: "CreateTag",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authorize('create','Tag'),
     schema: {
       operationId: "CreateTag",
       tags: ['Tag'],
@@ -42,7 +43,7 @@ async function activate(app) {
     url: base_url,
     method: 'GET',
     name: "ListTags",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authorize('read','Tag'),
     schema: {
       operationId: "ListTags",
       tags: ['Tag'],
@@ -84,7 +85,7 @@ async function activate(app) {
     url: base_url + "/:tag_id",
     method: 'GET',
     name: "ShowTagDetail",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authorize('details','Tag'),
     schema: {
       operationId: "ShowTagDetail",
       tags: ['Tag'],
@@ -101,7 +102,7 @@ async function activate(app) {
     url: base_url + "/:tag_id",
     method: 'PUT',
     name: "UpdateTag",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authorize('update','Tag'),
     schema: {
       operationId: "UpdateTag",
       tags: ['Tag'],
@@ -127,7 +128,7 @@ async function activate(app) {
     url: base_url+ "/:tag_id",
     method: 'DELETE',
     name: "DeleteTag",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authorize('archive','Tag'),
     schema: {
       operationId: "DeleteTag",
       tags: ['Tag'],
