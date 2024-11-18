@@ -68,19 +68,31 @@ class UserService extends BaseService {
                 {
                     $lookup: {
                         from: "workspacepermissions", // Permissions collection
-                        localField: "workspace.id", // ID in workspace object after unwind
-                        foreignField: "workspaceId", // Field in permissions collection
-                        as: "workspace.permission"  
+                        let: { workspaceId: "$workspace.id", userId:id}, // Variables from the current collection
+                        pipeline: [
+                            {
+                                $match: {
+                                    $expr: {
+                                        $and: [
+                                            { $eq: ["$workspaceId", "$$workspaceId"] }, // Match workspace.id
+                                            { $eq: ["$userId", "$$userId"] }           // Match userId
+                                        ]
+                                    }
+                                }
+                            }
+                        ],
+                        as: "workspace.permission"
                     }
                 },
                 {
                     $unwind: {
                         path: "$workspace.permission",
-                        preserveNullAndEmptyArrays: true    
+                        preserveNullAndEmptyArrays: true // Keep documents even if no match is found
                     }
                 }
             ]);
             
+            console.log(user,"userPermisison")
             if (_.isEmpty(user)) {
                 return Promise.reject(new errors.NotFound(this.entityName + " not found."));
             }

@@ -122,7 +122,7 @@ async function activate(app) {
   });
 
   app.route({
-    url: base_url+ "/:workspace_id",
+    url: base_url+ "/:id",
     method: 'DELETE',
     name: "DeleteWorkspace",
     preHandler: authorize('update','Workspace'),
@@ -135,7 +135,30 @@ async function activate(app) {
       },
     },
     handler: async (req, reply) => {
-      return handler.deleteWorkspace(req, reply);
+      return handler.deleteWorkspacePermisison(req, reply);
+    }
+  });
+
+
+
+  app.route({
+    url: base_url+ "/:workspace_id",
+    method: 'PATCH',
+    name: "DeleteWorkspace",
+    preHandler: authorize('update','Workspace'),
+    schema: {
+      tags: ['Workspace'],
+      summary: 'Delete Workspace',
+      description: 'API to delete a Workspace.',
+      required: ['access'],
+      body: {
+        access:{
+            type:'boolean'
+        }
+      },
+    },
+    handler: async (req, reply) => {
+      return handler.updateWorksapcePermissionAccess(req, reply);
     }
   });
 

@@ -11,7 +11,7 @@ class WorkspacePermissionService extends BaseService {
         this.UserService = dependencies.UserService;
         this.entityName = 'WorkspacePermission';
         this.listingFields = ["id", "userId", "workspaceId", "role", "-_id", "createdBy"];
-        this.updatableFields = ["role"];
+        this.updatableFields = ["role",'access'];
     }
     /**
      * Creates a new workspace permission
@@ -30,7 +30,7 @@ class WorkspacePermissionService extends BaseService {
             const workspacePermission = await this.create({ userId, clientId, workspaceId, role, createdBy });
             const userIst = new this.UserService()
             let user = await userIst.findOne({id:userId});
-            if(!user.defaultWorkspaceId){
+            if(!user?.defaultWorkspaceId){
                 userIst.updateOne({id:userId},{defaultWorkspaceId:workspaceId});
             }
             return workspacePermission;
@@ -44,7 +44,8 @@ class WorkspacePermissionService extends BaseService {
      * @param {String} id - Permission ID
      * @returns {Object} Workspace permission details
      */
-    async getDetails(id, clientId) {
+    async getDetails({id, clientId}) {
+        console.log(id, clientId,"id, clientId")
         try {
             let workspacePermission = await this.findOne({ id, clientId });
             if (_.isEmpty(workspacePermission)) {
@@ -62,6 +63,7 @@ class WorkspacePermissionService extends BaseService {
      * @param {Object} updateValues - Fields to update
      */
     async updateWorkspacePermission(id, updateValues) {
+        console.log(updateValues,"updateValuesupdateValues")
         try {
             let permission = await this.getDetails(id);
             await this.update({ id: permission.id }, updateValues);
@@ -77,7 +79,12 @@ class WorkspacePermissionService extends BaseService {
      */
     async deleteWorkspacePermission(id) {
         try {
+            
             let permission = await this.getDetails(id);
+            console.log("1111111",permission)
+            if(permission.role === 'ORGANIZATION_ADMIN'){
+                throw new Error(`Cann't delete the this permission`)
+            }
             let res = await this.softDelete(permission.id);
             return res;
         } catch (err) {

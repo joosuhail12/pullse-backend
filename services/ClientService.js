@@ -57,6 +57,10 @@ class ClientService extends BaseService {
         }
     }
 
+    async findClientById(id){
+        return await this.findOne({id})
+    }
+
     async updateClient(client_id, updateValues) {
         try {
             await this.update({ id: client_id }, updateValues);

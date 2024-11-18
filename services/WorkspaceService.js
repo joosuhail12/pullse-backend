@@ -13,6 +13,7 @@ class WorkspaceService extends BaseService {
         this.AuthService = dependencies.AuthService;
         this.UserService = dependencies.UserService;
         this.WorkspacePermission = dependencies.WorkspacePermissionService;
+        this.ClientService = dependencies.ClientService;
         this.entityName = 'Workspace';
         this.listingFields = ["id", "name", "-_id"];
         this.updatableFields = [ "name", "description", "chatbotSetting", "sentimentSetting", "qualityAssuranceSetting" ];
@@ -35,6 +36,11 @@ class WorkspaceService extends BaseService {
                 return Promise.reject(new errors.NotFound(this.entityName + " Already exist."));
             }
             workspace = await this.create({name, clientId, description, createdBy});
+            let workspPerInst = new this.WorkspacePermission(null,{UserService:this.UserService});
+            let ownerInst = new this.ClientService()
+            let client = await ownerInst.findClientById(clientId)
+            const data =  { userId:client.ownerId, clientId, workspaceId:workspace.id, role:'ORGANIZATION_ADMIN', createdBy };
+            await workspPerInst.createWorkspacePermission(data)            
             return workspace;
         } catch(err) {
             return this.handleError(err);
@@ -89,69 +95,184 @@ class WorkspaceService extends BaseService {
     async getMyWorkspace({userId,clientId}){
         console.log(userId,clientId,'userId,clientId')
         let workspPerInst = new this.WorkspacePermission()
-        let workspaces = workspPerInst.aggregate([ 
+        const workspaces = await this.aggregate([
+            // Step 1: Join permissions collection
+            {
+                $lookup: {
+                    from: "workspacepermissions", // Permissions collection
+                    localField: "id", // Field in workspace
+                    foreignField: "workspaceId", // Field in permissions
+                    as: "permissions" // Resulting permissions array
+                }
+            },
+            // Step 2: Filter permissions where archiveAt is false or doesn't exist
+            {
+                $addFields: {
+                    filteredPermissions: {
+                        $filter: {
+                            input: "$permissions", // Array to filter
+                            as: "permission", // Alias for each element
+                            cond: {
+                                $or: [
+                                    { $eq: ["$$permission.archiveAt", false] }, // Explicitly false
+                                    { $not: ["$$permission.archiveAt"] } // Doesn't exist
+                                ]
+                            }
+                        }
+                    }
+                }
+            },
+            // Step 3: Match workspaces where filteredPermissions include the given userId
             {
                 $match: {
-                  userId: userId, // Find permissions for the specific user
-                  clientId
-                },
-              },
-              {
+                    "filteredPermissions.userId": userId, // Match userId in filtered permissions
+                }
+            },
+            {
                 $lookup: {
-                  from: "workspaces",   
-                  localField: "workspaceId",    
-                  foreignField: "id", // `_id` or `id` in workspaces
-                  as: "workspace", // Output field for the joined workspace
-                },
-              },
-              {
+                    from: "users", // Users collection
+                    localField: "createdBy", // `createdBy` field in workspace
+                    foreignField: "id", // User ID field in users collection
+                    as: "createdBy" // Alias for the joined user data
+                }
+            },
+            // Step 6: Unwind the creator array
+            {
                 $unwind: {
-                  path: "$workspace", // Flatten the workspace array
-                  preserveNullAndEmptyArrays: true, // Keep the document even if no matching workspace
-                },
-              },
-              {
-                $group: {
-                  _id: "$workspace._id", // Group by workspace ID to consolidate permissions
-                  workspace: { $first: "$workspace" }, // Keep workspace data
-                  permissions: { 
-                    $first: { // Use $first to get a single permission object
-                      _id: "$_id",
-                      id: "$id",
-                      userId: "$userId",
-                      clientId: "$clientId",
-                      workspaceId: "$workspaceId",
-                      role: "$role",
-                      createdBy: "$createdBy",
-                      createdAt: "$createdAt",
-                      updatedAt: "$updatedAt",
-                    } 
-                  }
-                },
-              },
-              {
-                $replaceRoot: {
-                  newRoot: {
-                    $mergeObjects: [
-                      "$workspace", // Use workspace fields as the main document structure
-                      { permission: "$permissions" } // Add a single permission object to each workspace
-                    ],
-                  },
-                },
-              },
-              {
+                    path: "$createdBy", // Unwind the creator array
+                    preserveNullAndEmptyArrays: true // Allow nulls if no matching user
+                }
+            },
+            // Step 4: Add the count of filtered permissions
+            {
+                $addFields: {
+                    userCount: { $size: "$filteredPermissions" } // Count of permissions
+                }
+            },
+            // Step 5: Exclude deleted workspaces (if needed)
+            {
+                $match: {
+                    deletedAt: { $exists: false } // Exclude soft-deleted workspaces
+                }
+            },
+            // Step 6: Project necessary fields
+            {
                 $project: {
-                  "__v": 0  
-                },
-              },
+                    id: 1,
+                    name: 1,
+                    description: 1,
+                    clientId: 1,
+                    createdBy:{
+                        fName:1,
+                        lName:1,
+                        email:1
+                    },
+                    // creatorName: "$creator.name", // Add creator's name
+                    // creatorEmail: "$creator.email", // Add creator's email
+                    userCount: 1,
+                    createdAt:1,
+                    filteredPermissions: 1 // Include only filtered permissions if needed
+                }
+            }
+        ]);
+        
+        // let workspaces = workspPerInst.aggregate([
+        //     {
+        //         $match: {
+        //             userId: userId, // Find permissions for the specific user
+        //             clientId: clientId
+        //         }
+        //     },
+        //     {
+        //         $lookup: {
+        //             from: "workspaces",
+        //             localField: "workspaceId",
+        //             foreignField: "id", // `_id` or `id` in workspaces
+        //             as: "workspace" // Output field for the joined workspace
+        //         }
+        //     },
+        //     {
+        //         $unwind: {
+        //             path: "$workspace", // Flatten the workspace array
+        //             preserveNullAndEmptyArrays: true // Keep the document even if no matching workspace
+        //         }
+        //     },
+        //     {
+        //         $lookup: {
+        //             from: "users",
+        //             localField: "createdBy",
+        //             foreignField: "id", // `_id` or `id` in users
+        //             as: "createdBy" // Output field for the joined user
+        //         }
+        //     },
+        //     {
+        //         $unwind: {
+        //             path: "$createdBy", // Flatten the createdBy array
+        //             preserveNullAndEmptyArrays: true // Keep the document even if no matching user
+        //         }
+        //     },
+        //     {
+        //         $sort: {
+        //             "createdAt": -1 // Sort by createdAt in descending order (latest first)
+        //         }
+        //     },
+        //     {
+        //         $group: {
+        //             _id: "$workspace._id", // Group by workspace ID
+        //             workspace: { $first: "$workspace" }, // Keep workspace data
+        //             createdBy: { $first: "$createdBy" }, // Keep createdBy data
+        //             permissions: {
+        //                 $push: { // Push all permissions into an array
+        //                     _id: "$_id",
+        //                     id: "$id",
+        //                     userId: "$userId",
+        //                     clientId: "$clientId",
+        //                     workspaceId: "$workspaceId",
+        //                     role: "$role",
+        //                     createdAt: "$createdAt",
+        //                     updatedAt: "$updatedAt",
+        //                     archiveAt: "$archiveAt"
+        //                 }
+        //             },
+        //             nonArchivedCount: { // Count permissions without `archiveAt`
+        //                 $sum: {
+        //                     $cond: [{ $not: ["$archiveAt"] }, 1, 0]
+        //                 }
+        //             }
+        //         }
+        //     },
+        //     {
+        //         $replaceRoot: {
+        //             newRoot: {
+        //                 $mergeObjects: [
+        //                     "$workspace", // Workspace fields as the main document structure
+        //                     { createdBy: "$createdBy" },
+        //                     { permissions: "$permissions" }, // Add permissions array
+        //                     { nonArchivedCount: "$nonArchivedCount" } // Add non-archived permissions count
+        //                 ]
+        //             }
+        //         }
+        //     },
+        //     {
+        //         $project: {
+        //             "__v": 0 // Exclude any unwanted fields
+        //         }
+        //     }
+        // ]);
+        
             
-        ])
 
         return workspaces
     }
     
     async updateWorkspace({ id, clientId }, updateValues) {
         try {
+            if(updateValues?.name){
+                let workspace = await this.findOne({ name: { $regex : `^${updateValues?.name}$`, $options: "i" } , clientId });
+                if (!_.isEmpty(workspace)) {
+                    return Promise.reject(new errors.NotFound(this.entityName + " Already exist."));
+                }
+            }
             let workspace = await this.getDetails(id, clientId);
             await this.update({ id: workspace.id}, updateValues);
             return Promise.resolve();
@@ -225,6 +346,11 @@ class WorkspaceService extends BaseService {
                 $unwind: {
                     path: '$workspacePermissions',  // Unwind the workspacePermissions array to work with individual permissions
                     preserveNullAndEmptyArrays: true // Ensures workspaces without any permissions are still processed
+                }
+            },
+            {
+                $match: {
+                    'workspacePermissions.archiveAt': { $exists: false } // Exclude permissions with an `archiveAt` field
                 }
             },
             {

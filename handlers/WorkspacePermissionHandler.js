@@ -19,6 +19,13 @@ class WorkspacePermissionHandler extends BaseHandler {
     return this.responder(req, reply, inst.createWorkspacePermission(req.body));
   }
 
+  async updateWorksapcePermissionAccess(req,reply){
+    let workspaceId = req.params.workspace_id; 
+    let clientId = req.authUser.clientId;
+    let access = req.body.access;
+    let inst = this.ServiceInst;
+    return this.responder(req, reply, inst.updateWorkspacePermission({ id:workspaceId, clientId }, {access}));
+  }
 
   async listWorkspacePermission(req, reply) {
     let workspaceId = req.query.workspace_id;
@@ -58,8 +65,7 @@ class WorkspacePermissionHandler extends BaseHandler {
   }
 
   async deleteWorkspacePermisison(req, reply) {
-    let id = req.params.workspace_id;
-    let workspaceId = req.query.workspace_id;
+    let id = req.params.id;
     let clientId = req.authUser.clientId;
 
 

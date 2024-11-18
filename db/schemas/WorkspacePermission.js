@@ -22,6 +22,10 @@ const WorkspacePermissionSchema = {
             type: String,
             required: true, // ID of the workspace the permission is tied to
         },
+        access:{
+            type:Boolean,
+            default:true
+        },
         role: {
             type: String,
             required: true,
