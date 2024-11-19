@@ -1,6 +1,7 @@
 const BaseHandler = require('./BaseHandler');
 const UserService = require('../services/UserService');
 const AuthService = require('../services/AuthService');
+const { defineAbilityFor } = require('../ability/defineAbility');
 
 class ProfileHandler extends BaseHandler {
 
@@ -12,6 +13,12 @@ class ProfileHandler extends BaseHandler {
     const { id, clientId } = req.authUser;
     const inst = new UserService();
     return this.responder(req, reply, inst.getDetails(id, clientId));
+  }
+
+  async getAbilities(req,reply){
+      let user = req.user;
+      let availibilites =  defineAbilityFor(user)
+      return this.responder(req, reply, Promise.resolve(availibilites.rules));
   }
 
   async updateUserProfile(req, reply) {

@@ -27,6 +27,26 @@ async function activate(app) {
     }
   });
 
+
+
+
+  app.route({
+    url: base_url + '/abilities',
+    method: 'GET',
+    name: "Abilities",
+    preHandler: authorize('read','Profile'),
+    schema: {
+      tags: ['Profile'],
+      summary: 'Read abilities',
+      description: 'API to Read abilities.',
+      required: [],
+    },
+
+    handler: async (req, reply) => {
+      return handler.getAbilities(req, reply);
+    }
+  });
+
   app.route({
     url: base_url + "/update",
     method: 'PUT',
