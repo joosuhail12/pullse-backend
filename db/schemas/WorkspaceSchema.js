@@ -17,28 +17,13 @@ const WorkspaceSchema = {
         description: {
             type: String,
         },
-        chatWidgetSecret: {
-            type: String,
-            required: true,
-            default: function () {
-              return uuid();
-            },
-        },
-        chatbotSetting: {
-            type: Object,
-        },
-        sentimentSetting: {
-            type: Object,
-        },
-        qualityAssuranceSetting: {
-            type: Object,
-        },
         clientId: {
             type: String,
             required: true,
         },
         createdBy: {
-            type: String, // id of user
+            type: String, // 
+            
             required: true,
         },
         deletedAt: {

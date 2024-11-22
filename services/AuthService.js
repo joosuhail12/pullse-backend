@@ -8,6 +8,7 @@ const config = require("../config");
 const BaseService = require("./BaseService");
 const UserTokenService = require("./UserTokenService");
 const UserService = require("./UserService");
+const WorkspacePermissionService = require("./WorkspacePermissionService");
 const UserUtility = require('../db/utilities/UserUtility');
 const AuthUtility = require('../db/utilities/AuthUtility');
 
@@ -17,6 +18,7 @@ class AuthService extends UserService {
         super(fields, dependencies);
         this.entityName = "Auth";
         this.authUtilityInst = new AuthUtility;
+        this.WorkspacePermission = WorkspacePermissionService
         this.utilityInst = new UserUtility();
         this.listingFields = ['id', 'role', 'accessToken', "-_id" ];
     }
@@ -29,12 +31,22 @@ class AuthService extends UserService {
             await this.loginValidator(email, password);
 
             let user = await this.findByCredentials(email, password);
-            if (!user.defaultWorkspaceId) {
-                let defaultWorkspace = await this.getUserDefaultWorkspace(user).catch(() => {
-                    return {id: null};
-                });
-                user.defaultWorkspaceId = defaultWorkspace.id;
+            console.log(user,'loginCredentails')
+            if(!user?.defaultWorkspaceId){
+                throw new Error('Worksapce Not Found');
             }
+            let workspacePerInst = new this.WorkspacePermission();
+            let permission = await workspacePerInst.findOne({userId:user.id, workspaceId:user?.defaultWorkspaceId})
+            if(!permission?.access){    
+                throw new Error('Access not Allowed to this workspace please contact admin') 
+            }
+
+            // if (!user.defaultWorkspaceId) {
+            //     let defaultWorkspace = await this.getUserDefaultWorkspace(user).catch(() => {
+            //         return {id: null};
+            //     });
+            //     user.defaultWorkspaceId = defaultWorkspace.id;
+            // }
 
             let accessToken = {
                 token: uuidv4(),

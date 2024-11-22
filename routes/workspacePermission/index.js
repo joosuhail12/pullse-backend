@@ -1,37 +1,45 @@
-const Handler = require('../../handlers/WorkspaceHandler');
+const Handler = require('../../handlers/WorkspacePermissionHandler');
+
+const authMiddlewares = require('../../middlewares/auth');
+const AuthType = require('../../constants/AuthType');
 const authorize = require('../../ability/authorize');
 
 async function activate(app) {
 
   let handler = new Handler();
 
-  let base_url = '/api/workspace'
+  let base_url = '/api/workspace/permission'
   app.route({
     url: base_url,
     method: 'POST',
-    name: "CreateWorkspace",
-    preHandler: authorize('create','Workspace'),
+    name: "CreateWorkspacePermission",
+    preHandler: authorize('create','WorkspacePermission'),
     schema: {
-      tags: ['Workspace'],
-      summary: 'Create Workspace',
-      description: 'API to create workspace.',
-      required: ['name','description'],
+      tags: ['WorkspacePermission'],
+      summary: 'Create Workspace Permissions',
+      description: 'API to create workspace. Permissions',
+      required: ['role','userId','workspaceId'],
       body: {
         additionalProperties: false,
         type: 'object',
         properties: {
-          name:  {
+          role:  {
             type: 'string',
             minLength: 2
           },
-          description:  {
+          userId:{
             type: 'string',
+            minLength: 2
           },
+          workspaceId:{
+            type: 'string',
+            minLength: 2
+          }
         }
       },
     },
     handler: async (req, reply) => {
-      return handler.createWorkspace(req, reply);
+      return handler.createWorkspacePermission(req, reply);
     }
   });
 
@@ -39,7 +47,7 @@ async function activate(app) {
     url: base_url,
     method: 'GET',
     name: "ListWorkspaces",
-    preHandler: authorize('admin_read','Workspace'),
+    preHandler: authorize('read','WorkspacePermission'),
     schema: {
       tags: ['Workspace'],
       summary: 'List Workspaces',
@@ -68,60 +76,15 @@ async function activate(app) {
       }
     },
     handler: async (req, reply) => {
-      return handler.listWorkspace(req, reply);
+      return handler.listWorkspacePermission(req, reply);
     }
   });
-
-
-
-  app.route({
-    url: base_url + '/my',
-    method: 'GET',
-    name: "ListWorkspaces",
-    preHandler: authorize('read','Workspace'),
-    schema: {
-      tags: ['Workspace'],
-      summary: 'List Workspaces',
-      description: 'API to list all Workspaces.',
-      required: [],
-      query: {
-        name:  {
-          type: 'string',
-          minLength: 2
-        },
-        page: {
-          type: 'string',
-        },
-        skip: {
-          type: 'number'
-        },
-        limit: {
-          type: 'number'
-        },
-        sort_by: {
-          type: 'string',
-        },
-        sort_order: {
-          type: 'string',
-        }
-      }
-    },
-    handler: async (req, reply) => {
-      return handler.listMyWorkspace(req, reply);
-    }
-  });
-
-
-
-
-
-
 
   app.route({
     url: base_url + "/:workspace_id",
     method: 'GET',
     name: "ShowWorkspaceDetail",
-    preHandler: authorize('read','Workspace'),
+    preHandler: authorize('read','WorkspacePermission'),
     schema: {
       tags: ['Workspace'],
       summary: 'Show Workspace Detail',
@@ -159,10 +122,10 @@ async function activate(app) {
   });
 
   app.route({
-    url: base_url+ "/:workspace_id",
+    url: base_url+ "/:id",
     method: 'DELETE',
     name: "DeleteWorkspace",
-    preHandler: authorize('write','Workspace'),
+    preHandler: authorize('update','Workspace'),
     schema: {
       tags: ['Workspace'],
       summary: 'Delete Workspace',
@@ -172,7 +135,30 @@ async function activate(app) {
       },
     },
     handler: async (req, reply) => {
-      return handler.deleteWorkspace(req, reply);
+      return handler.deleteWorkspacePermisison(req, reply);
+    }
+  });
+
+
+
+  app.route({
+    url: base_url+ "/:workspace_id",
+    method: 'PATCH',
+    name: "DeleteWorkspace",
+    preHandler: authorize('update','Workspace'),
+    schema: {
+      tags: ['Workspace'],
+      summary: 'Delete Workspace',
+      description: 'API to delete a Workspace.',
+      required: ['access'],
+      body: {
+        access:{
+            type:'boolean'
+        }
+      },
+    },
+    handler: async (req, reply) => {
+      return handler.updateWorksapcePermissionAccess(req, reply);
     }
   });
 

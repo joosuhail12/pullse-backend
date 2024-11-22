@@ -46,13 +46,12 @@ var _getSessionId = (req) => {
   let sessionId;
   if (!sessionId) {
     // sessionId = req.cookies['sessionid'];
-    sessionId = req.headers['session-id'];
+    sessionId = req.headers["session-id"];
   }
   return Promise.resolve(sessionId);
 };
 
-
-var _verifyCustomer = async (token, sessionId=null) => {
+var _verifyCustomer = async (token, sessionId = null) => {
   let tokenData;
   let userServiceInst = new AuthService();
   let customerServiceInst = new CustomerService(null, { TagService });
@@ -65,7 +64,11 @@ var _verifyCustomer = async (token, sessionId=null) => {
     if (!sessionId) {
       return { clientId, workspaceId, email: null };
     }
-    let customer = await customerServiceInst.findOne({ "sessions.id":sessionId, workspaceId, clientId });
+    let customer = await customerServiceInst.findOne({
+      "sessions.id": sessionId,
+      workspaceId,
+      clientId,
+    });
     if (!customer) {
       return Promise.reject(new errors.Unauthorized());
     }
@@ -74,7 +77,7 @@ var _verifyCustomer = async (token, sessionId=null) => {
     logger.error("Customer verification failed", err);
     return Promise.reject(new errors.Unauthorized());
   }
-}
+};
 
 var _verifyClient = async (tokenString) => {
   let clientData;
@@ -82,30 +85,108 @@ var _verifyClient = async (tokenString) => {
   let customerServiceInst = new CustomerService(null, { TagService });
   try {
     clientData = await userServiceInst.verifyJWTToken(token);
-  } catch(err) {
+  } catch (err) {
     logger.error("Client verification failed", err);
     return Promise.reject(new errors.Unauthorized());
   }
   // verify clientData ie workspace id
   return clientData;
 };
-
-var _verifyUser = (token) => {
+var _verifyUserTokenData = async (token) => {
   let userServiceInst = new AuthService();
-  return userServiceInst
-    .findOne({ "accessTokens.token": token })
-    .then((user) => {
-      if (user?.expiry || user.expiry < Date.now()) {
-        return Promise.reject(
-          new errors.Unauthorized("Session expired, please login again.")
-        );
+  let user = await userServiceInst.aggregate([
+    {
+      $match: {
+        "accessTokens.token": token, // Match the user by the provided token
+      },
+    },
+    {
+      $unwind: "$accessTokens", // Unwind the accessTokens array to check each token individually
+    },
+    {
+      $match: {
+        "accessTokens.token": token, // Ensure the token matches
+        "accessTokens.expiry": { $gt: Date.now() }, // Check if the expiry is greater than the current time (not expired)
+      },
+    },
+    {
+      $project: {
+        _id: 1,
+        accessTokens: 1,
+        // Include any other fields you need from the user document
+      },
+    },
+  ]);
+
+  // return userServiceInst
+  //   .findOne({ "accessTokens.token": token })
+  //   .then((user) => {
+  //     if (user?.expiry || user.expiry < Date.now()) {
+  //       return Promise.reject(
+  //         new errors.Unauthorized("Session expired, please login again.")
+  //       );
+  //     }
+  //     return user;
+  //   })
+  //   .catch((err) => {
+  //     logger.error("User verification failed", err);
+  //     return Promise.reject(new errors.Unauthorized());
+  //   });
+};
+var _verifyUser = async (token) => {
+  let userServiceInst = new AuthService();
+  let user = await userServiceInst.aggregate([
+    {
+      $match: {
+        "accessTokens.token": token, // Match the user by the provided token
+      },
+    },
+    {
+      $lookup: {
+        from: "workspacepermissions", // Permissions collection
+        localField: "defaultWorkspaceId", // ID in the user document
+        foreignField: "workspaceId", // Field in the permissions collection
+        as: "permission", // Temporary array field for permissions
+      },
+    },
+    {
+      $unwind: {
+        path: "$permission",
+        preserveNullAndEmptyArrays: true, // Keep document even if no matching permission
+      },
+    },
+    {
+      $addFields: {
+        role: "$permission.role" // Add the `role` key to the top level
       }
-      return user;
-    })
-    .catch((err) => {
-      logger.error("User verification failed", err);
-      return Promise.reject(new errors.Unauthorized());
-    });
+    },
+    {
+      $project: {
+        permission: 0 // Remove the temporary `permission` field from the result
+      }
+    }
+  ]);
+  if(!user.length){
+    return Promise.reject(new errors.Unauthorized());
+  }
+
+  return user[0]
+
+  // console.log(user, "authenticationUser", user);
+  // return userServiceInst
+  //   .findOne({ "accessTokens.token": token })
+  //   .then((user) => {
+  //     if (user?.expiry || user.expiry < Date.now()) {
+  //       return Promise.reject(
+  //         new errors.Unauthorized("Session expired, please login again.")
+  //       );
+  //     }
+  //     return user;
+  //   })
+  //   .catch((err) => {
+  //     logger.error("User verification failed", err);
+  //     return Promise.reject(new errors.Unauthorized());
+  //   });
 };
 
 var _verifyService = (token) => {
@@ -160,7 +241,6 @@ var _checkToken = async (authUserType, req) => {
 };
 
 const authMiddlewares = {
-
   verifyUserToken(token) {
     return _verifyUser(token);
   },
