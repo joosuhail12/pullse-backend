@@ -2,6 +2,7 @@ const Handler = require('../../handlers/UserHandler');
 
 const authMiddlewares = require('../../middlewares/auth');
 const AuthType = require('../../constants/AuthType');
+const authorize = require('../../ability/authorize');
 
 async function activate(app) {
 
@@ -12,13 +13,13 @@ async function activate(app) {
     url: base_url,
     method: 'POST',
     name: "CreateUser",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authorize('create','User'),
     schema: {
       tags: ['User'],
       summary: 'Create User',
       description: 'API to create user.',
       body: {
-        required: [ "first_name", "last_name", "email", "roleId", "password", ],
+        required: [ "first_name", "last_name", "email",  "password","confirm_password"  ],
         additionalProperties: false,
         type: 'object',
         properties: {
@@ -37,11 +38,7 @@ async function activate(app) {
             description: "User email",
             format: 'email'
           },
-          roleId: {
-            type: 'string',
-            description: "Id of user's role",
-            minLength: 2
-          },
+
           password: {
             type: 'string',
             description: "User password",
@@ -71,7 +68,7 @@ async function activate(app) {
     url: base_url,
     method: 'GET',
     name: "ListUsers",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authorize('read','User'),
     schema: {
       tags: ['User'],
       summary: 'List Users',

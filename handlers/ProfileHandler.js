@@ -1,6 +1,7 @@
 const BaseHandler = require('./BaseHandler');
 const UserService = require('../services/UserService');
 const AuthService = require('../services/AuthService');
+const { defineAbilityFor } = require('../ability/defineAbility');
 
 class ProfileHandler extends BaseHandler {
 
@@ -14,6 +15,12 @@ class ProfileHandler extends BaseHandler {
     return this.responder(req, reply, inst.getDetails(id, clientId));
   }
 
+  async getAbilities(req,reply){
+      let user = req.user;
+      let availibilites =  defineAbilityFor(user)
+      return this.responder(req, reply, Promise.resolve(availibilites.rules));
+  }
+
   async updateUserProfile(req, reply) {
     const { id, clientId } = req.authUser;
     const inst = new UserService();
@@ -22,6 +29,16 @@ class ProfileHandler extends BaseHandler {
     const toUpdate = { name, fName: first_name, lName: last_name };
     return this.responder(req, reply, inst.updateUser({ user_id: id, clientId }, toUpdate));
   }
+
+  async setDefaultWorkspace(req, reply) {
+    const { id, clientId } = req.authUser;
+    const inst = new UserService();
+    const { workspaceId } = req.body;
+    const toUpdate = { defaultWorkspaceId:workspaceId };
+    return this.responder(req, reply, inst.updateUser({ user_id: id, clientId }, toUpdate));
+  }
+
+
 
   async changePassword(req, reply) {
     let email = req.authUser.email;

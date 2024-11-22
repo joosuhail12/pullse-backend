@@ -16,26 +16,27 @@ class AuthHandler extends BaseHandler {
     let username = req.body.username;
     let password = req.body.password;
     let inst = new AuthService();
+    let res = null
     try {
       const clientIp = requestIp.getClientIp(req);
       const userAgent = req.headers['user-agent'];
-      let res = await inst.login(username, password, userAgent, clientIp);
-      reply.setCookie('customerToken', res.accessToken.token, {
-        maxAge: res.accessToken.expiry,
-        expires: res.accessToken.expiry,
+       res = await inst.login(username, password, userAgent, clientIp);
+      reply.setCookie('customerToken', res?.accessToken?.token, {
+        maxAge: res.accessToken?.expiry,
+        expires: res.accessToken?.expiry,
         path: '/',
         // signed: true
       });
-      reply.setCookie('workspcaeId', res.defaultWorkspaceId, {
-        maxAge: res.accessToken.expiry,
-        expires: res.accessToken.expiry,
+      reply.setCookie('workspcaeId', res?.defaultWorkspaceId, {
+        maxAge: res?.accessToken?.expiry,
+        expires: res?.accessToken?.expiry,
         path: '/',
         // signed: true
       });
       return this.responder(req, reply, Promise.resolve(res));
     } catch (error) {
       console.log(error);
-      return this.responder(req, reply, Promise.reject(res));
+      return this.responder(req, reply, Promise.reject(error));
     }
 
   }

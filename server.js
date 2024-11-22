@@ -38,7 +38,7 @@ const start = async () => {
     });
     await app.register(fastifyIO, {
       cors: {
-        origin: config.app.whitelisted_urls.split(','),
+        origin:'*',
         credentials: true,
         methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
       }
