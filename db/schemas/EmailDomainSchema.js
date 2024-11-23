@@ -1,3 +1,4 @@
+const { default: mongoose } = require('mongoose');
 const { v4: uuid } = require('uuid');
 
 const EmailDomainSchema = {
@@ -10,20 +11,12 @@ const EmailDomainSchema = {
                 return uuid()
             }
         },
-        name: {
-            type: String,
-            required: true,
-        },
         domain: {
             type: String,
             required: true,
         },
         description: {
             type: String,
-        },
-        workspaceId: {
-            type: String,
-            required: true,
         },
         clientId: {
             type: String,

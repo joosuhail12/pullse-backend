@@ -3,33 +3,87 @@ const errors = require("../errors");
 const EmailDomainUtility = require('../db/utilities/EmailDomainUtility');
 const BaseService = require("./BaseService");
 const _ = require("lodash");
-
+const formData =require('form-data')
+const Mailgun = require('mailgun.js')
 class EmailDomainService extends BaseService {
 
     constructor() {
         super();
         this.utilityInst = new EmailDomainUtility();
         this.entityName = 'EmailDomain';
-        this.listingFields = ["id", "name", "domain", "-_id"];
+        this.listingFields = ["id", "domain", "-_id"];
         this.updatableFields = [ "name", "domain", "description"];
     }
 
     async createEmailDomain(emailDomainData) {
         try {
-            let { name, domain, clientId, workspaceId, createdBy } = emailDomainData;
-            let emailDomain = await this.findOne({ domain, clientId, workspaceId });
+            let { domain, clientId } = emailDomainData;
+            let emailDomain = await this.findOne({ domain, clientId });
+            const mailgun = new Mailgun(formData)
+            let mg = mailgun.client({ 
+                username: 'api', 
+                key: process.env.MAILGUN_API_KEY 
+            })
             if (!_.isEmpty(emailDomain)) {
                 return Promise.reject(new errors.AlreadyExist(this.entityName + " already exist."));
             }
-            return this.create(emailDomainData);
+
+            await mg.domains.create({ name: domain }, (error, body) => {
+                if(error) {
+                    return Promise.reject(error)
+                }
+                return body
+            }).then(async (response) => {
+                return this.create(emailDomainData) 
+            })
+
         } catch(err) {
             return this.handleError(err);
         }
     }
 
-    async getDetails(id, workspaceId, clientId) {
+    async listDomainKeys(emailDomainData){
+        try{
+            let { id, clientId } = emailDomainData;
+            console.error(id, clientId)
+            let emailDomain = await this.findOne({ id, clientId });
+            if(_.isEmpty(emailDomain)) {
+                return Promise.reject(new errors.NotFound(this.entityName + " not found."));
+            }
+            const mailgun = new Mailgun(formData)
+            let mg = mailgun.client({ 
+                username: 'api', 
+                key: process.env.MAILGUN_API_KEY 
+            })
+            return await mg.domains.get(emailDomain.domain)
+        }catch(err) {
+            this.handleError(err)
+        }
+    }
+
+    async verifyDomainKeys(emailDomainData){
+        try{
+            let { id, clientId } = emailDomainData;
+            console.error(id, clientId)
+            let emailDomain = await this.findOne({ id, clientId });
+            if(_.isEmpty(emailDomain)) {
+                return Promise.reject(new errors.NotFound(this.entityName + " not found."));
+            }
+            const mailgun = new Mailgun(formData)
+            let mg = mailgun.client({ 
+                username: 'api', 
+                key: process.env.MAILGUN_API_KEY 
+            })
+            return await mg.domains.verify(emailDomain.domain)
+        }catch(err) {
+            this.handleError(err)
+        }
+    }
+
+
+    async getDetails(id, clientId) {
         try {
-            let emailDomain = await this.findOne({ id, workspaceId, clientId });
+            let emailDomain = await this.findOne({ id, clientId });
             if (_.isEmpty(emailDomain)) {
                 return Promise.reject(new errors.NotFound(this.entityName + " not found."));
             }
