@@ -18,7 +18,7 @@ async function activate(app) {
       tags: ['EmailDomain'],
       summary: 'Create EmailDomain',
       description: 'API to create emailDomain.',
-      required: ['name', 'domain', 'workspace_id'],
+      required: ['domain'],
       body: {
         additionalProperties: false,
         type: 'object',
@@ -30,7 +30,7 @@ async function activate(app) {
           domain: {
             type: 'string',
             // minLength: 2,
-            // pattern: '/^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/;'
+            // pattern: '^(?!-)[A-Za-z0-9-]{1,63}(?<!-)\.(?!-)[A-Za-z0-9-]{1,63}(?<!-)(\.[A-Za-z]{2,})+$'
           },
           description:  {
             type: 'string',
@@ -100,7 +100,7 @@ async function activate(app) {
       tags: ['EmailDomain'],
       summary: 'Show EmailDomain Detail',
       description: 'API to show detail of a EmailDomain.',
-      required: ['workspace_id'],
+      required: [''],
       query: {
         workspace_id:  {
           type: 'string',
@@ -170,6 +170,39 @@ async function activate(app) {
     }
   });
 
+  app.route({
+    url: base_url+ "/:email_domain_id/keys",
+    method: 'GET',
+    name: "GetEmailDomainKeys",
+    preHandler: authMiddlewares.checkToken(AuthType.user),
+    schema: {
+      operationId: "GetEmailDomainKeys",
+      tags: ['EmailDomain'],
+      summary: 'Get EmailDomain DNS Keys',
+      description: 'API to get EmailDomain DNS Keys.',
+      required: ['email_domain_id'],
+    },
+    handler: async (req, reply) => {
+      return handler.listDomainKeys(req, reply);
+    }
+  })
+
+  app.route({
+    url: base_url+ "/:email_domain_id/keys",
+    method: 'POST',
+    name: "VerifyEmailDomainKeys",
+    preHandler: authMiddlewares.checkToken(AuthType.user),
+    schema: {
+      operationId: "VerifyEmailDomainKeys",
+      tags: ['EmailDomain'],
+      summary: 'Verify EmailDomain DNS Keys',
+      description: 'API to Verify EmailDomain DNS Keys.',
+      required: ['email_domain_id'],
+    },
+    handler: async (req, reply) => {
+      return handler.verifyDomainKeys(req, reply);
+    }
+  })
 }
 
 module.exports = {

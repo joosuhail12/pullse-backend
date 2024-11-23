@@ -39,11 +39,11 @@ class EmailDomainHandler extends BaseHandler {
   }
 
   async showEmailDomainDetail(req, reply) {
-    let workspaceId = req.query.workspace_id;
+    // let workspaceId = req.query.workspace_id;
     let clientId = req.authUser.clientId;
 
     let inst = new EmailDomainService();
-    return this.responder(req, reply, inst.getDetails(req.params.email_domain_id, workspaceId, clientId));
+    return this.responder(req, reply, inst.getDetails(req.params.email_domain_id, clientId));
   }
 
   async updateEmailDomain(req, reply) {
@@ -64,6 +64,22 @@ class EmailDomainHandler extends BaseHandler {
 
     let inst = new EmailDomainService();
     return this.responder(req, reply, inst.deleteEmailDomain({ id, workspaceId, clientId }));
+  }
+
+  async listDomainKeys(req, reply) {
+    let id = req.params.email_domain_id;
+    let clientId = req.authUser.clientId;
+
+    let inst = new EmailDomainService()
+    return this.responder(req, reply, inst.listDomainKeys({id, clientId}))
+  }
+
+  async verifyDomainKeys(req, reply) {
+    let id = req.params.email_domain_id;
+    let clientId = req.authUser.clientId;
+
+    let inst = new EmailDomainService()
+    return this.responder(req, reply, inst.verifyDomainKeys({id, clientId}))
   }
 
 }

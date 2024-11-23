@@ -38,7 +38,8 @@ const start = async () => {
     });
     await app.register(fastifyIO, {
       cors: {
-        origin:'*',
+        origin: '*',
+        // origin: config.app.whitelisted_urls.split(','),
         credentials: true,
         methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
       }
@@ -78,7 +79,8 @@ const start = async () => {
     await app.ready()
     .then(async () => {
       Socket.init(app.io);
-      let decisionEngine = DecisionEngine(app.io, Socket);
+      console.log("Socket initialized", Socket)
+      // let decisionEngine = DecisionEngine(app.io, Socket);
       return Socket;
     });
     app.swagger({
