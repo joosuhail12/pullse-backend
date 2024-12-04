@@ -69,11 +69,11 @@ class TicketService extends BaseService {
             let ticket = data.docs[i].toJSON();
             tickets.push(ticket);
         }
-        tickets = await this.utilityInst.populate('team', tickets);
-        tickets = await this.utilityInst.populate('type', tickets);
-        tickets = await this.utilityInst.populate('customer', tickets);
-        tickets = await this.utilityInst.populate('tags', tickets);
-        tickets = await this.utilityInst.populate('topics', tickets);
+        // tickets = await this.utilityInst.populate('team', tickets);
+        // tickets = await this.utilityInst.populate('type', tickets);
+        // tickets = await this.utilityInst.populate('customer', tickets);
+        // tickets = await this.utilityInst.populate('tags', tickets);
+        // tickets = await this.utilityInst.populate('topics', tickets);
 
         data.docs = tickets;
         return data

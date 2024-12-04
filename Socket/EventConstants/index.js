@@ -48,6 +48,10 @@ class EventConstants {
     return "disconnect";
   }
 
+  static get sendChat() {
+    return "send_chat";
+  }
+
 }
 
 module.exports = EventConstants;

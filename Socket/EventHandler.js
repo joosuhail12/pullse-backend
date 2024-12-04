@@ -30,6 +30,8 @@ class EventHandler {
         [EventConstants.typing]: this.onTyping.bind(this),
         [EventConstants.stopTyping]: this.onStopTyping.bind(this),
         [EventConstants.disconnect]: this.onDisconnect.bind(this),
+        [EventConstants.sendChat]: this.onSendChat.bind(this),
+        // [EventConstants.disconnect]: this.onDisconnect.bind(this),
       };
     }
   }
@@ -115,6 +117,11 @@ class EventHandler {
     //   userType
     // });
     return Promise.resolve();
+  }
+
+  async onSendChat(data){
+    console.log(data,"datatatatata")
+
   }
 
   async onAddUser(data) {
