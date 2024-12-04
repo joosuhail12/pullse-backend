@@ -6,6 +6,7 @@ module.exports = {
     chatbotMessage: 'chatbot_message',
     customerReply: 'customer_reply',
     messageUpdated: 'message_updated',
+    copilotMessage: 'copilot_message'
   },
   queue: 'message_events'
 };

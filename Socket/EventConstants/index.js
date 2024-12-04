@@ -52,6 +52,10 @@ class EventConstants {
     return "send_chat";
   }
 
+  static get copilotMessage() {
+    return "copilot_message";
+  }
+
 }
 
 module.exports = EventConstants;

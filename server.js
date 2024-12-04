@@ -41,7 +41,7 @@ const start = async () => {
         origin:'*',
         credentials: true,
         methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
-      }
+      },
     });
 
 

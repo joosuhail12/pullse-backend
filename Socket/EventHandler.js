@@ -6,13 +6,15 @@ const LLMServiceExternalService = require("../ExternalService/LLMServiceExternal
 const SocketStore = require('./Store')();
 const CustomerService = require("../services/CustomerService");
 const TagService = require("../services/TagService");
-
+const OpenCopilotSocketConnector = require("./connectOpenCopilotSocket")
 class EventHandler {
 
   constructor(socket) {
     this.socket = socket;
     this.user = socket.user;
     this.userType = socket.userType;
+    this.openCopilotSocket = OpenCopilotSocketConnector.getInstance(); 
+    this.openCopilotSocket.connectToOpenCopilot();
     this.ticketService = new TicketService();
     this.conversationService = new ConversationService();
     if (this.userType == UserTypeConstant.service) {
@@ -44,6 +46,7 @@ class EventHandler {
       SocketStore.addSocket(this.user.id, this.user.workspaceId, this.socket.id, this.userType); // handle if agent workspaceId is not defined
     }
   }
+ 
 
   // onConnection(socket) {
   // }
@@ -120,8 +123,7 @@ class EventHandler {
   }
 
   async onSendChat(data){
-    console.log(data,"datatatatata")
-
+     this.openCopilotSocket.sendMessageToOpenCopilot(EventConstants.sendChat,data);
   }
 
   async onAddUser(data) {
