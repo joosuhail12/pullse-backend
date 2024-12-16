@@ -144,27 +144,38 @@ var _verifyUser = async (token) => {
     {
       $lookup: {
         from: "workspacepermissions", // Permissions collection
-        localField: "defaultWorkspaceId", // ID in the user document
-        foreignField: "workspaceId", // Field in the permissions collection
-        as: "permission", // Temporary array field for permissions
+        let: { workspaceId: "$defaultWorkspaceId", userId: "$id" }, // Pass workspaceId and userId from the user document
+        pipeline: [
+          {
+            $match: {
+              $expr: {
+                $and: [
+                  { $eq: ["$workspaceId", "$$workspaceId"] }, // Match workspaceId
+                  { $eq: ["$userId", "$$userId"] },           // Match userId
+                ],
+              },
+            },
+          },
+        ],
+        as: "permissions", // Array of matched permissions
       },
     },
     {
       $unwind: {
-        path: "$permission",
-        preserveNullAndEmptyArrays: true, // Keep document even if no matching permission
+        path: "$permissions",
+        preserveNullAndEmptyArrays: true, // Keep user document even if no permissions match
       },
     },
     {
       $addFields: {
-        role: "$permission.role" // Add the `role` key to the top level
-      }
+        role: "$permissions.role", // Add the `role` field to the user document
+      },
     },
     {
       $project: {
-        permission: 0 // Remove the temporary `permission` field from the result
-      }
-    }
+        permissions: 0, // Remove the temporary `permissions` field from the result
+      },
+    },
   ]);
   if(!user.length){
     return Promise.reject(new errors.Unauthorized());
