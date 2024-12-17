@@ -32,8 +32,9 @@ class ClientService extends BaseService {
                 return Promise.reject(new errors.AlreadyExist(`${this.entityName} with name "${name}" already exists.`));
             }
             const userInst = new this.AuthService();
-            const workspaceServiceInst = new this.WorkspaceService(null, { AuthService: this.AuthService});
-            const workspacePermssionSerInst = new this.WorkspacePermissionService(null,{UserService:this.UserService})
+            let newClientServiceInst =  ClientService
+            const workspaceServiceInst = new this.WorkspaceService(null, { AuthService: this.AuthService, ClientService: newClientServiceInst, WorkspacePermissionService: this.WorkspacePermissionService, UserService: this.UserService });
+            // const workspacePermssionSerInst = new this.WorkspacePermissionService(null,{UserService:this.UserService})
             let user = await userInst.findOne({ email: owner.email });
             if (user) {
                 return Promise.reject(new errors.AlreadyExist(`${this.entityName} owner with email "${owner.email}" already exists.`));
@@ -45,7 +46,7 @@ class ClientService extends BaseService {
             let workspaceData = { name: `${name}-workspace`, clientId: client.id, createdBy};
             user = await userInst.createUser(owner);
             let workspace = await workspaceServiceInst.createWorkspace(workspaceData);
-            await workspacePermssionSerInst.createWorkspacePermission({userId:user.id, clientId:owner.clientId, workspaceId:workspace.id, role:'ORGANIZATION_ADMIN', createdBy:createdBy});
+            // await workspacePermssionSerInst.createWorkspacePermission({userId:user.id, clientId:owner.clientId, workspaceId:workspace.id, role:'ORGANIZATION_ADMIN', createdBy:createdBy});
             await this.updateClient(client.id, { ownerId: user.id });
             return {
                 client,

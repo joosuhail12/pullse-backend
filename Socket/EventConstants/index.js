@@ -4,6 +4,13 @@ class EventConstants {
     return "login";
   }
 
+  static get join_workspace() {
+    return "join_workspace";
+  }
+  static get join_tickets() {
+    return "join_tickets";
+  }
+
   static get addUser() {
     return "add user";
   }

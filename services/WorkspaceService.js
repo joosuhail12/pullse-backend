@@ -4,6 +4,7 @@ const WorkspaceUtility = require('../db/utilities/WorkspaceUtility');
 const BaseService = require("./BaseService");
 const _ = require("lodash");
 const config = require("../config");
+// const ClientService = require('./ClientService')
 
 class WorkspaceService extends BaseService {
 
@@ -12,7 +13,7 @@ class WorkspaceService extends BaseService {
         this.utilityInst = new WorkspaceUtility();
         this.AuthService = dependencies.AuthService;
         this.UserService = dependencies.UserService;
-        this.WorkspacePermission = dependencies.WorkspacePermissionService;
+        this.WorkspacePermission = dependencies.WorkspacePermissionService;        
         this.ClientService = dependencies.ClientService;
         this.entityName = 'Workspace';
         this.listingFields = ["id", "name", "-_id"];
@@ -29,6 +30,8 @@ class WorkspaceService extends BaseService {
     - Catches any errors and handles them.
     */
     async createWorkspace(workspaceData) {
+        // console.log(this.ClientService,"ClientService")
+        // return
         try {
             let { name, description, createdBy, clientId, } = workspaceData;
             let workspace = await this.findOne({ name: { $regex : `^${name}$`, $options: "i" } , clientId });
@@ -37,9 +40,9 @@ class WorkspaceService extends BaseService {
             }
             workspace = await this.create({name, clientId, description, createdBy});
             let workspPerInst = new this.WorkspacePermission(null,{UserService:this.UserService});
-            let ownerInst = new this.ClientService()
-            let client = await ownerInst.findClientById(clientId)
-            const data =  { userId:client.ownerId, clientId, workspaceId:workspace.id, role:'ORGANIZATION_ADMIN', createdBy };
+            let ownerInst =  new this.UserService()
+            let client = await ownerInst.findOne({clientId:clientId})
+            const data =  { userId:client.id, clientId, workspaceId:workspace.id, role:'ORGANIZATION_ADMIN', createdBy };
             await workspPerInst.createWorkspacePermission(data)            
             return workspace;
         } catch(err) {

@@ -1,6 +1,7 @@
+require('dotenv').config()
+const config = require('../config');
 const prompts = require('prompts');
 const db = require('../db');
-const config = require('../config');
 const ClientService =  require("../services/ClientService");
 const { Status } = require("../constants/ClientConstants");
 
@@ -45,6 +46,7 @@ var clientSeeder = () => {
 
   (async () => {
     try {
+      console.log(config.db,"config.db")
       await db.connect(config.db);
       const clientInputResponse = await prompts(clientInputFields, { onCancel })
       clientInputResponse.createdBy = 'CLI';

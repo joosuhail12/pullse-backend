@@ -14,6 +14,10 @@ const WorkspaceSchema = {
             type: String,
             required: true,
         },
+        status:{
+            type: Boolean,
+           default:true
+        },
         description: {
             type: String,
         },
