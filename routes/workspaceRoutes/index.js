@@ -151,6 +151,9 @@ async function activate(app) {
         description:  {
           type: 'string',
         },
+        status:{
+          type:'boolean'
+        }
       },
     },
     handler: async (req, reply) => {
