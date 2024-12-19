@@ -22,6 +22,7 @@ class WorkspaceService extends BaseService {
       "chatbotSetting",
       "sentimentSetting",
       "qualityAssuranceSetting",
+      "status"
     ];
   }
 
@@ -309,6 +310,7 @@ class WorkspaceService extends BaseService {
         }
       }
       let workspace = await this.getDetails(id, clientId);
+      console.log(updateValues,"updateValuesupdateValues",workspace.id)
       await this.update({ id: workspace.id }, updateValues);
       return Promise.resolve();
     } catch (e) {

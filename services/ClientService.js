@@ -45,9 +45,10 @@ class ClientService extends BaseService {
             // owner.roleIds = 'AGENT_ADMIN';
             let workspaceData = { name: `${name}-workspace`, clientId: client.id, createdBy};
             user = await userInst.createUser(owner);
-            let workspace = await workspaceServiceInst.createWorkspace(workspaceData);
-            // await workspacePermssionSerInst.createWorkspacePermission({userId:user.id, clientId:owner.clientId, workspaceId:workspace.id, role:'ORGANIZATION_ADMIN', createdBy:createdBy});
             await this.updateClient(client.id, { ownerId: user.id });
+            let workspace = await workspaceServiceInst.createWorkspace(workspaceData);
+            await this.updateClient(client.id, { defaultWorkspaceId: workspace.id });
+            // await workspacePermssionSerInst.createWorkspacePermission({userId:user.id, clientId:owner.clientId, workspaceId:workspace.id, role:'ORGANIZATION_ADMIN', createdBy:createdBy});
             return {
                 client,
                 user,
