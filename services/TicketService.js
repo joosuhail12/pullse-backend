@@ -71,7 +71,7 @@ class TicketService extends BaseService {
         }
         tickets = await this.utilityInst.populate('team', tickets);
         tickets = await this.utilityInst.populate('type', tickets);
-        tickets = await this.utilityInst.populate('customer', tickets);
+        // tickets = await this.utilityInst.populate('customer', tickets);
         tickets = await this.utilityInst.populate('tags', tickets);
         tickets = await this.utilityInst.populate('topics', tickets);
 
@@ -90,7 +90,7 @@ class TicketService extends BaseService {
             }
             let tickets = await this.utilityInst.populate('team', [ticket]);
             tickets = await this.utilityInst.populate('type', tickets);
-            tickets = await this.utilityInst.populate('customer', tickets);
+            // tickets = await this.utilityInst.populatee ('customer', tickets);
             tickets = await this.utilityInst.populate('tags', tickets);
             tickets = await this.utilityInst.populate('topics', tickets);
             tickets = await this.utilityInst.populate('assignee', tickets);

@@ -5,7 +5,7 @@ class PaginationConstants {
     }
 
     static get LIMIT() {
-        return 50;
+        return 10;
     }
 
     static get PAGENUMBER() {

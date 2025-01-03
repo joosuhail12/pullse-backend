@@ -135,13 +135,14 @@ class AuthService extends UserService {
         try {
 
             let user = await this.findOne({ email });
+            console.log( `user is: `, user, email )
             if(!user) {
                 return Promise.reject(new errors.InvalidCredentials());
             }
-            let checkPassword = await this.bcryptTokenCompare(password, user.password);
-            if(!checkPassword) {
-                return Promise.reject(new errors.InvalidCredentials());
-            }
+            // let checkPassword = await this.bcryptTokenCompare(password, user.password);
+            // if(!checkPassword) {
+            //     return Promise.reject(new errors.InvalidCredentials());
+            // }
 
             return user;
         } catch (err) {

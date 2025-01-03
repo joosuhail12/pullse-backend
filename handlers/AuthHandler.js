@@ -12,6 +12,7 @@ class AuthHandler extends BaseHandler {
   }
 
   async checkCredentials(req, reply) {
+    console.log('request', req.body)
     // let username = req.body.email;
     let username = req.body.username;
     let password = req.body.password;

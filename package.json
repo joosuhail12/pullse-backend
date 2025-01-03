@@ -11,7 +11,9 @@
   "author": "Utkarsh Pandey",
   "license": "SEE LICENSE IN License.md",
   "dependencies": {
+    "-": "^0.0.1",
     "@azure/storage-blob": "^12.17.0",
+    "@casl/ability": "^6.7.1",
     "@fastify/cookie": "^9.2.0",
     "@fastify/cors": "^8.4.0",
     "@fastify/formbody": "^7.4.0",
@@ -48,6 +50,6 @@
     "@faker-js/faker": "^8.3.1",
     "chai": "^4.3.10",
     "mocha": "^10.2.0",
-    "nodemon": "^3.0.1"
+    "nodemon": "^3.1.7"
   }
 }

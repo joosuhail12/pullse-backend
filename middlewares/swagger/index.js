@@ -17,6 +17,7 @@ module.exports = async (app) => {
       // },
       host: config.app.base_url,
       schemes: [config.app.protocol],
+      hide: true,
       consumes: ['application/json'],
       produces: ['application/json'],
       tags: tags,
