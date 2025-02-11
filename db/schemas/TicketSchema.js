@@ -7,7 +7,7 @@ const TicketSchema = {
             type: String,
             required: true,
             index: true,
-            default: function() {
+            default: function () {
                 return uuid()
             }
         },
@@ -79,6 +79,12 @@ const TicketSchema = {
         tagIds: [{
             type: String,
         }],
+        lastMailgunMessageId: {
+            type: String,
+        },
+        mailgunReferenceIds: {
+            type: [String]
+        },
         mentionIds: [{
             type: String,
         }],
@@ -191,7 +197,7 @@ const TicketSchema = {
     },
     indexes: [
         {
-            fields: { id: 1, deletedAt: 1},
+            fields: { id: 1, deletedAt: 1 },
             options: { unique: true }
         },
         // { to decide, add deletedAt or not

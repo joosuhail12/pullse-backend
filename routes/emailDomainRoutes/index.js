@@ -23,22 +23,14 @@ async function activate(app) {
         additionalProperties: false,
         type: 'object',
         properties: {
-          name:  {
-            type: 'string',
-            minLength: 2
-          },
           domain: {
             type: 'string',
-            // minLength: 2,
-            // pattern: '^(?!-)[A-Za-z0-9-]{1,63}(?<!-)\.(?!-)[A-Za-z0-9-]{1,63}(?<!-)(\.[A-Za-z]{2,})+$'
-          },
-          description:  {
-            type: 'string',
-          },
+            minLength: 2
+          }
         }
       },
       query: {
-        workspace_id:  {
+        workspace_id: {
           type: 'string',
           // required: true
         },
@@ -61,11 +53,11 @@ async function activate(app) {
       description: 'API to list all EmailDomains.',
       required: ['workspace_id'],
       query: {
-        name:  {
+        name: {
           type: 'string',
           minLength: 2
         },
-        workspace_id:  {
+        workspace_id: {
           type: 'string',
         },
         page: {
@@ -102,7 +94,7 @@ async function activate(app) {
       description: 'API to show detail of a EmailDomain.',
       required: [''],
       query: {
-        workspace_id:  {
+        workspace_id: {
           type: 'string',
         },
       }
@@ -124,19 +116,19 @@ async function activate(app) {
       description: 'API to update a EmailDomain.',
       required: ['workspace_id', 'domain'],
       body: {
-        name:  {
+        name: {
           type: 'string',
           minLength: 2
         },
-        domain:  {
+        domain: {
           type: 'string',
         },
-        description:  {
+        description: {
           type: 'string',
         },
       },
       query: {
-        workspace_id:  {
+        workspace_id: {
           type: 'string',
         },
       }
@@ -147,7 +139,7 @@ async function activate(app) {
   });
 
   app.route({
-    url: base_url+ "/:email_domain_id",
+    url: base_url + "/:email_domain_id",
     method: 'DELETE',
     name: "DeleteEmailDomain",
     preHandler: authMiddlewares.checkToken(AuthType.user),
@@ -160,7 +152,7 @@ async function activate(app) {
       body: {
       },
       query: {
-        workspace_id:  {
+        workspace_id: {
           type: 'string',
         },
       }
@@ -171,7 +163,7 @@ async function activate(app) {
   });
 
   app.route({
-    url: base_url+ "/:email_domain_id/keys",
+    url: base_url + "/:email_domain_id/keys",
     method: 'GET',
     name: "GetEmailDomainKeys",
     preHandler: authMiddlewares.checkToken(AuthType.user),
@@ -188,7 +180,52 @@ async function activate(app) {
   })
 
   app.route({
-    url: base_url+ "/:email_domain_id/keys",
+    url: base_url + "/send-email",
+    method: 'POST',
+    name: "SendEmail",
+    preHandler: authMiddlewares.checkToken(AuthType.user),
+    schema: {
+      operationId: "SendEmail",
+      tags: ['EmailDomain'],
+      summary: 'Send Email',
+      description: 'API to send email.',
+      required: ['ticketId', 'message'],
+      body: {
+        type: 'object',
+        properties: {
+          ticketId: {
+            type: 'string',
+          },
+          message: {
+            type: 'string',
+          },
+        }
+      },
+    },
+    handler: async (req, reply) => {
+      return handler.sendEmail(req, reply);
+    }
+  })
+
+
+  app.route({
+    url: base_url + "/email-webhook",
+    method: 'POST',
+    name: "EmailWebhook",
+    schema: {
+      operationId: "EmailWebhook",
+      tags: ['EmailDomain'],
+      summary: 'Email Webhook',
+      description: 'API to receive email webhook.',
+      required: [''],
+    },
+    handler: async (req, reply) => {
+      return handler.emailWebhook(req, reply);
+    }
+  })
+
+  app.route({
+    url: base_url + "/:email_domain_id",
     method: 'POST',
     name: "VerifyEmailDomainKeys",
     preHandler: authMiddlewares.checkToken(AuthType.user),

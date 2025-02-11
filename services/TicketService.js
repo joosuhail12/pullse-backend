@@ -16,18 +16,18 @@ const { UserType } = require("../constants/ClientConstants");
 
 class TicketService extends BaseService {
 
-    constructor(fields=null, dependencies={}) {
+    constructor(fields = null, dependencies = {}) {
         super();
         this.utilityInst = new TicketUtility();
         this.ConversationService = dependencies.ConversationService || null;
-        this.CustomerService =  CustomerService; //dependencies.CustomerService || null;
+        this.CustomerService = CustomerService; //dependencies.CustomerService || null;
         this.entityName = 'Ticket';
-        this.listingFields = [ "id", "sno", "title", "description", "customerId", "status", "externalId", "language", "teamId", "typeId", "assigneeId", "trackingId", "lastMessage", "customerId", "createdAt", "tagIds", "chatbotId", "threadId", "assigneeTo", "-_id" ];
+        this.listingFields = ["id", "sno", "title", "description", "customerId", "status", "externalId", "language", "teamId", "typeId", "assigneeId", "trackingId", "lastMessage", "customerId", "createdAt", "tagIds", "chatbotId", "threadId", "assigneeTo", "-_id"];
         if (fields) {
             this.listingFields = fields;
         }
         // this.listingFields = [ "title", "description", "status", "sno", "externalId", "language", "teamId", "assigneeId", "clientId", "createdBy", "deletedAt", "-_id"];
-        this.updatableFields = [ "title", "description", "status", "customerId", "externalId", "priority", "language", "teamId", "assigneeId", "assigneeTo", "typeId", "summary", "qa", "reopen", "chatbotId", "threadId", "assigneeTo" ];
+        this.updatableFields = ["title", "description", "status", "customerId", "externalId", "priority", "language", "teamId", "assigneeId", "assigneeTo", "typeId", "summary", "qa", "reopen", "chatbotId", "threadId", "assigneeTo", "lastMailgunMessageId", "mailgunReferenceIds"];
     }
 
     async createTicket(ticketData) {
@@ -46,17 +46,17 @@ class TicketService extends BaseService {
             ticketData.sno = sno;
             ticketData.companyId = companyId;
             let { id: ticket_id } = await this.create(ticketData)
-            .catch(err => {
-                if (err instanceof errors.Conflict) {
-                    return new errors.AlreadyExist("Ticket already exist.")
-                }
-                return Promise.reject(err);
-            });
+                .catch(err => {
+                    if (err instanceof errors.Conflict) {
+                        return new errors.AlreadyExist("Ticket already exist.")
+                    }
+                    return Promise.reject(err);
+                });
             let ticket = await this.findOrFail(ticket_id);
             let inst = new TicketEventPublisher();
             await inst.created(ticket);
             return _.pick(ticket, this.listingFields);
-        } catch(err) {
+        } catch (err) {
             return this.handleError(err);
         }
     }
@@ -79,7 +79,7 @@ class TicketService extends BaseService {
         return data
     }
 
-    async getDetails(sno, workspaceId, clientId, populate=false) {
+    async getDetails(sno, workspaceId, clientId, populate = false) {
         try {
             let ticket = await this.findOne({ sno, workspaceId, clientId });
             if (_.isEmpty(ticket)) {
@@ -97,7 +97,7 @@ class TicketService extends BaseService {
             tickets = await this.utilityInst.populate('addedBy', tickets);
 
             return tickets[0];
-        }  catch(err) {
+        } catch (err) {
             return this.handleError(err);
         }
     }
@@ -121,7 +121,7 @@ class TicketService extends BaseService {
             }
             if (updateValues.typeId) {
                 let inst = new TicketTypeService()
-                let ticketType = await inst.getDetails({id: updateValues.typeId, workspaceId, clientId});
+                let ticketType = await inst.getDetails({ id: updateValues.typeId, workspaceId, clientId });
             }
             if (updateValues.status) {
                 let ticketStatus = ticket.status.toLowerCase();
@@ -143,10 +143,10 @@ class TicketService extends BaseService {
                     }
                 }
             }
-            await this.update({ id: ticket.id}, updateValues);
+            await this.update({ id: ticket.id }, updateValues);
             await ticketEventPublisherInst.updated(ticket, updateValues);
             return Promise.resolve();
-        } catch(e) {
+        } catch (e) {
             return Promise.reject(e);
         }
     }
@@ -156,7 +156,7 @@ class TicketService extends BaseService {
             let ticket = await this.getDetails(sno, workspaceId, clientId);
             let res = await this.softDelete(ticket.id);
             return res;
-        } catch(err) {
+        } catch (err) {
             return this.handleError(err);
         }
     }
@@ -231,7 +231,7 @@ class TicketService extends BaseService {
         return filters;
     }
 
-    async attachTagOrTopic({ sno, workspaceId, clientId }, entityType, entityId, action='add') {
+    async attachTagOrTopic({ sno, workspaceId, clientId }, entityType, entityId, action = 'add') {
         let ticket = await this.getDetails(sno, workspaceId, clientId);
         let toUpdate = {};
 
@@ -248,12 +248,12 @@ class TicketService extends BaseService {
         toUpdate[k1] = {};
         toUpdate[k1][k2] = entityId;
 
-        await this.updateOne({ id: ticket.id}, toUpdate);
+        await this.updateOne({ id: ticket.id }, toUpdate);
         return Promise.resolve();
     }
 
     async addMention(mentionId) {
-        await this.update({ id: ticket.id}, {$addToSet: { mentionIds: mentionId } });
+        await this.update({ id: ticket.id }, { $addToSet: { mentionIds: mentionId } });
     }
 }
 

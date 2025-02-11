@@ -12,7 +12,7 @@ const UserService = require("./UserService");
 
 class ClientService extends BaseService {
 
-    constructor(fields=null, dependencies={}) {
+    constructor(fields = null, dependencies = {}) {
         super();
         this.utilityInst = new ClientUtility();
         this.WorkspaceService = WorkspaceService; // dependencies.WorkspaceService
@@ -26,13 +26,13 @@ class ClientService extends BaseService {
 
     async createClient({ name, status, owner, createdBy }) {
         try {
-            let client = await this.findOne({ name: { $regex : `^${name}$`, $options: "i" } });
+            let client = await this.findOne({ name: { $regex: `^${name}$`, $options: "i" } });
             // can convert case to lower and then md5 for it to check if name already exist
             if (client) {
                 return Promise.reject(new errors.AlreadyExist(`${this.entityName} with name "${name}" already exists.`));
             }
             const userInst = new this.AuthService();
-            let newClientServiceInst =  ClientService
+            let newClientServiceInst = ClientService
             const workspaceServiceInst = new this.WorkspaceService(null, { AuthService: this.AuthService, ClientService: newClientServiceInst, WorkspacePermissionService: this.WorkspacePermissionService, UserService: this.UserService });
             // const workspacePermssionSerInst = new this.WorkspacePermissionService(null,{UserService:this.UserService})
             let user = await userInst.findOne({ email: owner.email });
@@ -43,7 +43,7 @@ class ClientService extends BaseService {
             owner.clientId = client.id;
             owner.createdBy = createdBy;
             // owner.roleIds = 'AGENT_ADMIN';
-            let workspaceData = { name: `${name}-workspace`, clientId: client.id, createdBy};
+            let workspaceData = { name: `${name}-workspace`, clientId: client.id, createdBy };
             user = await userInst.createUser(owner);
             await this.updateClient(client.id, { ownerId: user.id });
             let workspace = await workspaceServiceInst.createWorkspace(workspaceData);
@@ -54,13 +54,13 @@ class ClientService extends BaseService {
                 user,
                 workspace
             };
-        } catch(err) {
+        } catch (err) {
             return this.handleError(err);
         }
     }
 
-    async findClientById(id){
-        return await this.findOne({id})
+    async findClientById(id) {
+        return await this.findOne({ id })
     }
 
     async updateClient(client_id, updateValues) {
@@ -69,7 +69,7 @@ class ClientService extends BaseService {
             // can convert case to lower and then md5 for it to check if name already exist
 
             return Promise.resolve();
-        } catch(e) {
+        } catch (e) {
             return Promise.reject(e);
         }
     }
@@ -78,7 +78,7 @@ class ClientService extends BaseService {
         try {
             let res = await this.softDelete(id);
             return res;
-        } catch(err) {
+        } catch (err) {
             return this.handleError(err);
         }
     }

@@ -74,12 +74,12 @@ class BaseUtility {
       if (options && (!options.sort || !Object.keys(options.sort).length)) {
         options.sort = { createdAt: -1 };
       }
-
       projection = (!_.isEmpty(projection)) ? projection : { "_id": 0, "__v": 0 };
       options.select = projection;
       options.leanWithId = true;
       // options.lean = true;
       let result = await this.model.paginate(conditions, options);
+      console.log(result)
       return result;
     } catch (e) {
       console.log(`Error in paginate() while fetching data for ${this.schemaObj.schemaName} :: ${e}`);
@@ -219,12 +219,12 @@ class BaseUtility {
 
   async populate(field, rows = []) {
     if (!this.populateFields[field]) {
-        throw new errors.Internal(`populate field config not set for ${field} in ${this.constructor.name}.`)
+      throw new errors.Internal(`populate field config not set for ${field} in ${this.constructor.name}.`)
     }
     if (_.isEmpty(rows)) {
-        return rows;
+      return rows;
     }
-    let isArray =  Array.isArray(rows);
+    let isArray = Array.isArray(rows);
 
 
     let selectFields = null;
@@ -236,60 +236,60 @@ class BaseUtility {
     let multiple = this.populateFields[field].multiple;
 
     if (!isArray) {
-        if (!rows[srcField]) {
-            return rows;
-        }
-        let srcFieldVal = rows[srcField];
-        if (multiple) {
-          rows[field] = await utilityInst.find({ id: { '$in': srcFieldVal } });
-        } else {
-          rows[field] = await utilityInst.findOne({ id: srcFieldVal });
-        }
+      if (!rows[srcField]) {
         return rows;
+      }
+      let srcFieldVal = rows[srcField];
+      if (multiple) {
+        rows[field] = await utilityInst.find({ id: { '$in': srcFieldVal } });
+      } else {
+        rows[field] = await utilityInst.findOne({ id: srcFieldVal });
+      }
+      return rows;
     }
 
     let srcFieldValues = [];
     let Rows = [];
     for (let id = 0; id < rows.length; id++) {
-        let row = rows[id];
-        row[field] = multiple ? [] : {};
-        Rows.push(row);
-        if (row[srcField]) {
-            if (multiple) {
-              srcFieldValues = srcFieldValues.concat(row[srcField]);
-            } else {
-              srcFieldValues.push(row[srcField])
-            }
+      let row = rows[id];
+      row[field] = multiple ? [] : {};
+      Rows.push(row);
+      if (row[srcField]) {
+        if (multiple) {
+          srcFieldValues = srcFieldValues.concat(row[srcField]);
+        } else {
+          srcFieldValues.push(row[srcField])
         }
+      }
     }
     if (_.isEmpty(srcFieldValues)) {
-        return Rows;
+      return Rows;
     }
-    let srcData = await utilityInst.find({ id: { $in : srcFieldValues }}, selectFields);
+    let srcData = await utilityInst.find({ id: { $in: srcFieldValues } }, selectFields);
     if (_.isEmpty(srcData)) {
-        return Rows;
+      return Rows;
     }
 
     let srcDataMap = {}
     for (let i = 0; i < srcData.length; i++) {
-        let id = srcData[i].id;
-        if (!srcDataMap[id]) {
-            srcDataMap[id] = srcData[i];
-        }
+      let id = srcData[i].id;
+      if (!srcDataMap[id]) {
+        srcDataMap[id] = srcData[i];
+      }
     }
     for (let i = 0; i < Rows.length; i++) {
-        let row = Rows[i];
-        let srcFieldVal = row[srcField];
-        if (multiple) {
-          row[field] = srcFieldVal.map(val => srcDataMap[val]);
-        } else {
-          row[field] = srcDataMap[srcFieldVal];
-        }
+      let row = Rows[i];
+      let srcFieldVal = row[srcField];
+      if (multiple) {
+        row[field] = srcFieldVal.map(val => srcDataMap[val]);
+      } else {
+        row[field] = srcDataMap[srcFieldVal];
+      }
     }
     return Rows;
   }
 
-  async aggregate(options= []) {
+  async aggregate(options = []) {
     try {
       if (_.isEmpty(this.model)) {
         await this.getModel();

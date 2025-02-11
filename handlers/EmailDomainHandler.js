@@ -61,7 +61,6 @@ class EmailDomainHandler extends BaseHandler {
     let workspaceId = req.query.workspace_id;
     let clientId = req.authUser.clientId;
 
-
     let inst = new EmailDomainService();
     return this.responder(req, reply, inst.deleteEmailDomain({ id, workspaceId, clientId }));
   }
@@ -71,7 +70,7 @@ class EmailDomainHandler extends BaseHandler {
     let clientId = req.authUser.clientId;
 
     let inst = new EmailDomainService()
-    return this.responder(req, reply, inst.listDomainKeys({id, clientId}))
+    return this.responder(req, reply, inst.listDomainKeys({ id, clientId }))
   }
 
   async verifyDomainKeys(req, reply) {
@@ -79,7 +78,19 @@ class EmailDomainHandler extends BaseHandler {
     let clientId = req.authUser.clientId;
 
     let inst = new EmailDomainService()
-    return this.responder(req, reply, inst.verifyDomainKeys({id, clientId}))
+    return this.responder(req, reply, inst.verifyDomainKeys({ id, clientId }))
+  }
+
+  async sendEmail(req, reply) {
+    let workspaceId = req.query.workspace_id;
+    let clientId = req.authUser.clientId;
+    let inst = new EmailDomainService()
+    return this.responder(req, reply, inst.sendEmail({ ...req.body, workspaceId, clientId }))
+  }
+
+  async emailWebhook(req, reply) {
+    let inst = new EmailDomainService()
+    return this.responder(req, reply, inst.emailWebhook(req.body))
   }
 
 }

@@ -1,7 +1,7 @@
 const { default: mongoose } = require('mongoose');
 const { v4: uuid } = require('uuid');
 
-const EmailDomainSchema = {
+const EmailChannelSchema = {
     fields: {
         id: {
             type: String,
@@ -11,12 +11,31 @@ const EmailDomainSchema = {
                 return uuid()
             }
         },
-        domain: {
+        channelName: {
+            type: String,
+            required: false,
+        },
+        senderName: {
             type: String,
             required: true,
         },
-        description: {
+        senderEmailAddress: {
             type: String,
+            required: true,
+        },
+        domainId: {
+            type: String,
+            required: true,
+        },
+        domainName: {
+            type: String,
+            required: true
+        },
+        teamId: {
+            type: String,
+        },
+        teamName: {
+            type: String
         },
         clientId: {
             type: String,
@@ -26,29 +45,9 @@ const EmailDomainSchema = {
             type: String,
             required: true,
         },
-        isVerified: {
+        isEnabled: {
             type: Boolean,
-            default: false
-        },
-        senderName: {
-            type: String,
-            required: false
-        },
-        fromEmail: {
-            type: String,
-            required: false
-        },
-        replyToEmail: {
-            type: String,
-            required: false
-        },
-        dnsRecords: {
-            type: Array,
-            default: []
-        },
-        mailgunRouteId: {
-            type: String,
-            default: null
+            default: true
         },
         createdBy: {
             type: String, // id of user
@@ -61,7 +60,7 @@ const EmailDomainSchema = {
             type: Date
         }
     },
-    schemaName: "emailDomain",
+    schemaName: "emailChannel",
     options: {
         timestamps: true
     },
@@ -73,4 +72,4 @@ const EmailDomainSchema = {
     ]
 };
 
-module.exports = EmailDomainSchema;
+module.exports = EmailChannelSchema;

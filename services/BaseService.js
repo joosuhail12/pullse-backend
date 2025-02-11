@@ -33,7 +33,7 @@ class BaseService {
         try {
             let entity = await this.utilityInst.insert(requestedData);
             return { id: entity.id };
-        }  catch(err) {
+        } catch (err) {
             return this.handleError(err);
         }
     }
@@ -55,7 +55,7 @@ class BaseService {
             } else {
                 return Promise.reject(new errors.NotFound(this.entityName + " not found."));
             }
-        }  catch(err) {
+        } catch (err) {
             return this.handleError(err);
         }
     }
@@ -69,7 +69,7 @@ class BaseService {
             } else {
                 return Promise.reject(new errors.NotFound(this.entityName + " not found."));
             }
-        }  catch(err) {
+        } catch (err) {
             return this.handleError(err);
         }
     }
@@ -78,7 +78,7 @@ class BaseService {
         try {
             let data = await this.utilityInst.findOne(filter, fields);
             return data;
-        }  catch(err) {
+        } catch (err) {
             return this.handleError(err);
         }
     }
@@ -88,17 +88,19 @@ class BaseService {
         try {
             let data = await this.utilityInst.countDocuments(filter);
             return data;
-        }  catch(err) {
+        } catch (err) {
             return this.handleError(err);
         }
     }
 
     async update(filter, updateValues) {
         try {
+            console.log(updateValues, 'updateValues')
             updateValues = _.pick(updateValues, this.updatableFields);
             let res = await this.updateOne(filter, updateValues);
+            console.log(res, 'res', updateValues)
             return res;
-        } catch(err) {
+        } catch (err) {
             return this.handleError(err);
         }
     }
@@ -107,7 +109,7 @@ class BaseService {
         try {
             let data = await this.utilityInst.updateOne(filter, setData);
             return data;
-        }  catch(err) {
+        } catch (err) {
             return this.handleError(err);
         }
     }
@@ -120,21 +122,21 @@ class BaseService {
             await this.findOrFail(id);
             await this.updateOne({ id }, setData);
             return Promise.resolve();
-        } catch(err) {
+        } catch (err) {
             return this.handleError(err);
         }
     }
 
-    async updateMany(filters, updateValues, options={}) {
+    async updateMany(filters, updateValues, options = {}) {
         try {
             let res = await this.utilityInst.updateMany(filters, updateValues, options);
             return res;
-        } catch(err) {
+        } catch (err) {
             return this.handleError(err);
         }
     }
 
-    async paginate(requestedData = {}, pagination=true) {
+    async paginate(requestedData = {}, pagination = true) {
         try {
             let conditions = await this.parseFilters(requestedData);
             if (!conditions.archiveAt) {
@@ -149,10 +151,10 @@ class BaseService {
             if (!_.isEmpty(requestedData.sort_by) && !_.isEmpty(requestedData.sort_order)) {
                 options.sort[requestedData.sort_by] = requestedData.sort_order;
             }
-
+            console.log(conditions)
             let data = await this.search(conditions, this.listingFields, options, pagination);
             return data;
-        } catch(err) {
+        } catch (err) {
             return this.handleError(err);
         }
     }
@@ -160,9 +162,9 @@ class BaseService {
     async bcryptToken(password) {
         let pass;
         try {
-            pass =  await bcrypt.hash(String(password), this.AuthConstants.SALTROUNDS);
+            pass = await bcrypt.hash(String(password), this.AuthConstants.SALTROUNDS);
         }
-        catch(err) {
+        catch (err) {
             this.handleError(err);
         }
         return pass;
@@ -171,7 +173,7 @@ class BaseService {
     async generateCryptoToken() {
         return new Promise((resolve, reject) => {
             crypto.randomBytes(20, (err, buf) => {
-                if(err) {
+                if (err) {
                     return reject(err);
                 }
                 let token = buf.toString('hex');
@@ -189,11 +191,11 @@ class BaseService {
      *   - Updates values based on updateValues parameter.
      *   - Returns aggregated data or handles any errors.
      */
-    async aggregate(options=[]) {
+    async aggregate(options = []) {
         try {
             let res = await this.utilityInst.aggregate(options);
             return res;
-        } catch(err) {
+        } catch (err) {
             return this.handleError(err);
         }
     }

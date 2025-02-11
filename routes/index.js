@@ -28,6 +28,7 @@ const webhookRoute = require('./webhookRoutes');
 const reportRoute = require('./reportRoutes');
 const customSupportEmailRoute = require('./customSupportEmailRoutes');
 const emailDomainRoute = require('./emailDomainRoutes');
+const emailChannelRoute = require('./emailChannelRoutes');
 const eventWorkflowRoute = require('./eventWorkflowRoutes');
 const emailTemplateRoute = require('./emailTemplateRoutes');
 const workspacePermission = require('./workspacePermission');
@@ -66,6 +67,6 @@ module.exports = {
     await eventWorkflowRoute.activate(app);
     await emailTemplateRoute.activate(app);
     await workspacePermission.activate(app);
-
+    await emailChannelRoute.activate(app);
   }
 };

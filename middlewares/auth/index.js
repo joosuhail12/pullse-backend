@@ -177,7 +177,7 @@ var _verifyUser = async (token) => {
       },
     },
   ]);
-  if(!user.length){
+  if (!user.length) {
     return Promise.reject(new errors.Unauthorized());
   }
 
@@ -216,7 +216,7 @@ var _checkToken = async (authUserType, req) => {
     let authUser;
 
     switch (
-      req.authUserType // authUserType is not user role, it's user table name
+    req.authUserType // authUserType is not user role, it's user table name
     ) {
       case AuthType.client:
         let tokenString = new Buffer.from(token, "base64").toString();

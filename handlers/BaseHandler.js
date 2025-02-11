@@ -19,6 +19,7 @@ class BaseHandler {
 
   async responder(req, res, promise) {
     let response = await responseHandler(req, res, promise);
+    console.log(response)
     return response;
   }
 }

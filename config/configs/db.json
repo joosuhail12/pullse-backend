@@ -9,35 +9,35 @@
     "db_host": {
         "doc": "Database host name/IP",
         "format": "String",
-        "default": "0.0.0.0:55000",
+        "default": "localhost:27017",
         "env": "DB_HOST",
         "arg": "db_host"
     },
     "db_name": {
         "doc": "Database name",
         "format": "String",
-        "default": "commentService",
+        "default": "pullse",
         "env": "DB_NAME",
         "arg": "db_name"
     },
     "is_auth_enable": {
         "doc": "if db authentication enables or not",
         "format": "Boolean",
-        "default": false,
+        "default": true,
         "env": "IS_DB_AUTH_ENABLE",
         "arg": "is_db_auth_enable"
     },
     "db_user": {
         "doc": "Database username",
         "format": "String",
-        "default": "test",
+        "default": "admin",
         "env": "DB_USER",
         "arg": "db_user"
     },
     "db_pass": {
         "doc": "Database password",
         "format": "String",
-        "default": "test",
+        "default": "securepassword",
         "env": "DB_PASSWORD",
         "arg": "db_password"
     },

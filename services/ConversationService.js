@@ -18,8 +18,8 @@ class ConversationService extends BaseService {
         super();
         this.entityName = "Conversation";
         this.utilityInst = new ConversationUtility();
-        this.listingFields = [ "id", "message", "type", "userType", "createdBy", "createdAt", "updatedAt", "-_id" ];
-        this.updatableFields = [ "message", ];
+        this.listingFields = ["id", "message", "type", "userType", "createdBy", "createdAt", "updatedAt", "-_id"];
+        this.updatableFields = ["message",];
         this.ticketInst = new TicketService();
     }
 
@@ -36,7 +36,7 @@ class ConversationService extends BaseService {
      * @param {object} newTicket
      * @returns {Promise}
      * */
-    async addMessage({ ticketId, message, type, userType, tagIds, mentionIds, createdBy, workspaceId, clientId }, newTicket=false) {
+    async addMessage({ ticketId, message, type, userType, tagIds, mentionIds, createdBy, workspaceId, clientId, lastMailgunMessageId = "" }, newTicket = false) {
         try {
             let ticket;
             if (newTicket) {
@@ -54,6 +54,8 @@ class ConversationService extends BaseService {
                     clientId,
                     createdBy,
                     workspaceId,
+                    lastMailgunMessageId,
+                    mailgunReferenceIds: [lastMailgunMessageId],
                     entityType: EntityType.conversation,
                     lastMessage: message,
                     lastMessageBy: UserType.customer,
@@ -62,18 +64,21 @@ class ConversationService extends BaseService {
                 ticket = await this.ticketInst.createTicket(data);
             } else {
                 ticket = await this.ticketInst.findOne({ id: ticketId });
-                let ticketUpdate = {}
+                let ticketUpdate = {
+                    lastMailgunMessageId,
+                    mailgunReferenceIds: ticket.mailgunReferenceIds.concat([lastMailgunMessageId])
+                }
                 if (mentionIds) {
                     ticketUpdate = {
                         $addToSet: {
-                        mentionIds: { $each: mentionIds }
+                            mentionIds: { $each: mentionIds }
                         }
                     };
                 }
                 if (tagIds) {
                     ticketUpdate = {
                         $addToSet: {
-                        tagIds: { $each: tagIds }
+                            tagIds: { $each: tagIds }
                         }
                     };
                 }
@@ -91,18 +96,19 @@ class ConversationService extends BaseService {
                 return Promise.reject(new errors.NotFound("Ticket not found."));
             }
             let messageData = { ticketId: ticket.id, message, type, userType, createdBy, workspaceId, clientId }
-            if ([ MessageType.note, MessageType.summary, MessageType.qa ].includes(type)) {
+            if ([MessageType.note, MessageType.summary, MessageType.qa].includes(type)) {
                 messageData.visibleTo = UserType.agent;
             }
             let msg = await this.create(messageData);
             let conversationMessage = await this.findOne({ id: msg.id });
             let inst = new ConversationEventPublisher();
-            await inst.created(conversationMessage, ticket, !!newTicket);
+            inst.created(conversationMessage, ticket, !!newTicket);
+
             return {
                 conversationMessage,
                 ticket,
             };
-        } catch(err) {
+        } catch (err) {
             return this.handleError(err);
         }
     }
@@ -186,7 +192,7 @@ class ConversationService extends BaseService {
         }
     }
 
-    async addChatBotResponse(ticket, conversationMessage, chatbotProfile, thread=null) {
+    async addChatBotResponse(ticket, conversationMessage, chatbotProfile, thread = null) {
         /**
          * get or create a thread for this ticket decisionEngine.llmInst.addThread
          * and message and send response decisionEngine.llmInst.addMessage
@@ -224,10 +230,11 @@ class ConversationService extends BaseService {
      * @param {string} returnType
      * @returns {string|array}
      * */
-    async getAllMessageOfConversation(ticketId, returnType="string") {
+    async getAllMessageOfConversation(ticketId, returnType = "string", type = MessageType.text) {
         try {
-            let conditions = { ticketId: ticketId, type: MessageType.text };
-            let conversation = await this.search(conditions, ["message", "userType"], {}, false);
+            let conditions = { ticketId: ticketId, type: type };
+            let conversation = await this.search(conditions, ["message", "userType", "createdAt"], { orderBy: 'createdAt', ascending: true }, false);
+
             if (returnType === "array") {
                 return conversation;
             }
@@ -257,7 +264,7 @@ class ConversationService extends BaseService {
      * @param {string} returnType
      * @returns {string|array}
      * */
-    async getConversation(ticketSno, workspaceId, clientId, OtherFilters = {}, user=null) {
+    async getConversation(ticketSno, workspaceId, clientId, OtherFilters = {}, user = null) {
         try {
             let ticket = await this.ticketInst.getDetails(ticketSno, workspaceId, clientId);
             if (!ticket) {
@@ -273,7 +280,7 @@ class ConversationService extends BaseService {
 
             let ticketId = ticket.id;
             return this.paginate({ ...OtherFilters, ticketId, workspaceId, clientId, });
-        }  catch(err) {
+        } catch (err) {
             return this.handleError(err);
         }
     }
@@ -291,7 +298,7 @@ class ConversationService extends BaseService {
                 return Promise.reject(new errors.NotFound("Message not found."));
             }
             return message;
-        }  catch(err) {
+        } catch (err) {
             return this.handleError(err);
         }
     }
@@ -312,7 +319,7 @@ class ConversationService extends BaseService {
                 return Promise.reject(new errors.NotFound("Message not found."));
             }
             return message;
-        }  catch(err) {
+        } catch (err) {
             return this.handleError(err);
         }
     }
@@ -332,7 +339,7 @@ class ConversationService extends BaseService {
             let message = await this._getUserMessage(id, ticketId, workspaceId, clientId, createdBy);
             await this.update({ id: message.id }, updateValues);
             return Promise.resolve();
-        } catch(err) {
+        } catch (err) {
             return this.handleError(err);
         }
     }
@@ -351,7 +358,7 @@ class ConversationService extends BaseService {
             let message = await this._getUserMessage(id, ticketId, workspaceId, clientId, createdBy);
             let res = await this.softDelete(message.id);
             return res;
-        } catch(err) {
+        } catch (err) {
             return this.handleError(err);
         }
     }
