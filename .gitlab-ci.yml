@@ -1,0 +1,51 @@
+image: node:22.14.0
+
+stages:
+  - build
+  - deploy
+
+cache:
+  paths:
+    - node_modules/
+
+build:
+  stage: build
+  script:
+    - npm install
+    - echo "$ENV_FILE" | sed 's/\\n/\n/g' > .env  # Create .env file in the project
+    - cat package.json | jq -r '.version' > version.txt  # Extract version number
+  artifacts:
+    paths:
+      - .  # Store everything including `.env` and `version.txt`
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'  # Run only on the main branch
+
+deploy:
+  stage: deploy
+  before_script:
+    - mkdir -p ~/.ssh
+    - echo "$PEM_KEY" > ~/.ssh/pullse-development-server-1.pem
+    - chmod 600 ~/.ssh/pullse-development-server-1.pem
+    - ssh-keyscan -H "$VM_IP" >> ~/.ssh/known_hosts
+  script:
+    - scp -i ~/.ssh/pullse-development-server-1.pem -o StrictHostKeyChecking=no -r . "$VM_USERNAME@$VM_IP:/home/$VM_USERNAME/pullse_backend_new"
+    - |
+      ssh -i ~/.ssh/pullse-development-server-1.pem -o StrictHostKeyChecking=no "$VM_USERNAME@$VM_IP" <<EOF
+      cd /home/$VM_USERNAME
+      VERSION=\$(cat pullse_backend_new/version.txt)  # Read version from file
+      if [ -d "pullse_backend" ]; then
+        mv pullse_backend "pullse_backend_backup_\$VERSION"  # Rename old pullse_backend with version
+      fi
+      mv pullse_backend_new pullse_backend  # Move new build to 'pullse_backend'
+      cd pullse_backend
+      rm -f version.txt
+      export NVM_DIR="\$HOME/.nvm"
+      [ -s "\$NVM_DIR/nvm.sh" ] && \. "\$NVM_DIR/nvm.sh"  # Load NVM
+      [ -s "\$NVM_DIR/bash_completion" ] && \. "\$NVM_DIR/bash_completion"  # Load NVM completion
+      nvm use 20  # Ensure correct Node.js version is used
+      pm2 restart backendPullse
+      EOF
+  after_script:
+    - rm -f ~/.ssh/pullse-development-server-1.pem  # Securely remove the key
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'  # Run only on the main branch
