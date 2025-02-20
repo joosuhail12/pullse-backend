@@ -1,5 +1,5 @@
 const { v4: uuid } = require('uuid');
-const { Status: TicketStatus, EntityType } = require('../../constants/TicketConstants');
+const { Status: TicketStatus, EntityType } = require('../../../constants/TicketConstants');
 
 const TicketSchema = {
     fields: {

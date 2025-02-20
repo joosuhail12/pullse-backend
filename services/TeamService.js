@@ -1,26 +1,25 @@
 const Promise = require("bluebird");
 const errors = require("../errors");
-const TeamUtility = require('../db/utilities/TeamUtility');
+const TeamUtility = require("../db/utilities/TeamUtility");
 const BaseService = require("./BaseService");
 const _ = require("lodash");
 
 class TeamService extends BaseService {
-
-    constructor(fields=null, dependencies=null) {
+    constructor(fields = null, dependencies = null) {
         super();
         this.utilityInst = new TeamUtility();
-        this.entityName = 'Team';
-        this.listingFields = ["-_id"];
+        this.entityName = "teams";
+        this.listingFields = ["id", "name", "description"];
         if (fields) {
             this.listingFields = fields;
         }
-        this.updatableFields = [ "name", "description", ];
+        this.updatableFields = ["name", "description"];
     }
 
     async createTeam(data) {
         try {
             return this.create(data);
-        } catch(err) {
+        } catch (err) {
             return this.handleError(err);
         }
     }
@@ -29,10 +28,10 @@ class TeamService extends BaseService {
         try {
             let team = await this.findOne({ id, workspaceId, clientId });
             if (_.isEmpty(team)) {
-                return Promise.reject(new errors.AlreadyExist(this.entityName + " not exist."));
+                return Promise.reject(new errors.NotFound(`${this.entityName} not found.`));
             }
             return team;
-        }  catch(err) {
+        } catch (err) {
             return this.handleError(err);
         }
     }
@@ -40,9 +39,9 @@ class TeamService extends BaseService {
     async updateTeam({ id, workspaceId, clientId }, updateValues) {
         try {
             let team = await this.getDetails(id, workspaceId, clientId);
-            await this.update({ id: team.id}, updateValues);
+            await this.update({ id: team.id }, updateValues);
             return Promise.resolve();
-        } catch(e) {
+        } catch (e) {
             return Promise.reject(e);
         }
     }
@@ -52,31 +51,23 @@ class TeamService extends BaseService {
             let team = await this.getDetails(id, workspaceId, clientId);
             let res = await this.softDelete(team.id);
             return res;
-        } catch(err) {
+        } catch (err) {
             return this.handleError(err);
         }
     }
 
     parseFilters({ name, createdFrom, createdTo, workspaceId, clientId }) {
-        let filters = {};
-        filters.clientId = clientId;
-        filters.workspaceId = workspaceId;
+        let filters = { clientId, workspaceId };
 
         if (name) {
-            filters.name = { $regex : `^${name}`, $options: "i" };
+            filters.name = { $ilike: `%${name}%` };
         }
 
         if (createdFrom) {
-            if (!filters.createdAt) {
-                filters.createdAt = {}
-            }
-            filters.createdAt['$gte'] = createdFrom;
+            filters.createdAt = { $gte: createdFrom };
         }
         if (createdTo) {
-            if (!filters.createdAt) {
-                filters.createdAt = {}
-            }
-            filters.createdAt['$lt'] = createdTo;
+            filters.createdAt = { ...filters.createdAt, $lte: createdTo };
         }
 
         return filters;

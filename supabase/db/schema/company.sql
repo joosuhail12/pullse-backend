@@ -1,0 +1,22 @@
+CREATE TABLE company (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name TEXT NOT NULL,
+    description TEXT,
+    phone TEXT,
+    number_of_employees INT,
+    annual_revenue INT,
+    websites TEXT[],
+    notes TEXT,
+    industry TEXT,
+    address TEXT,
+    city TEXT,
+    state TEXT,
+    zipcode TEXT,
+    country TEXT,
+    workspace_id UUID NOT NULL REFERENCES workspace(id),
+    client_id UUID NOT NULL REFERENCES clients(id),
+    created_by UUID NOT NULL REFERENCES users(id),
+    deleted_at TIMESTAMP,
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
+);

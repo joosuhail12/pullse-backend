@@ -58,6 +58,15 @@ class CustomerHandler extends BaseHandler {
     return this.responder(req, reply, inst.getDetails(customer_id, workspaceId, clientId));
   }
 
+  // async getCustomerProfile(req, reply) {
+  //   if (!req.headers['session-id'] || !req.authUser?.email) {
+  //     return this.responder(req, reply, Promise.reject(new errors.Unauthorized()));
+  //   }
+
+  //   let profile = _.pick(req.authUser, [ "id","name", "email", "type",]);
+  //   return this.responder(req, reply, Promise.resolve(profile));
+  // }
+
   async getCustomerProfile(req, reply) {
     if (!req.headers['session-id'] || !req.authUser?.email) {
       return this.responder(req, reply, Promise.reject(new errors.Unauthorized()));

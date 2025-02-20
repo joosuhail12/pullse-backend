@@ -46,7 +46,6 @@ class EventConsumer extends Consumer {
     let receivedAt = new Date();
     let sentAt = new Date(at);
     if (!this.EventHandlers[event]) {
-      console.log(message);
       throw new Error(`No handlers for event: ${event}`);
     }
     try {

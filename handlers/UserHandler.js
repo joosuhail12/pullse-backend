@@ -12,6 +12,8 @@ class UserHandler extends BaseHandler {
     let inst = new UserService();
     let clientId = req.authUser.clientId;
     let createdBy = req.authUser.id;
+    const { workspace_id } = req.query;
+    let defaultWorkspaceId = workspace_id ? workspace_id : req.authUser.defaultWorkspaceId;
     let userData = {
       fName: req.body.first_name,
       lName: req.body.last_name,
@@ -19,7 +21,9 @@ class UserHandler extends BaseHandler {
       password: req.body.password,
       confirmPassword: req.body.confirm_password,
       createdBy: createdBy,
-      clientId: clientId
+      clientId: clientId,
+      roleIds: [req.body.role],
+      defaultWorkSpace: defaultWorkspaceId
     };
     return this.responder(req, reply, inst.createUser(userData));
   }

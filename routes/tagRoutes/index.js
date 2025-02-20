@@ -16,7 +16,7 @@ async function activate(app) {
     preHandler: authorize('create','Tag'),
     schema: {
       operationId: "CreateTag",
-      tags: ['Tag'],
+      tags: ['tags'],
       summary: 'Create User Tag',
       description: 'API to create user tag.',
       body: {
@@ -46,7 +46,7 @@ async function activate(app) {
     preHandler: authorize('read','Tag'),
     schema: {
       operationId: "ListTags",
-      tags: ['Tag'],
+      tags: ['tags'],
       summary: 'List Tags',
       description: 'API to list all Tags.',
       required: [],
@@ -85,10 +85,10 @@ async function activate(app) {
     url: base_url + "/:tag_id",
     method: 'GET',
     name: "ShowTagDetail",
-    preHandler: authorize('details','Tag'),
+    preHandler: authorize('details','tags'),
     schema: {
       operationId: "ShowTagDetail",
-      tags: ['Tag'],
+      tags: ['tags'],
       summary: 'Show Tag Detail',
       description: 'API to show detail of a Tag.',
       required: [],
@@ -105,7 +105,7 @@ async function activate(app) {
     preHandler: authorize('update','Tag'),
     schema: {
       operationId: "UpdateTag",
-      tags: ['Tag'],
+      tags: ['tags'],
       summary: 'Update Tag',
       description: 'API to update a Tag.',
       required: [],
@@ -131,7 +131,7 @@ async function activate(app) {
     preHandler: authorize('archive','Tag'),
     schema: {
       operationId: "DeleteTag",
-      tags: ['Tag'],
+      tags: ['tags'],
       summary: 'Delete Tag',
       description: 'API to delete a Tag.',
       required: [],

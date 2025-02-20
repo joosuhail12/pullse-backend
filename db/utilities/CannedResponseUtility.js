@@ -1,10 +1,9 @@
-const CannedResponseSchema = require("../schemas/CannedResponseSchema");
 const BaseUtility = require("./BaseUtility");
 
 class CannedResponseUtility extends BaseUtility {
-  constructor() {
-    super(CannedResponseSchema);
-  }
+    constructor() {
+        super("cannedResponses");
+    }
 }
 
 module.exports = CannedResponseUtility;

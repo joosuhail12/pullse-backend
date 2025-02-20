@@ -1,9 +1,8 @@
-const TeamSchema = require("../schemas/TeamSchema");
 const BaseUtility = require("./BaseUtility");
 
 class TeamUtility extends BaseUtility {
   constructor() {
-    super(TeamSchema);
+    super("teams"); // Supabase table name
   }
 }
 

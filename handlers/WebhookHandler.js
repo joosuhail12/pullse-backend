@@ -54,7 +54,6 @@ class WebhookHandler extends BaseHandler {
         // don't create new ticket if a conversation exist with Message-ID
       };
       await this.conversationServiceInst.addMessage(messageData, ticketData);
-      console.log(`Got new email from: ${req.body.from} with Subject ${req.body.subject}`);
     } catch (error) {
       console.error(error);
     }

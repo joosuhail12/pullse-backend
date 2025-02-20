@@ -13,7 +13,9 @@ const TagService = require("../../services/TagService");
 const Handler = require("../../handlers/BaseHandler");
 
 const config = require("../../config");
+const { createClient } = require('@supabase/supabase-js');
 
+const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
 var _checkRole = (req, roles) => {
   if (!req.authUser || !req.authUser.roleIds) {
     return false;
@@ -133,72 +135,49 @@ var _verifyUserTokenData = async (token) => {
   //     return Promise.reject(new errors.Unauthorized());
   //   });
 };
-var _verifyUser = async (token) => {
+const _verifyUser = async (token) => {
   let userServiceInst = new AuthService();
-  let user = await userServiceInst.aggregate([
-    {
-      $match: {
-        "accessTokens.token": token, // Match the user by the provided token
-      },
-    },
-    {
-      $lookup: {
-        from: "workspacepermissions", // Permissions collection
-        let: { workspaceId: "$defaultWorkspaceId", userId: "$id" }, // Pass workspaceId and userId from the user document
-        pipeline: [
-          {
-            $match: {
-              $expr: {
-                $and: [
-                  { $eq: ["$workspaceId", "$$workspaceId"] }, // Match workspaceId
-                  { $eq: ["$userId", "$$userId"] },           // Match userId
-                ],
-              },
-            },
-          },
-        ],
-        as: "permissions", // Array of matched permissions
-      },
-    },
-    {
-      $unwind: {
-        path: "$permissions",
-        preserveNullAndEmptyArrays: true, // Keep user document even if no permissions match
-      },
-    },
-    {
-      $addFields: {
-        role: "$permissions.role", // Add the `role` field to the user document
-      },
-    },
-    {
-      $project: {
-        permissions: 0, // Remove the temporary `permissions` field from the result
-      },
-    },
-  ]);
-  if(!user.length){
-    return Promise.reject(new errors.Unauthorized());
+
+  // Fetch user based on the token
+  let { data: session, error: sessionError } = await supabase
+      .from('userAccessTokens') // Assuming userSessions table stores access tokens
+      .select('user_id, expiry')
+      .eq('token', token)
+      .single();
+  if (sessionError || !session) {
+      return Promise.reject(new errors.Unauthorized());
   }
 
-  return user[0]
+  // Check if session expired
+  if (session.expiry < Date.now()) {
+      return Promise.reject(new errors.Unauthorized("Session expired, please login again."));
+  }
 
-  // console.log(user, "authenticationUser", user);
-  // return userServiceInst
-  //   .findOne({ "accessTokens.token": token })
-  //   .then((user) => {
-  //     if (user?.expiry || user.expiry < Date.now()) {
-  //       return Promise.reject(
-  //         new errors.Unauthorized("Session expired, please login again.")
-  //       );
-  //     }
-  //     return user;
-  //   })
-  //   .catch((err) => {
-  //     logger.error("User verification failed", err);
-  //     return Promise.reject(new errors.Unauthorized());
-  //   });
+  // Fetch full user details
+  let { data: user, error: userError } = await supabase
+      .from('users')
+      .select('id, email, fName, lName, defaultWorkspaceId, clientId')
+      .eq('id', session.user_id)
+      .single();
+
+  if (userError || !user) {
+      return Promise.reject(new errors.Unauthorized());
+  }
+
+  // Fetch user role from workspacePermissions
+  let { data: permission, error: permissionError } = await supabase
+      .from('workspacePermissions')
+      .select('role')
+      .eq('userId', user.id)
+      .eq('workspaceId', user.defaultWorkspaceId)
+      .single();
+
+  return {
+      ...user,
+      role: permission?.role || null, // Add role if available
+  };
 };
+
 
 var _verifyService = (token) => {
   if (config.app.static_token != token) {
@@ -214,7 +193,6 @@ var _checkToken = async (authUserType, req) => {
     token = await _getToken(req);
     sessionId = await _getSessionId(req);
     let authUser;
-
     switch (
       req.authUserType // authUserType is not user role, it's user table name
     ) {
@@ -240,7 +218,6 @@ var _checkToken = async (authUserType, req) => {
         logger.error("Unknown user type", authUser);
         return Promise.reject(new errors.Internal("Unknown user type."));
     }
-
     if (!authUser) {
       return Promise.reject(new errors.Unauthorized());
     }

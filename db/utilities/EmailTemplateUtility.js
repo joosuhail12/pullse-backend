@@ -1,9 +1,8 @@
-const EmailTemplateSchema = require("../schemas/EmailTemplateSchema");
 const BaseUtility = require("./BaseUtility");
 
 class EmailTemplateUtility extends BaseUtility {
   constructor() {
-    super(EmailTemplateSchema);
+    super("emailTemplates"); // Supabase table name
   }
 }
 

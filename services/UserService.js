@@ -1,106 +1,127 @@
-// const camelcaseKeys = require('camelcase-keys');
 const _ = require("lodash");
 const Promise = require("bluebird");
 const UserUtility = require('../db/utilities/UserUtility');
 const BaseService = require("./BaseService");
 const errors = require("../errors");
 const WorkspaceService = require("./WorkspaceService");
+const { createClient } = require('@supabase/supabase-js');
 
+const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
 
 class UserService extends BaseService {
 
-    constructor(fields=null, dependencies=null) {
+    constructor(fields = null, dependencies = null) {
         super();
-        this.entityName = "User";
+        this.entityName = "users";
         this.utilityInst = new UserUtility();
         this.WorkspaceService = WorkspaceService;
-        this.listingFields = [ "id", "name", "roleIds", "status", "teamId", "createdBy", "createdAt", "lastLoggedInAt", "-_id" ];
+        this.supabase = supabase;
+        this.listingFields = ["id", "name", "roleIds", "status", "teamId", "createdBy", "created_at", "lastLoggedInAt"];
         if (fields) {
             this.listingFields = fields;
         }
-        this.updatableFields = [ "fName", "lName", "name", "roleIds", "teamId", "status", "defaultWorkspaceId"];
+        this.updatableFields = ["fName", "lName", "name", "roleIds", "teamId", "status", "defaultWorkspaceId"];
     }
 
-    async createUser({ fName, lName, email, roleIds=[], confirmPassword, password, createdBy, clientId,role,defaultWorkSpace='' }) {
+    async createUser({ fName, lName, email, roleIds = [], confirmPassword, password, createdBy, clientId, defaultWorkSpace = null }) {
         try {
             let name = this.name(fName, lName);
-            if (confirmPassword && confirmPassword != password) {
-                return new errors.BadRequest("confirm password and password does not match.");
+            // Step 1: Validate Password Confirmation
+            if (confirmPassword && confirmPassword !== password) {
+                return new errors.BadRequest("Confirm password and password do not match.");
             }
+    
+            // Step 2: Hash the Password
             password = await this.bcryptToken(password);
-            return this.create({ fName, lName, name, email, password, roleIds,role, createdBy, clientId,defaultWorkspaceId:defaultWorkSpace }).catch(err => {
-                if (err instanceof errors.Conflict) {
-                    return new errors.AlreadyExist("User already exist.");
+    
+            // Step 3: Ensure roleIds is stored as an array (PostgreSQL expects an array format)
+            roleIds = roleIds.length > 0 ? roleIds : []; // Ensure empty array if not provided
+    
+            // Step 4: Insert User into Supabase
+            const { data: user, error: userError } = await this.supabase
+                .from("users")
+                .insert([
+                    {
+                        fName,
+                        lName,
+                        name,
+                        email,
+                        password,
+                        roleIds, // Ensure this is an array
+                        createdBy,
+                        clientId,
+                        defaultWorkspaceId: defaultWorkSpace || null // Ensuring correct null handling
+                    }
+                ])
+                .select("*") // Selecting all fields to confirm insertion
+                .single(); // Ensure only one user is returned
+    
+            // Step 5: Handle Errors
+            if (userError) {
+                console.error("Supabase Insert Error:", userError);
+                if (userError.code === "23505") { // Unique constraint violation
+                    return new errors.AlreadyExist("User already exists.");
                 }
-                return Promise.reject(err);
-            });
-        } catch(e) {
-            console.log("Error in create() of UserService", e);
+                throw userError;
+            }
+    
+            return user;
+    
+        } catch (e) {
+            console.error("Error in createUser:", e);
             return Promise.reject(e);
         }
     }
-
+    
+    
     async getDetails(id, clientId) {
         try {
-            let user = await this.aggregate([
-                {
-                    $match: {
-                        $and: [
-                            { "id": id },
-                            { "clientId": clientId }
-                        ]
-                    }
-                },
-                {
-                    $lookup: {
-                        from: "workspaces", // Collection to join
-                        localField: "defaultWorkspaceId", // Field in the current collection
-                        foreignField: "id", // Field in the workspace collection
-                        as: "workspace" // Output array field
-                    }
-                },
-                {
-                    $unwind: {
-                        path: "$workspace",
-                        preserveNullAndEmptyArrays: true // Keep document even if no matching workspace
-                    }
-                },
-                {
-                    $lookup: {
-                        from: "workspacepermissions", // Permissions collection
-                        let: { workspaceId: "$workspace.id", userId:id}, // Variables from the current collection
-                        pipeline: [
-                            {
-                                $match: {
-                                    $expr: {
-                                        $and: [
-                                            { $eq: ["$workspaceId", "$$workspaceId"] }, // Match workspace.id
-                                            { $eq: ["$userId", "$$userId"] }           // Match userId
-                                        ]
-                                    }
-                                }
-                            }
-                        ],
-                        as: "workspace.permission"
-                    }
-                },
-                {
-                    $unwind: {
-                        path: "$workspace.permission",
-                        preserveNullAndEmptyArrays: true // Keep documents even if no match is found
-                    }
-                }
-            ]);
-            
-            console.log(user,"userPermisison")
-            if (_.isEmpty(user)) {
-                return Promise.reject(new errors.NotFound(this.entityName + " not found."));
+
+            // Step 1: Fetch user details with the correct workspace relation
+            let { data: user, error: userError } = await this.supabase
+                .from("users")
+                .select(`
+                    *,
+                    workspace:workspace!fk_users_workspace(*),
+                    permissions:workspacePermissions(*)
+                `)
+                .eq("id", id)
+                .eq("clientId", clientId)
+                .maybeSingle(); // Changed from `single()` to `maybeSingle()`
+
+
+            if (userError) throw userError;
+            if (!user) return Promise.reject(new errors.NotFound(this.entityName + " not found."));
+
+            // Step 2: Ensure user has a workspace
+            if (!user.defaultWorkspaceId) {
+                console.log("User does not have a default workspace.");
+                return user;
             }
-            return user[0];
-        }  catch(err) {
+
+            // Step 3: Fetch workspace permissions separately
+            let { data: permissions, error: permissionError } = await this.supabase
+                .from("workspacePermissions")
+                .select("*")
+                .eq("workspaceId", user.defaultWorkspaceId)
+                .eq("userId", id)
+                .maybeSingle();
+
+            if (permissionError) throw permissionError;
+
+            // Step 4: Attach permissions to workspace
+            if (user.workspace) {
+                user.workspace.permission = permissions || null;
+            }
+
+            return user;
+
+        } catch (err) {
+            console.error("Error in getDetails:", err);
             return this.handleError(err);
         }
     }
+
 
     async getUserDefaultWorkspace(user) {
         try {
@@ -116,18 +137,17 @@ class UserService extends BaseService {
                 return Promise.reject(new errors.NotFound("User don't have a workspace."));
             }
             return defaultWorkspace;
-        }  catch(err) {
+        } catch (err) {
             return this.handleError(err);
         }
     }
 
     async updateUser({ user_id, clientId }, updateValues) {
-
-        console.log(updateValues,"updateValuesupdateValuesupdateValues")
         try {
-            await this.update({ id: user_id, clientId }, updateValues);
+            const { error } = await this.supabase.from('users').update(updateValues).match({ id: user_id, clientId });
+            if (error) throw error;
             return Promise.resolve();
-        } catch(e) {
+        } catch (e) {
             console.log("Error in update() of UserService", e);
             return Promise.reject(e);
         }
@@ -135,9 +155,10 @@ class UserService extends BaseService {
 
     async deleteUser(id) {
         try {
-            let res = await this.softDelete(id);
-            return res;
-        } catch(err) {
+            const { error } = await this.supabase.from('users').update({ deleted: true }).eq('id', id);
+            if (error) throw error;
+            return true;
+        } catch (err) {
             return this.handleError(err);
         }
     }
@@ -151,30 +172,22 @@ class UserService extends BaseService {
         filters.clientId = clientId;
 
         if (name) {
-            filters.name = { $regex : `^${name}`, $options: "i" };
+            filters.name = name;
         }
         if (email) {
             filters.email = email;
         }
-
         if (roleId) {
             filters.roleIds = roleId;
         }
         if (teamId) {
             filters.teamId = teamId;
         }
-
         if (createdFrom) {
-            if (!filters.createdAt) {
-                filters.createdAt = {}
-            }
-            filters.createdAt['$gte'] = createdFrom;
+            filters.createdAt = { gte: createdFrom };
         }
         if (createdTo) {
-            if (!filters.createdAt) {
-                filters.createdAt = {}
-            }
-            filters.createdAt['$lt'] = createdTo;
+            filters.createdAt = { lt: createdTo };
         }
 
         return filters;

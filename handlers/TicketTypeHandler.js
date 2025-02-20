@@ -23,8 +23,8 @@ class TicketTypeHandler extends BaseHandler {
     let clientId = req.authUser.clientId;
     let filters = {
       name: req.query.name,
-      createdFrom: req.query.created_from,
-      createdTo: req.query.created_to,
+      createdFrom: req.query.createdFrom,
+      createdTo: req.query.createdTo,
       skip: req.query.skip,
       limit: req.query.limit,
       page: req.query.page,
@@ -33,7 +33,6 @@ class TicketTypeHandler extends BaseHandler {
       workspaceId,
       clientId
     };
-
     return this.responder(req, reply, inst.paginate(filters));
   }
 

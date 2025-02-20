@@ -10,17 +10,16 @@ class CompanyService extends BaseService {
     constructor() {
         super();
         this.utilityInst = new CompanyUtility();
-        this.entityName = 'Company';
-        this.listingFields = [ "id", "name", "phone", "numberOfEmployees", "annualRevenue", "websites", "accountTier", "industry",  "city", "state", "country", "-_id" ];
-        this.updatableFields = [ "name", "description", "phone", "numberOfEmployees", "annualRevenue", "websites", "notes", "tagIds", "accountTier", "industry", "address", "city", "state", "zipcode", "country", ];
+        this.entityName = 'companies';
+        this.listingFields = [ "id", "name", "phone", "numberOfEmployees", "annualRevenue", "websites", "accountTier", "industry",  "city", "state", "country", "id" ];
+        this.updatableFields = [ "name", "description", "phone", "numberOfEmployees", "annualRevenue", "websites", "notes", "tagIds", "accountTier", "industry", "address", "city", "state", "zipcode", "country" ];
     }
 
     async createCompany(companyData = {}) {
         try {
             let { name, clientId, workspaceId } = companyData;
-            let company = await this.findOne({ name: { $regex : `^${name}$`, $options: "i" }, clientId, workspaceId });
+            let company = await this.findOne({ name: name, clientId, workspaceId });
             if (!_.isEmpty(company)) {
-                // return Promise.reject(new errors.AlreadyExist(this.entityName + " already exist."));
                 return Promise.resolve(company);
             }
             company = await this.create(companyData);
@@ -73,7 +72,7 @@ class CompanyService extends BaseService {
         filters.clientId = clientId;
 
         if (name) {
-            filters.name = { $regex : `^${name}`, $options: "i" };
+            filters.name = name;
         }
 
         if (tagId) {
@@ -86,15 +85,15 @@ class CompanyService extends BaseService {
 
         if (createdFrom) {
             if (!filters.createdAt) {
-                filters.createdAt = {}
+                filters.createdAt = {};
             }
-            filters.createdAt['$gte'] = createdFrom;
+            filters.createdAt['gte'] = createdFrom;
         }
         if (createdTo) {
             if (!filters.createdAt) {
-                filters.createdAt = {}
+                filters.createdAt = {};
             }
-            filters.createdAt['$lt'] = createdTo;
+            filters.createdAt['lt'] = createdTo;
         }
 
         return filters;

@@ -111,12 +111,6 @@ async function activate(app) {
     }
   });
 
-
-
-
-
-
-
   app.route({
     url: base_url + "/:workspace_id",
     method: 'GET',

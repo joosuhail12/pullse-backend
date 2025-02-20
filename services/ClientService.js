@@ -1,88 +1,127 @@
-const Promise = require("bluebird");
+require('dotenv').config();
+const { createClient } = require('@supabase/supabase-js');
 const errors = require("../errors");
-const ClientUtility = require('../db/utilities/ClientUtility');
 const BaseService = require("./BaseService");
 const AuthService = require("./AuthService");
-const _ = require("lodash");
-const ClientConstants = require('../constants/ClientConstants');
 const WorkspaceService = require("./WorkspaceService");
 const WorkspacePermissionService = require("./WorkspacePermissionService");
 const UserService = require("./UserService");
 
-
 class ClientService extends BaseService {
-
-    constructor(fields=null, dependencies={}) {
+    constructor() {
         super();
-        this.utilityInst = new ClientUtility();
-        this.WorkspaceService = WorkspaceService; // dependencies.WorkspaceService
-        this.WorkspacePermissionService = WorkspacePermissionService; // dependencies.WorkspaceService
-        this.AuthService = AuthService; // dependencies.AuthService
-        this.UserService = UserService; // dependencies.AuthService
         this.entityName = 'Client';
-        this.listingFields = ['id', 'name', 'status', "-_id"];
-        this.updatableFields = ['name', 'status', 'ownerId'];
+        this.listingFields = ['id', 'name', 'status'];
+        this.updatableFields = ['name', 'status', 'owner_id'];
+        this.supabase = createClient(
+            process.env.SUPABASE_URL,
+            process.env.SUPABASE_KEY
+        );
     }
 
     async createClient({ name, status, owner, createdBy }) {
         try {
-            let client = await this.findOne({ name: { $regex : `^${name}$`, $options: "i" } });
-            // can convert case to lower and then md5 for it to check if name already exist
-            if (client) {
+            const { data: existingClient, error: clientError } = await this.supabase
+                .from('clients')
+                .select('id')
+                .ilike('name', name)
+                .single();
+
+            if (existingClient) {
                 return Promise.reject(new errors.AlreadyExist(`${this.entityName} with name "${name}" already exists.`));
             }
-            const userInst = new this.AuthService();
-            let newClientServiceInst =  ClientService
-            const workspaceServiceInst = new this.WorkspaceService(null, { AuthService: this.AuthService, ClientService: newClientServiceInst, WorkspacePermissionService: this.WorkspacePermissionService, UserService: this.UserService });
-            // const workspacePermssionSerInst = new this.WorkspacePermissionService(null,{UserService:this.UserService})
-            let user = await userInst.findOne({ email: owner.email });
+
+            const authService = new AuthService();
+            const workspaceService = new WorkspaceService();
+            const userService = new UserService();
+
+            let { data: user, error: userError } = await this.supabase
+                .from('users')
+                .select('id')
+                .eq('email', owner.email)
+                .single();
+
             if (user) {
                 return Promise.reject(new errors.AlreadyExist(`${this.entityName} owner with email "${owner.email}" already exists.`));
             }
-            client = await this.create({ name, status, createdBy });
+
+            const { data: client, error: createClientError } = await this.supabase
+                .from('clients')
+                .insert([{ name, status, createdBy: createdBy }])
+                .select()
+                .single();
+
+            if (createClientError) throw createClientError;
+
             owner.clientId = client.id;
             owner.createdBy = createdBy;
-            // owner.roleIds = 'AGENT_ADMIN';
-            let workspaceData = { name: `${name}-workspace`, clientId: client.id, createdBy};
-            user = await userInst.createUser(owner);
-            await this.updateClient(client.id, { ownerId: user.id });
-            let workspace = await workspaceServiceInst.createWorkspace(workspaceData);
-            await this.updateClient(client.id, { defaultWorkspaceId: workspace.id });
-            // await workspacePermssionSerInst.createWorkspacePermission({userId:user.id, clientId:owner.clientId, workspaceId:workspace.id, role:'ORGANIZATION_ADMIN', createdBy:createdBy});
-            return {
-                client,
-                user,
-                workspace
-            };
-        } catch(err) {
+            const { data: role, error: roleError } = await this.supabase
+                .from('userRoles')
+                .select('id')
+                .eq('name', 'ORGANIZATION_ADMIN')
+                .single();
+            if (roleError) throw roleError;
+            owner.roleIds = [role.id];
+
+            user = await userService.createUser(owner);
+            await this.supabase
+            .from('clients')
+            .update({ ownerId: user.id })
+            .eq('id', client.id);
+            
+            let workspaceData = { name: `${name}-workspace`, clientId: client.id, createdBy: createdBy };
+            let workspace = await workspaceService.createWorkspace(workspaceData);
+            await this.supabase
+                .from('users')
+                .update({ defaultWorkspaceId: workspace.id })
+                .eq('id', user[0].id);
+
+            return { client, user, workspace };
+        } catch (err) {
+            console.error("Error in createClient() of ClientService", err);
             return this.handleError(err);
         }
     }
 
-    async findClientById(id){
-        return await this.findOne({id})
+    async findClientById(id) {
+        try {
+            const { data, error } = await this.supabase
+                .from('clients')
+                .select('*')
+                .eq('id', id)
+                .single();
+            if (error) throw error;
+            return data;
+        } catch (err) {
+            return this.handleError(err);
+        }
     }
 
-    async updateClient(client_id, updateValues) {
+    async updateClient(clientId, updateValues) {
         try {
-            await this.update({ id: client_id }, updateValues);
-            // can convert case to lower and then md5 for it to check if name already exist
-
+            const { error } = await this.supabase
+                .from('clients')
+                .update(updateValues)
+                .eq('id', clientId);
+            if (error) throw error;
             return Promise.resolve();
-        } catch(e) {
-            return Promise.reject(e);
+        } catch (err) {
+            return this.handleError(err);
         }
     }
 
     async deleteClient(id) {
         try {
-            let res = await this.softDelete(id);
-            return res;
-        } catch(err) {
+            const { error } = await this.supabase
+                .from('clients')
+                .update({ deleted_at: new Date() })
+                .eq('id', id);
+            if (error) throw error;
+            return Promise.resolve();
+        } catch (err) {
             return this.handleError(err);
         }
     }
-
 }
 
 module.exports = ClientService;

@@ -5,7 +5,6 @@ const customConditionsMatcher = (conditions, resource) => {
 };
 
 function defineAbilityFor(user) {
-  console.log(user,'defineAbilityFor')
   const { can, build } = new AbilityBuilder(PureAbility);
   if (user.role === UserRoles.superAdmin) {
     can('manage', 'all');

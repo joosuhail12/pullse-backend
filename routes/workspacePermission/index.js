@@ -99,12 +99,12 @@ async function activate(app) {
   app.route({
     url: base_url + "/:workspace_id",
     method: 'PUT',
-    name: "UpdateWorkspace",
-    preHandler: authorize('update','Workspace'),
+    name: "UpdateWorkspacePermission",
+    preHandler: authorize('update','WorkspacePermission'),
     schema: {
       tags: ['Workspace'],
-      summary: 'Update Workspace',
-      description: 'API to update a Workspace.',
+      summary: 'Update Workspace Permission',
+      description: 'API to update a Workspace Permission.',
       required: [],
       body: {
         name:  {
@@ -117,19 +117,19 @@ async function activate(app) {
       },
     },
     handler: async (req, reply) => {
-      return handler.updateWorkspace(req, reply);
+      return handler.updateWorkspacePermission(req, reply);
     }
   });
 
   app.route({
     url: base_url+ "/:id",
     method: 'DELETE',
-    name: "DeleteWorkspace",
-    preHandler: authorize('update','Workspace'),
+    name: "DeleteWorkspacePermission",
+    preHandler: authorize('update','WorkspacePermission'),
     schema: {
       tags: ['Workspace'],
-      summary: 'Delete Workspace',
-      description: 'API to delete a Workspace.',
+      summary: 'Delete Workspace Permission',
+      description: 'API to delete a Workspace Permission.',
       required: [],
       body: {
       },
@@ -144,12 +144,12 @@ async function activate(app) {
   app.route({
     url: base_url+ "/:workspace_id",
     method: 'PATCH',
-    name: "DeleteWorkspace",
-    preHandler: authorize('update','Workspace'),
+    name: "DeleteWorkspacePermission",
+    preHandler: authorize('update','WorkspacePermission'),
     schema: {
       tags: ['Workspace'],
-      summary: 'Delete Workspace',
-      description: 'API to delete a Workspace.',
+      summary: 'Delete Workspace Permission',
+      description: 'API to delete a Workspace Permission.',
       required: ['access'],
       body: {
         access:{

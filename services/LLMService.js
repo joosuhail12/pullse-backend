@@ -4,70 +4,72 @@ const BaseService = require("./BaseService");
 const ChatBotExternalService = require("../ExternalService/ChatBotExternalService");
 const _ = require("lodash");
 const LLMServiceExternalService = require("../ExternalService/LLMServiceExternalService");
+const supabase = require("../db/supabaseClient"); // Import Supabase client
 
 class LLMService extends BaseService {
-
     constructor() {
         super();
-        this.entityName = 'LLMService';
-        this.listingFields = ["-_id"];
+        this.entityName = "LLMService";
+        this.listingFields = ["-id"];
         this.updatableFields = [];
     }
 
     async uploadKbFile(fileInst) {
-        // var fileBuffer = req.raw.files['my-file'].data;
-        // fileBuffer.name = req.raw.files['my-file'].name;
-        /*
-        {
-            name: 'Phonefieldoverview_WebflowUniversity.txt',
-            data: <Buffer >,
-            size: 10668,
-            encoding: '7bit',
-            tempFilePath: 'D:\\projects\\pullse\\auth\\tmp\\tmp-1-1697186791847',
-            truncated: false,
-            mimetype: 'text/plain',
-            md5: '811b65a2d6defaf208d29f451af37382',
-            mv: [Function: mv]
+        try {
+            let inst = new LLMServiceExternalService();
+            let res = await inst.addDocument(fileInst.tempFilePath);
+            return res;
+        } catch (error) {
+            throw new errors.Internal("Error uploading KB file.");
         }
-        */
-
-        let inst = new LLMServiceExternalService();
-        let res = await inst.addDocument(fileInst.tempFilePath);
-        // console.log({res});
-        return res;
     }
 
-    async addAssistant(name, instruction="You are a customer support representative for a leading company. You task is to answer customer queries. If you don't know the answer, just say that you don't know, don't try to make up an answer.") {
+    async addAssistant(name, instruction = "You are a customer support representative. Answer queries accurately without making up responses.") {
         try {
             let inst = new LLMServiceExternalService();
             let res = await inst.addAssistant(name, instruction);
+            
+            const { data, error } = await supabase
+                .from("assistants")
+                .insert([{ name, instruction, assistant_id: res.assistant_id }]);
+            
+            if (error) throw error;
             return res;
         } catch (error) {
-            throw new Error("Something went wrong while creating LLM Agent.")
+            throw new errors.Internal("Error creating LLM assistant.");
         }
     }
 
     async addThread(assistant_id) {
-        if (!assistant_id) {
-            return new Error("Invalid assistant_id.", assistant_id);
-        }
+        if (!assistant_id) throw new errors.BadRequest("Invalid assistant_id.");
         try {
             let inst = new LLMServiceExternalService();
             let res = await inst.addThread(assistant_id);
+            
+            const { data, error } = await supabase
+                .from("threads")
+                .insert([{ assistant_id, thread_id: res.thread_id }]);
+            
+            if (error) throw error;
             return res;
         } catch (error) {
-            throw new Error("Something went wrong while creating thread.")
+            throw new errors.Internal("Error creating thread.");
         }
     }
 
     async addMessage(assistant_id, thread_id, message) {
         try {
             let inst = new LLMServiceExternalService();
-            let res = await inst.addMessage(assistant_id, thread_id, message)
+            let res = await inst.addMessage(assistant_id, thread_id, message);
+            
+            const { data, error } = await supabase
+                .from("messages")
+                .insert([{ assistant_id, thread_id, message, response: res.resp }]);
+            
+            if (error) throw error;
             return res.resp;
         } catch (error) {
-            console.error(error);
-            throw new Error("Something went wrong while adding message.")
+            throw new errors.Internal("Error adding message.");
         }
     }
 
@@ -77,8 +79,7 @@ class LLMService extends BaseService {
             let intentData = await llmInst.getQueryIntent(message);
             return intentData;
         } catch (error) {
-            console.error("Error while getting intent data", error);
-            return this.handleError(error);
+            throw new errors.Internal("Error fetching message intent.");
         }
     }
 
@@ -88,12 +89,9 @@ class LLMService extends BaseService {
             let sentimentData = await llmInst.getQuerySentiment(message);
             return sentimentData;
         } catch (error) {
-            console.error("Error while getting sentiment data", error);
-            return this.handleError(error);
+            throw new errors.Internal("Error fetching message sentiment.");
         }
     }
-
 }
 
 module.exports = LLMService;
-

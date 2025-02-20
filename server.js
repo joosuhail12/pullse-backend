@@ -14,17 +14,17 @@
   const path = require('node:path');
 
 
-  const db = require('./db');
+  // const db = require('./db');
   const swagger = require('./middlewares/swagger');
   const routes = require('./routes');
   const caslPlugin = require('./ability/casl');
-
-  let app;
+  const supabase = require('./db/supabaseClient');
+  let app;  
   const start = async () => {
     try {
       app = fastify({ logger: config.logger.enable });
-      console.log(config.db,"config.dbconfig.dbconfig.dbconfig.db")
-      await db.connect(config.db);
+      // console.log(config.db,"config.dbconfig.dbconfig.dbconfig.db")
+      // await db.connect(config.db);
       app.register(cookie, {
         secret: "my-secret",
         hook: 'onRequest',
@@ -40,8 +40,8 @@
       });
       await app.register(fastifyIO, {
         cors: {
-          origin: '*',
-          // origin: config.app.whitelisted_urls.split(','),
+          // origin: '*',
+          origin: config.app.whitelisted_urls.split(','),
           credentials: true,
           methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
         }
@@ -67,7 +67,6 @@
       // name
       await routes.activate(app);
       app.addHook('onResponse', (request, reply, done) => {
-        console.log(request.hasOwnProperty('Context'), ".request request request request..",);
         // console.log(reply, ".reply reply reply reply..",);
         // console.log(Object.keys(reply), ".reply reply reply reply..",);
 
@@ -81,7 +80,6 @@
       await app.ready()
       .then(async () => {
         Socket.init(app.io);
-        console.log("Socket initialized", Socket)
         // let decisionEngine = DecisionEngine(app.io, Socket);
         return Socket;
       });

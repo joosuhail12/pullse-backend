@@ -1,308 +1,247 @@
-const _ = require("lodash");
-const Model = require("../model");
-const errors = require("../../errors");
+const supabase = require('../supabaseClient');
+const errors = require('../../errors');
 const { v4: uuid } = require('uuid');
 
 class BaseUtility {
-
-  constructor(schemaObj) {
-    this.schemaObj = schemaObj;
-    this.populateFields = {};
-  }
-
-  async getModel() {
-    this.model = await Model.getModel(this.schemaObj);
-  }
-
-  async exists(conditions = {}) {
-    try {
-      if (_.isEmpty(this.model)) {
-        await this.getModel();
-      }
-      conditions.deletedAt = { $exists: false };
-      let result = await this.model.exists(conditions);
-      return result;
-    } catch (e) {
-      console.log(`Error in exists() while fetching data for ${this.schemaObj.schemaName} :: ${e}`);
-      throw e;
+    constructor(tableName) {
+        this.tableName = tableName;
     }
-  }
 
-  async findOne(conditions = {}, projection = [], options = {}) {
-    try {
-      if (_.isEmpty(this.model)) {
-        await this.getModel();
-      }
-      conditions.deletedAt = { $exists: false };
+    /**
+     * Check if a record exists
+     */
+    async exists(conditions = {}) {
+        const { data, error } = await supabase
+            .from(this.tableName)
+            .select('id')
+            .match(conditions)
+            .neq('deleted_at', null)
+            .limit(1)
+            .single();
 
-      projection = (!_.isEmpty(projection)) ? projection : { "_id": 0, "__v": 0 };
-      let result = await this.model.findOne(conditions, projection, options).lean();
-      return result;
-    } catch (e) {
-      console.log(`Error in findOne() while fetching data for ${this.schemaObj.schemaName} :: ${e}`);
-      throw e;
+        if (error) throw new errors.DBError(error.message);
+        return !!data;
     }
-  }
 
-  async find(conditions = {}, projection = {}, options = {}) {
-    try {
-      if (_.isEmpty(this.model)) {
-        await this.getModel();
-      }
-      conditions.deleted_at = { $exists: false };
+    /**
+     * Find one record
+     */
+    async findOne(conditions = {}, projection = '*') {
+        const { data, error } = await supabase
+            .from(this.tableName)
+            .select(projection)
+            .match(conditions)
+            .neq('deleted_at', null)
+            .single();
 
-      if (options && (!options.sort || !Object.keys(options.sort).length)) {
-        options.sort = { createdAt: -1 };
-      }
-
-      projection = (!_.isEmpty(projection)) ? projection : { "_id": 0, "__v": 0 };
-      let result = await this.model.find(conditions, projection, options).lean();
-      return result;
-    } catch (e) {
-      console.log(`Error in find() while fetching data for ${this.schemaObj.schemaName} :: ${e}`);
-      throw e;
+        if (error) throw new errors.DBError(error.message);
+        return data;
     }
-  }
 
-  async paginate(conditions = {}, projection = [], options = {}) {
-    try {
-      if (_.isEmpty(this.model)) {
-        await this.getModel();
-      }
-      conditions.deletedAt = { $exists: false };
+    /**
+     * Find multiple records
+     */
+    async find(conditions = {}, projection = '*', options = {}) {
+        let query = supabase.from(this.tableName).select(projection).match(conditions).neq('deleted_at', null);
 
-      if (options && (!options.sort || !Object.keys(options.sort).length)) {
-        options.sort = { createdAt: -1 };
-      }
+        if (options.sort) query = query.order(Object.keys(options.sort)[0], { ascending: options.sort[Object.keys(options.sort)[0]] !== -1 });
 
-      projection = (!_.isEmpty(projection)) ? projection : { "_id": 0, "__v": 0 };
-      options.select = projection;
-      options.leanWithId = true;
-      // options.lean = true;
-      let result = await this.model.paginate(conditions, options);
-      return result;
-    } catch (e) {
-      console.log(`Error in paginate() while fetching data for ${this.schemaObj.schemaName} :: ${e}`);
-      throw e;
+        const { data, error } = await query;
+        if (error) throw new errors.DBError(error.message);
+        return data;
     }
-  }
 
-  async countDocuments(conditions = {}) {
-    try {
-      if (_.isEmpty(this.model)) {
-        await this.getModel();
-      }
-      conditions.deletedAt = { $exists: false };
+    /**
+     * Paginate results
+     */
+    async paginate(conditions = {}, projection = '*', { page = 1, limit = 10, sort = { created_at: -1 } }) {
+        let query = supabase.from(this.tableName).select(projection).match(conditions).neq('deleted_at', null);
 
-      let count = await this.model.countDocuments(conditions);
-      return count;
-    } catch (e) {
-      console.log(`Error in find() while fetching data for ${this.schemaObj.schemaName} :: ${e}`);
-      throw e;
+        const offset = (page - 1) * limit;
+        query = query.range(offset, offset + limit - 1);
+
+        if (sort) query = query.order(Object.keys(sort)[0], { ascending: sort[Object.keys(sort)[0]] !== -1 });
+
+        const { data, error } = await query;
+        if (error) throw new errors.DBError(error.message);
+        return data;
     }
-  }
 
-  async insert(record = {}) {
-    try {
-      if (_.isEmpty(this.model)) {
-        await this.getModel();
-      }
+    /**
+     * Count documents
+     */
+    async countDocuments(conditions = {}) {
+        const { count, error } = await supabase
+            .from(this.tableName)
+            .select('*', { count: 'exact', head: true })
+            .match(conditions)
+            .neq('deleted_at', null);
 
-      if (_.isEmpty(record.id)) {
-        record.id = uuid();
-      }
-
-      let result = await this.model.create(record);
-      return result;
-    } catch (e) {
-
-      if (e.code === 11000) {
-        return Promise.reject(new errors.Conflict(e.errmsg));
-      }
-      console.log(`Error in insert() while inserting data for ${this.schemaObj.schemaName} :: ${e}`);
-      return Promise.reject(new errors.DBError(e.errmsg));
+        if (error) throw new errors.DBError(error.message);
+        return count;
     }
-  }
 
-  async insertMany(recordsToInsert = []) {
-    try {
-      if (_.isEmpty(this.model)) {
-        await this.getModel();
-      }
-      let result = await this.model.insertMany(recordsToInsert);
-      return result;
-    } catch (e) {
-      if (e.code === 11000) {
-        return Promise.reject(new errors.Conflict(e.errmsg));
-      }
-      console.log(`Error in insertMany() while inserting data for ${this.schemaObj.schemaName} :: ${e}`);
-      return Promise.reject(new errors.DBError(e.errmsg));
+    /**
+     * Insert a new record
+     */
+    async insert(record = {}) {
+        record.id = record.id || uuid();
+
+        const { data, error } = await supabase.from(this.tableName).insert(record).select();
+
+        if (error) throw new errors.DBError(error.message);
+        return data[0];
     }
-  }
 
-  async updateMany(conditions = {}, updatedDoc = {}, options = {}) {
-    try {
-      if (_.isEmpty(this.model)) {
-        await this.getModel();
-      }
-      conditions.deletedAt = { $exists: false };
+    /**
+     * Insert multiple records
+     */
+    async insertMany(records = []) {
+        records.forEach((record) => {
+            record.id = record.id || uuid();
+        });
 
-      let result = await this.model.updateMany(conditions, updatedDoc, options);
-      return result;
-    } catch (e) {
+        const { data, error } = await supabase.from(this.tableName).insert(records);
 
-      if (e.code === 11000) {
-        return Promise.reject(new errors.Conflict(e.errmsg));
-      }
-      console.log(`Error in updateMany() while updating data for ${this.schemaObj.schemaName} :: ${e}`);
-      throw e;
+        if (error) throw new errors.DBError(error.message);
+        return data;
     }
-  }
 
-  async updateOne(conditions = {}, updatedDoc = {}, options = {}) {
-    try {
-      if (_.isEmpty(this.model)) {
-        await this.getModel();
-      }
-      conditions.deletedAt = { $exists: false };
+    /**
+     * Update multiple records
+     */
+    async updateMany(conditions = {}, updatedDoc = {}) {
+        const { data, error } = await supabase
+            .from(this.tableName)
+            .update(updatedDoc)
+            .match(conditions)
+            .neq('deleted_at', null);
 
-      let result = await this.model.updateOne(conditions, updatedDoc, options);
-      return result;
-    } catch (e) {
-
-      if (e.code === 11000) {
-        return Promise.reject(new errors.Conflict(e.errmsg));
-      }
-      console.log(`Error in updateOne() while updating data for ${this.schemaObj.schemaName} :: ${e}`);
-      throw e;
+        if (error) throw new errors.DBError(error.message);
+        return data;
     }
-  }
 
-  async findOneAndUpdate(conditions = {}, updatedDoc = {}, options = {}) {
-    try {
-      let entity = await this.findOne(conditions, null, options)
-      if (!entity) {
-        return Promise.reject(new errors.NotFound());
-      }
-      conditions.deletedAt = { $exists: false };
-      options.new = true;
-      let result = await this.model.findOneAndUpdate(conditions, updatedDoc, options).lean();
-      return result;
-    } catch (e) {
+    /**
+     * Update one record
+     */
+    async updateOne(conditions = {}, updatedDoc = {}) {
+        const { data, error } = await supabase
+            .from(this.tableName)
+            .update(updatedDoc)
+            .match(conditions)
+            .neq('deleted_at', null)
+            .single();
 
-      if (e.code === 11000) {
-        return Promise.reject(new errors.Conflict(e.errmsg));
-      }
-      console.log(`Error in findOneAndUpdate() while updating data for ${this.schemaObj.schemaName} :: ${e}`);
-      throw e;
+        if (error) throw new errors.DBError(error.message);
+        return data;
     }
-  }
 
-  async deleteMany(conditions = {}) {
-    try {
-      if (_.isEmpty(this.model)) {
-        await this.getModel();
-      }
-      conditions.deletedAt = { $exists: false };
+    /**
+     * Find and update a record
+     */
+    async findOneAndUpdate(conditions = {}, updatedDoc = {}) {
+        let existingRecord = await this.findOne(conditions);
 
-      let result = await this.model.deleteMany(conditions);
-      return result;
-    } catch (e) {
+        if (!existingRecord) throw new errors.NotFound();
 
-      if (e.code === 11000) {
-        return Promise.reject(new errors.Conflict(e.errmsg));
-      }
-      console.log(`Error in deleteMany() while deleting data for ${this.schemaObj.schemaName} :: ${e}`);
-      throw e;
+        const { data, error } = await supabase
+            .from(this.tableName)
+            .update(updatedDoc)
+            .match(conditions)
+            .neq('deleted_at', null)
+            .single();
+
+        if (error) throw new errors.DBError(error.message);
+        return data;
     }
-  }
 
-  async populate(field, rows = []) {
-    if (!this.populateFields[field]) {
-        throw new errors.Internal(`populate field config not set for ${field} in ${this.constructor.name}.`)
+    /**
+     * Soft delete records
+     */
+    async deleteMany(conditions = {}) {
+        const { data, error } = await supabase
+            .from(this.tableName)
+            .update({ deleted_at: new Date() })
+            .match(conditions)
+            .neq('deleted_at', null);
+
+        if (error) throw new errors.DBError(error.message);
+        return data;
     }
-    if (_.isEmpty(rows)) {
-        return rows;
-    }
-    let isArray =  Array.isArray(rows);
 
-
-    let selectFields = null;
-    if (this.populateFields[field].getFields) {
-      selectFields = this.populateFields[field].getFields;
-    }
-    let utilityInst = this.populateFields[field].utility;
-    let srcField = this.populateFields[field].field;
-    let multiple = this.populateFields[field].multiple;
-
-    if (!isArray) {
-        if (!rows[srcField]) {
+    async populate(field, rows = []) {
+        if (!this.populateFields[field]) {
+            throw new errors.Internal(`populate field config not set for ${field} in ${this.constructor.name}.`);
+        }
+        if (!rows || rows.length === 0) {
             return rows;
         }
-        let srcFieldVal = rows[srcField];
-        if (multiple) {
-          rows[field] = await utilityInst.find({ id: { '$in': srcFieldVal } });
-        } else {
-          rows[field] = await utilityInst.findOne({ id: srcFieldVal });
-        }
-        return rows;
-    }
 
-    let srcFieldValues = [];
-    let Rows = [];
-    for (let id = 0; id < rows.length; id++) {
-        let row = rows[id];
-        row[field] = multiple ? [] : {};
-        Rows.push(row);
-        if (row[srcField]) {
+        let isArray = Array.isArray(rows);
+        let selectFields = this.populateFields[field].getFields || '*';
+        let utilityInst = this.populateFields[field].utility;
+        let srcField = this.populateFields[field].field;
+        let multiple = this.populateFields[field].multiple;
+
+        if (!isArray) {
+            if (!rows[srcField]) {
+                return rows;
+            }
+            let srcFieldVal = rows[srcField];
             if (multiple) {
-              srcFieldValues = srcFieldValues.concat(row[srcField]);
+                rows[field] = await utilityInst.find({ id: srcFieldVal });
             } else {
-              srcFieldValues.push(row[srcField])
+                rows[field] = await utilityInst.findOne({ id: srcFieldVal });
+            }
+            return rows;
+        }
+
+        let srcFieldValues = [];
+        let Rows = [];
+        for (let row of rows) {
+            row[field] = multiple ? [] : {};
+            Rows.push(row);
+            if (row[srcField]) {
+                if (multiple) {
+                    srcFieldValues = srcFieldValues.concat(row[srcField]);
+                } else {
+                    srcFieldValues.push(row[srcField]);
+                }
             }
         }
-    }
-    if (_.isEmpty(srcFieldValues)) {
+
+        if (srcFieldValues.length === 0) {
+            return Rows;
+        }
+
+        let srcData = await utilityInst.find({ id: srcFieldValues }, selectFields);
+        if (!srcData || srcData.length === 0) {
+            return Rows;
+        }
+
+        let srcDataMap = {};
+        for (let item of srcData) {
+            srcDataMap[item.id] = item;
+        }
+
+        for (let row of Rows) {
+            let srcFieldVal = row[srcField];
+            if (multiple) {
+                row[field] = srcFieldVal.map((val) => srcDataMap[val]);
+            } else {
+                row[field] = srcDataMap[srcFieldVal];
+            }
+        }
+
         return Rows;
     }
-    let srcData = await utilityInst.find({ id: { $in : srcFieldValues }}, selectFields);
-    if (_.isEmpty(srcData)) {
-        return Rows;
-    }
 
-    let srcDataMap = {}
-    for (let i = 0; i < srcData.length; i++) {
-        let id = srcData[i].id;
-        if (!srcDataMap[id]) {
-            srcDataMap[id] = srcData[i];
-        }
+    /**
+     * Aggregate (Supabase doesn't support native aggregation yet)
+     */
+    async aggregate(options = []) {
+        throw new errors.NotImplemented("Aggregation is not natively supported in Supabase. Use PostgreSQL queries instead.");
     }
-    for (let i = 0; i < Rows.length; i++) {
-        let row = Rows[i];
-        let srcFieldVal = row[srcField];
-        if (multiple) {
-          row[field] = srcFieldVal.map(val => srcDataMap[val]);
-        } else {
-          row[field] = srcDataMap[srcFieldVal];
-        }
-    }
-    return Rows;
-  }
-
-  async aggregate(options= []) {
-    try {
-      if (_.isEmpty(this.model)) {
-        await this.getModel();
-      }
-
-      let result = await this.model.aggregate(options);
-      return result;
-    } catch (e) {
-      console.log(`Error in aggregate() while aggregating data for ${this.schemaObj.schemaName} :: ${e}`);
-      throw e;
-    }
-  }
-
 }
 
 module.exports = BaseUtility;
