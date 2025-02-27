@@ -18,7 +18,8 @@ class TagService extends BaseService {
 
     async createTag(data) {
         try {
-            return this.create(data);
+            await this.create(data);
+            return this.getTags();
         } catch (err) {
             return this.handleError(err);
         }
@@ -27,9 +28,9 @@ class TagService extends BaseService {
     async updateTag(tag_id, updateValues) {
         try {
             await this.update({ id: tag_id }, updateValues);
-            return Promise.resolve();
+            return this.getTags();
         } catch (e) {
-            return Promise.reject(e);
+            return this.handleError(e);
         }
     }
 
@@ -40,6 +41,12 @@ class TagService extends BaseService {
         } catch (err) {
             return this.handleError(err);
         }
+    }
+
+    async getTags() {
+        const { data, error } = await this.supabase.from(this.entityName).select(this.listingFields.join(","));
+        if (error) throw error;
+        return data;
     }
 
     parseFilters({ name, createdFrom, createdTo, clientId, archived }) {

@@ -28,6 +28,9 @@ async function activate(app) {
             type: 'string',
             minLength: 2
           },
+          color:  {
+            type: 'string',
+          },
           description:  {
             type: 'string',
           },
