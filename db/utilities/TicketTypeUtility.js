@@ -1,9 +1,8 @@
-const TicketTypeSchema = require("../schemas/TicketTypeSchema");
 const BaseUtility = require("./BaseUtility");
 
 class TicketTypeUtility extends BaseUtility {
   constructor() {
-    super(TicketTypeSchema);
+    super("ticketTypes"); // Supabase table name
   }
 }
 

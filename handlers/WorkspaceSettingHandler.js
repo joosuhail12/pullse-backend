@@ -41,10 +41,11 @@ class WorkspaceSettingHandler extends WorkspaceHandler {
   }
 
   async getSentimentSetting(req, reply) {
-    let workspaceId = req.query.workspace_id;
+    let workspaceId = req.query.workspace_id ? req.query.workspace_id : req.authUser.defaultWorkspaceId;
     let clientId = req.authUser.clientId;
+    let userId = req.authUser.id;
     let inst = this.ServiceInst;
-    return this.responder(req, reply, inst.getDetails(workspaceId, clientId).then(workspace => Promise.resolve(workspace.sentimentSetting)));
+    return this.responder(req, reply, inst.getDetails(workspaceId, clientId, userId).then(workspace => Promise.resolve(workspace.sentimentSetting)));
   }
 
   async updateSentimentSetting(req, reply) {

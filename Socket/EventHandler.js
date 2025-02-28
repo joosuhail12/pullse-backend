@@ -30,6 +30,8 @@ class EventHandler {
         [EventConstants.typing]: this.onTyping.bind(this),
         [EventConstants.stopTyping]: this.onStopTyping.bind(this),
         [EventConstants.disconnect]: this.onDisconnect.bind(this),
+        [EventConstants.join_workspace]: this.join_workspace.bind(this),
+        [EventConstants.join_tickets]: this.join_tickets.bind(this),
       };
     }
   }
@@ -43,8 +45,14 @@ class EventHandler {
     }
   }
 
-  // onConnection(socket) {
-  // }
+
+  async join_workspace({ workspaceId }){
+    this.socket.join(workspaceId)
+  }
+
+  async join_tickets({ ticketId }){
+    this.socket.join(ticketId)
+  }
 
   async onMessage({ message, type, workspaceId, ticketId, mentionIds, tagIds }) {
     if (!this.user?.email) {
@@ -74,46 +82,46 @@ class EventHandler {
       tagIds
     };
     await this.conversationService.addMessage(messageData);
-    // let ticketUpdate = {};
-    // if (mentionIds) {
-    //   ticketUpdate = {
-    //     $addToSet: {
-    //       mentionIds: { $each: mentionIds }
-    //     }
-    //   };
-    // }
+    let ticketUpdate = {};
+    if (mentionIds) {
+      ticketUpdate = {
+        $addToSet: {
+          mentionIds: { $each: mentionIds }
+        }
+      };
+    }
 
-    // ticketUpdate.lastMessage = message;
-    // ticketUpdate.lastMessageBy = userType;
-    // ticketUpdate.lastMessageAt = new Date();
-    // if (userType == UserTypeConstant.agent) {
-    //   ticketUpdate.unread = 0;
-    // } else {
-    //   ticketUpdate['$inc'] = { 'unread': 1 };
-    // }
-    // await ticketService.updateOne({ id: ticketInst.id }, ticketUpdate);
+    ticketUpdate.lastMessage = message;
+    ticketUpdate.lastMessageBy = userType;
+    ticketUpdate.lastMessageAt = new Date();
+    if (userType == UserTypeConstant.agent) {
+      ticketUpdate.unread = 0;
+    } else {
+      ticketUpdate['$inc'] = { 'unread': 1 };
+    }
+    await ticketService.updateOne({ id: ticketInst.id }, ticketUpdate);
 
     // preparing sender list
-    // let toSend = SocketStore.getWorkspaceSockets(UserTypeConstant.agent, workspaceId);
-    // let customerSockets = SocketStore.getUserSockets(UserTypeConstant.customer, ticketInst.customerId);
-    // if (customerSockets && customerSockets.length > 1) {
-    //   for (socket of customerSockets) {
-    //     if (this.socket.id !== socket) {
-    //       toSend.push(socket);
-    //     }
-    //   }
-    // }
+    let toSend = SocketStore.getWorkspaceSockets(UserTypeConstant.agent, workspaceId);
+    let customerSockets = SocketStore.getUserSockets(UserTypeConstant.customer, ticketInst.customerId);
+    if (customerSockets && customerSockets.length > 1) {
+      for (socket of customerSockets) {
+        if (this.socket.id !== socket) {
+          toSend.push(socket);
+        }
+      }
+    }
 
     // sending new message event
-    // this.socket.to(toSend).emit(EventConstants.newMessage, {
-    //   username: this.user.name,
-    //   user: this.user.id,
-    //   message,
-    //   ticketId,
-    //   workspaceId,
-    //   type,
-    //   userType
-    // });
+    this.socket.to(sno).emit(EventConstants.newMessage, {
+      username: this.user.name,
+      user: this.user.id,
+      message,
+      ticketId,
+      workspaceId,
+      type,
+      userType
+    });
     return Promise.resolve();
   }
 

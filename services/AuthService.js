@@ -11,51 +11,65 @@ const UserService = require("./UserService");
 const WorkspacePermissionService = require("./WorkspacePermissionService");
 const UserUtility = require('../db/utilities/UserUtility');
 const AuthUtility = require('../db/utilities/AuthUtility');
-
+const { createClient } = require('@supabase/supabase-js');
+const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
 class AuthService extends UserService {
 
-    constructor(fields=null, dependencies=null) {
+    constructor(fields = null, dependencies = null) {
         super(fields, dependencies);
         this.entityName = "Auth";
-        this.authUtilityInst = new AuthUtility;
-        this.WorkspacePermission = WorkspacePermissionService
+        this.supabase = supabase;
+        this.authUtilityInst = new AuthUtility();
+        this.WorkspacePermission = WorkspacePermissionService;
         this.utilityInst = new UserUtility();
-        this.listingFields = ['id', 'role', 'accessToken', "-_id" ];
+        this.listingFields = ['id', 'role', 'accessToken'];
     }
 
-    async login(email, password, userAgent=null, ip=null) {
+    async login(email, password, userAgent = null, ip = null) {
         try {
-
-            email = email && email.toLowerCase();
-
+            email = email?.toLowerCase();
             await this.loginValidator(email, password);
 
-            let user = await this.findByCredentials(email, password);
-            console.log(user,'loginCredentails')
-            if(!user?.defaultWorkspaceId){
-                throw new Error('Worksapce Not Found');
-            }
-            let workspacePerInst = new this.WorkspacePermission();
-            let permission = await workspacePerInst.findOne({userId:user.id, workspaceId:user?.defaultWorkspaceId})
-            if(!permission?.access){    
-                throw new Error('Access not Allowed to this workspace please contact admin') 
-            }
+            let { data: user, error } = await this.supabase.from('users').select('*').eq('email', email).single();
+            if (error || !user) throw new errors.InvalidCredentials();
 
-            // if (!user.defaultWorkspaceId) {
-            //     let defaultWorkspace = await this.getUserDefaultWorkspace(user).catch(() => {
-            //         return {id: null};
-            //     });
-            //     user.defaultWorkspaceId = defaultWorkspace.id;
-            // }
+            let checkPassword = await this.bcryptTokenCompare(password, user.password);
+            if (!checkPassword) throw new errors.InvalidCredentials();
+
+            if (!user.defaultWorkspaceId) throw new Error('Workspace Not Found');
+
+            let { data: permission } = await this.supabase
+                .from('workspacePermissions')
+                .select('*')
+                .eq('userId', user.id)
+                .eq('workspaceId', user.defaultWorkspaceId)
+                .single();
+
+            if (!permission?.access) throw new Error('Access not allowed to this workspace. Please contact admin.');
 
             let accessToken = {
                 token: uuidv4(),
-                expiry: (Date.now() + (1 * 60 * 60 * 1000)), // 1 hour from now
+                expiry: Date.now() + (1 * 60 * 60 * 1000), // Return as a timestamp
                 issuedAt: new Date(),
                 userAgent, ip
             };
-            await this.updateOne({ id: user.id }, {$push: {accessTokens: accessToken}, lastLoggedInAt: new Date()});
-            return { id: user.id, accessToken, roleIds: user.roleIds, first_name: user.fname, last_name: user.lname, defaultWorkspaceId: user.defaultWorkspaceId };
+            const { data: accessTokenData, error: accessTokenError } = await this.supabase.from('userAccessTokens').insert({
+                user_id: user.id,
+                token: accessToken.token,
+                issuedAt: accessToken.issuedAt,
+                expiry: new Date(accessToken.expiry), // Store as a Date object in the database
+                userAgent: accessToken.userAgent,
+                ip: accessToken.ip
+            });
+
+            return {
+                id: user.id,
+                accessToken,
+                roleIds: user.roleIds,
+                firstName: user.fname,
+                lastName: user.lname,
+                defaultWorkspaceId: user.defaultWorkspaceId
+            };
         } catch (err) {
             return this.handleError(err);
         }
@@ -63,11 +77,10 @@ class AuthService extends UserService {
 
     async forgetPassword(email) {
         try {
-            email = email && email.toLowerCase();
-            let user = await this.findOne({ email });
-            if(!user) {
-                return Promise.reject(new errors.NotFound("Invalid Email."));
-            }
+            email = email?.toLowerCase();
+            let { data: user } = await this.supabase.from('users').select('*').eq('email', email).single();
+            if (!user) return Promise.reject(new errors.NotFound("Invalid Email."));
+
             let userTokenService = new UserTokenService();
             return userTokenService.sendForgetPasswordToken(user);
         } catch (err) {
@@ -80,14 +93,13 @@ class AuthService extends UserService {
             let userTokenService = new UserTokenService();
             let userToken = await userTokenService.verifyForgetPasswordToken(token);
 
-            let user = await this.findOne({ id: userToken.userId });
-            if (!user) {
-                return Promise.reject(new errors.NotFound("Invalid token."));
-            }
+            let { data: user } = await this.supabase.from('users').select('*').eq('id', userToken.userId).single();
+            if (!user) return Promise.reject(new errors.NotFound("Invalid token."));
 
             let hash = await this.bcryptToken(password);
-            await this.updateOne({ id: user.id }, { password: hash });
+            await this.supabase.from('users').update({ password: hash }).eq('id', user.id);
             await userTokenService.markTokenAsUsed(userToken.id);
+
             return { message: "Password reset successfully." };
         } catch (err) {
             return this.handleError(err);
@@ -96,11 +108,10 @@ class AuthService extends UserService {
 
     async verifyEmail(email) {
         try {
-            email = email && email.toLowerCase();
-            let user = await await this.findOne({ email });
-            if(!user) {
-                return Promise.reject(new errors.NotFound("Invalid Email."));
-            }
+            email = email?.toLowerCase();
+            let { data: user } = await this.supabase.from('users').select('*').eq('email', email).single();
+            if (!user) return Promise.reject(new errors.NotFound("Invalid Email."));
+
             let userTokenService = new UserTokenService();
             return userTokenService.sendEmailVerificationToken(user);
         } catch (err) {
@@ -109,51 +120,38 @@ class AuthService extends UserService {
     }
 
     loginValidator(email, password) {
-        if(!email) {
-            return Promise.reject(new errors.ValidationFailed(
-                "email is required.", { field_name: "email" }
-            ));
+        if (!email) {
+            return Promise.reject(new errors.ValidationFailed("Email is required.", { fieldName: "email" }));
         }
     }
 
-    generateJWTToken(data = {}, secret=config.auth.jwt_secret) {
+    generateJWTToken(data = {}, secret = config.auth.jwtSecret) {
         let signOptions = {
             algorithm: 'RS256',
-            issuer: config.app.base_url,
+            issuer: config.app.baseUrl,
             subject: 'customer',
-            audience: config.app.base_url,
+            audience: config.app.baseUrl,
             tokenId: uuidv4()
         };
-        // let token = jwt.sign(data, secret, signOptions);
-        let token = jwt.sign(data, secret);
-        return token;
+        return jwt.sign(data, '$$SUPER_SECRET_JWT_SECRET!@#$%5');
     }
 
-    verifyJWTToken(token, secret=config.auth.jwt_secret) {
+    verifyJWTToken(token, secret = config.auth.jwtSecret) {
         return jwt.verify(token, secret);
     }
 
     bcryptTokenCompare(pass1, passwordHash) {
         return bcrypt.compare(pass1, passwordHash)
-        .then(res => {
-            if (!res) {
-                return Promise.resolve(false);
-            }
-            return Promise.resolve(true);
-        });
+            .then(res => res ? Promise.resolve(true) : Promise.resolve(false));
     }
 
     async findByCredentials(email, password) {
         try {
+            let { data: user } = await this.supabase.from('users').select('*').eq('email', email).single();
+            if (!user) return Promise.reject(new errors.InvalidCredentials());
 
-            let user = await this.findOne({ email });
-            if(!user) {
-                return Promise.reject(new errors.InvalidCredentials());
-            }
             let checkPassword = await this.bcryptTokenCompare(password, user.password);
-            if(!checkPassword) {
-                return Promise.reject(new errors.InvalidCredentials());
-            }
+            if (!checkPassword) return Promise.reject(new errors.InvalidCredentials());
 
             return user;
         } catch (err) {
@@ -165,18 +163,16 @@ class AuthService extends UserService {
         try {
             let user = await this.findByCredentials(email, password);
             let hash = await this.bcryptToken(newPassword);
-            let toUpdate = { password: hash };
-            if (logoutAll) {
-                toUpdate.accessTokens = [];
-            }
-            await this.updateOne({ id: user.id }, toUpdate);
-            // password changed event to send email
+            let updateData = { password: hash };
+
+            if (logoutAll) updateData.accessTokens = [];
+            await this.supabase.from('users').update(updateData).eq('id', user.id);
+
             return { message: "Password changed successfully." };
         } catch (err) {
             return this.handleError(err);
         }
     }
-
 }
 
 module.exports = AuthService;

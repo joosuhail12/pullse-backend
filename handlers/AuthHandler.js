@@ -56,7 +56,6 @@ class AuthHandler extends BaseHandler {
 
   async logoutUser(req, reply) {
     let token = req.cookies.customerToken;
-    console.log(req.cookies.customerToken);
     // todo: delete token from db
     // reply.clearCookie('customerToken');
     reply.clearCookie('customerToken');

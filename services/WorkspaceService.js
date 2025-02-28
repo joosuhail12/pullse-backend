@@ -1,407 +1,268 @@
-const Promise = require("bluebird");
 const errors = require("../errors");
-const WorkspaceUtility = require('../db/utilities/WorkspaceUtility');
 const BaseService = require("./BaseService");
 const _ = require("lodash");
 const config = require("../config");
+const { createClient } = require("@supabase/supabase-js");
+const AuthService = require("./AuthService");
+const UserService = require("./UserService");
+const WorkspacePermissionService = require("./WorkspacePermissionService");
+const ClientService = require("./ClientService");
 
 class WorkspaceService extends BaseService {
-
-    constructor(fields=null, dependencies={}) {
+    constructor(fields = null, dependencies = {}) {
         super();
-        this.utilityInst = new WorkspaceUtility();
-        this.AuthService = dependencies.AuthService;
-        this.UserService = dependencies.UserService;
-        this.WorkspacePermission = dependencies.WorkspacePermissionService;
-        this.ClientService = dependencies.ClientService;
-        this.entityName = 'Workspace';
-        this.listingFields = ["id", "name", "-_id"];
-        this.updatableFields = [ "name", "description", "chatbotSetting", "sentimentSetting", "qualityAssuranceSetting" ];
+        this.supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
+        this.entityName = "workspace";
+        // this.AuthService = AuthService;
+        this.listingFields = ["id", "name"];
+        this.updatableFields = [
+            "name",
+            "description",
+            "chatbotSetting",
+            "sentimentSetting",
+            "qualityAssuranceSetting",
+            "status",
+        ];
     }
 
-    /**
-     * Creates a new workspace
-     * @param {Object} workspaceData - Workspace data object containing name, clientId, and createdBy.
-     * @returns {Object} Created workspace object
-     * @description
-     - Finds an existing workspace by name and clientId to check for duplicates.
-    - Creates a new workspace using the provided workspace data if no duplicate is found.
-    - Catches any errors and handles them.
-    */
     async createWorkspace(workspaceData) {
         try {
-            let { name, description, createdBy, clientId, } = workspaceData;
-            let workspace = await this.findOne({ name: { $regex : `^${name}$`, $options: "i" } , clientId });
-            if (!_.isEmpty(workspace)) {
-                return Promise.reject(new errors.NotFound(this.entityName + " Already exist."));
+            let { name, description, createdBy, clientId } = workspaceData;
+            let { data: workspace } = await this.supabase
+                .from("workspace")
+                .select("*")
+                .eq("name", name)
+                .eq("clientId", clientId)
+                .maybeSingle();
+
+            if (workspace) {
+                return Promise.reject(
+                    new errors.NotFound(this.entityName + " Already exist.")
+                );
             }
-            workspace = await this.create({name, clientId, description, createdBy});
-            let workspPerInst = new this.WorkspacePermission(null,{UserService:this.UserService});
-            let ownerInst = new this.ClientService()
-            let client = await ownerInst.findClientById(clientId)
-            const data =  { userId:client.ownerId, clientId, workspaceId:workspace.id, role:'ORGANIZATION_ADMIN', createdBy };
-            await workspPerInst.createWorkspacePermission(data)            
-            return workspace;
-        } catch(err) {
+
+            let { data: newWorkspace, error: createError } = await this.supabase
+                .from("workspace")
+                .insert([{ name, clientId, description, createdBy }])
+                .select()
+                .single();
+            if (createError) throw createError;
+
+            let { data: client } = await this.supabase
+                .from("users")
+                .select("id")
+                .eq("clientId", clientId)
+                .maybeSingle();
+
+            const data = {
+                userId: client.id,
+                clientId,
+                workspaceId: newWorkspace.id,
+                role: "ORGANIZATION_ADMIN",
+                createdBy,
+            };
+            const workspacePermission = new WorkspacePermissionService();
+            await workspacePermission.createWorkspacePermission(data);
+            return newWorkspace;
+        } catch (err) {
             return this.handleError(err);
         }
     }
 
     async getDetails(id, clientId, userId) {
         try {
-            let workspace = await this.findOne({ id, clientId });
-            if (_.isEmpty(workspace)) {
-                return Promise.reject(new errors.NotFound(this.entityName + " not found."));
+            let { data: workspace } = await this.supabase
+                .from("workspace")
+                .select("*")
+                .eq("id", id)
+                .eq("clientId", clientId)
+                .maybeSingle();
+
+            if (!workspace) {
+                return Promise.reject(
+                    new errors.NotFound(this.entityName + " not found.")
+                );
             }
-            let workspace1 = await this.utilityInst.aggregate([{
-                    $match: {
-                        $and: [
-                            { id: id },              // replace `id` with the actual workspace ID to match
-                            { clientId: clientId }   // replace `clientId` with the actual clientId to match
-                        ]
-                    }
-            }, {
-                $lookup: {
-                    from: 'workspacepermissions',    // Collection to join with (e.g., 'workspacepermissions')
-                    let: { client_id: "$clientId", workspace: "$id", user_id: userId }, // Variables for `clientId`, `workspace`, `userId`
-                    pipeline: [
-                        {
-                            $match: {
-                                $expr: {
-                                    $and: [
-                                        { $eq: ["$clientId", "$$client_id"] },
-                                        { $eq: ["$workspaceId", "$$workspace"] },
-                                        { $eq: ["$userId", "$$user_id"] }
-                                    ]
-                                }
-                            }
-                        }
-                    ],
-                    as: 'workspacePermissions'        // Output field to hold matched permissions data
-                }
-            },
-            {
-                $unwind: { path: "$workspacePermissions", preserveNullAndEmptyArrays: true } // Flatten if only one permission document is expected
-            }])
+
+            let { data: workspacePermissions } = await this.supabase
+                .from("workspacePermissions")
+                .select("*")
+                .eq("clientId", clientId)
+                .eq("workspaceId", id)
+                .eq("userId", userId);
+
             let email = `${workspace.id}@${config.app.email_domain}`;
-            let authInst = new this.AuthService();
-             let clientToken = authInst.generateJWTToken({client: (new Buffer(`${workspace.id}:${clientId}`)).toString('base64')});
-            return {...workspace1[0], email,clientToken}
-        }  catch(err) {
+            const AuthService = require("./AuthService"); // Lazy loading
+            let authInst = new AuthService();
+            let clientToken = await authInst.generateJWTToken({
+                client: Buffer.from(`${workspace.id}:${clientId}`).toString("base64"),
+            });
+
+            return { ...workspace, workspacePermissions, email, clientToken };
+        } catch (err) {
             return this.handleError(err);
         }
     }
 
-    async getMyWorkspace({userId,clientId}){
-        console.log(userId,clientId,'userId,clientId')
-        let workspPerInst = new this.WorkspacePermission()
-        const workspaces = await this.aggregate([
-            // Step 1: Join permissions collection
-            {
-                $lookup: {
-                    from: "workspacepermissions", // Permissions collection
-                    localField: "id", // Field in workspace
-                    foreignField: "workspaceId", // Field in permissions
-                    as: "permissions" // Resulting permissions array
-                }
-            },
-            // Step 2: Filter permissions where archiveAt is false or doesn't exist
-            {
-                $addFields: {
-                    filteredPermissions: {
-                        $filter: {
-                            input: "$permissions", // Array to filter
-                            as: "permission", // Alias for each element
-                            cond: {
-                                $or: [
-                                    { $eq: ["$$permission.archiveAt", false] }, // Explicitly false
-                                    { $not: ["$$permission.archiveAt"] } // Doesn't exist
-                                ]
-                            }
-                        }
-                    }
-                }
-            },
-            // Step 3: Match workspaces where filteredPermissions include the given userId
-            {
-                $match: {
-                    "filteredPermissions.userId": userId, // Match userId in filtered permissions
-                }
-            },
-            {
-                $lookup: {
-                    from: "users", // Users collection
-                    localField: "createdBy", // `createdBy` field in workspace
-                    foreignField: "id", // User ID field in users collection
-                    as: "createdBy" // Alias for the joined user data
-                }
-            },
-            // Step 6: Unwind the creator array
-            {
-                $unwind: {
-                    path: "$createdBy", // Unwind the creator array
-                    preserveNullAndEmptyArrays: true // Allow nulls if no matching user
-                }
-            },
-            // Step 4: Add the count of filtered permissions
-            {
-                $addFields: {
-                    userCount: { $size: "$filteredPermissions" } // Count of permissions
-                }
-            },
-            // Step 5: Exclude deleted workspaces (if needed)
-            {
-                $match: {
-                    deletedAt: { $exists: false } // Exclude soft-deleted workspaces
-                }
-            },
-            // Step 6: Project necessary fields
-            {
-                $project: {
-                    id: 1,
-                    name: 1,
-                    description: 1,
-                    clientId: 1,
-                    createdBy:{
-                        fName:1,
-                        lName:1,
-                        email:1
-                    },
-                    // creatorName: "$creator.name", // Add creator's name
-                    // creatorEmail: "$creator.email", // Add creator's email
-                    userCount: 1,
-                    createdAt:1,
-                    filteredPermissions: 1 // Include only filtered permissions if needed
-                }
-            }
-        ]);
-        
-        // let workspaces = workspPerInst.aggregate([
-        //     {
-        //         $match: {
-        //             userId: userId, // Find permissions for the specific user
-        //             clientId: clientId
-        //         }
-        //     },
-        //     {
-        //         $lookup: {
-        //             from: "workspaces",
-        //             localField: "workspaceId",
-        //             foreignField: "id", // `_id` or `id` in workspaces
-        //             as: "workspace" // Output field for the joined workspace
-        //         }
-        //     },
-        //     {
-        //         $unwind: {
-        //             path: "$workspace", // Flatten the workspace array
-        //             preserveNullAndEmptyArrays: true // Keep the document even if no matching workspace
-        //         }
-        //     },
-        //     {
-        //         $lookup: {
-        //             from: "users",
-        //             localField: "createdBy",
-        //             foreignField: "id", // `_id` or `id` in users
-        //             as: "createdBy" // Output field for the joined user
-        //         }
-        //     },
-        //     {
-        //         $unwind: {
-        //             path: "$createdBy", // Flatten the createdBy array
-        //             preserveNullAndEmptyArrays: true // Keep the document even if no matching user
-        //         }
-        //     },
-        //     {
-        //         $sort: {
-        //             "createdAt": -1 // Sort by createdAt in descending order (latest first)
-        //         }
-        //     },
-        //     {
-        //         $group: {
-        //             _id: "$workspace._id", // Group by workspace ID
-        //             workspace: { $first: "$workspace" }, // Keep workspace data
-        //             createdBy: { $first: "$createdBy" }, // Keep createdBy data
-        //             permissions: {
-        //                 $push: { // Push all permissions into an array
-        //                     _id: "$_id",
-        //                     id: "$id",
-        //                     userId: "$userId",
-        //                     clientId: "$clientId",
-        //                     workspaceId: "$workspaceId",
-        //                     role: "$role",
-        //                     createdAt: "$createdAt",
-        //                     updatedAt: "$updatedAt",
-        //                     archiveAt: "$archiveAt"
-        //                 }
-        //             },
-        //             nonArchivedCount: { // Count permissions without `archiveAt`
-        //                 $sum: {
-        //                     $cond: [{ $not: ["$archiveAt"] }, 1, 0]
-        //                 }
-        //             }
-        //         }
-        //     },
-        //     {
-        //         $replaceRoot: {
-        //             newRoot: {
-        //                 $mergeObjects: [
-        //                     "$workspace", // Workspace fields as the main document structure
-        //                     { createdBy: "$createdBy" },
-        //                     { permissions: "$permissions" }, // Add permissions array
-        //                     { nonArchivedCount: "$nonArchivedCount" } // Add non-archived permissions count
-        //                 ]
-        //             }
-        //         }
-        //     },
-        //     {
-        //         $project: {
-        //             "__v": 0 // Exclude any unwanted fields
-        //         }
-        //     }
-        // ]);
-        
-            
+    async getMyWorkspace({ userId, clientId }) {
+        try {
+            // Fetch workspace permissions first
+            let { data: workspacePermissions, error: permissionsError } = await this.supabase
+                .from("workspacePermissions")
+                .select("workspaceId")
+                .eq("userId", userId)
 
-        return workspaces
+            if (permissionsError) throw permissionsError;
+
+            // Extract workspaceIds into an array
+            const workspaceIds = workspacePermissions.map(wp => wp.workspaceId);
+
+            if (workspaceIds.length === 0) {
+                return []; // Return empty array if the user has no workspaces
+            }
+
+            // Now fetch workspaces using the extracted IDs
+            let { data: workspaces, error: workspaceError } = await this.supabase
+                .from("workspace")
+                .select(
+                    "id, name, status, description, clientId, createdBy(id, fName, lName, email), createdAt"
+                )
+                .in("id", workspaceIds)
+                .is("deletedAt", null);
+
+            if (workspaceError) throw workspaceError;
+
+            return workspaces;
+        } catch (err) {
+            return this.handleError(err);
+        }
     }
-    
+
+
+
     async updateWorkspace({ id, clientId }, updateValues) {
         try {
-            if(updateValues?.name){
-                let workspace = await this.findOne({ name: { $regex : `^${updateValues?.name}$`, $options: "i" } , clientId });
-                if (!_.isEmpty(workspace)) {
-                    return Promise.reject(new errors.NotFound(this.entityName + " Already exist."));
+            if (updateValues?.name) {
+                let { data: workspace } = await this.supabase
+                    .from("workspace")
+                    .select("*")
+                    .eq("name", updateValues.name)
+                    .eq("clientId", clientId)
+                    .maybeSingle();
+
+                if (workspace) {
+                    return Promise.reject(
+                        new errors.NotFound(this.entityName + " Already exist.")
+                    );
                 }
             }
-            let workspace = await this.getDetails(id, clientId);
-            await this.update({ id: workspace.id}, updateValues);
-            return Promise.resolve();
-        } catch(e) {
+
+            let { error } = await this.supabase
+                .from("workspace")
+                .update(updateValues)
+                .eq("id", id)
+                .eq("clientId", clientId);
+
+            if (error) throw error;
+        } catch (e) {
             return Promise.reject(e);
         }
     }
 
-
     async updateChatbotSetting({ id, clientId }, chatbotSetting) {
-        try {
-            let workspace = await this.getDetails(id, clientId);
-            let updateValues = { chatbotSetting };
-            await this.update({ id: workspace.id}, updateValues);
-            return Promise.resolve();
-        } catch (error) {
-            return this.handleError(error);
-        }
+        return this.updateWorkspace({ id, clientId }, { chatbotSetting });
     }
 
     async updateSentimentSetting({ id, clientId }, sentimentSetting) {
-        try {
-            let workspace = await this.getDetails(id, clientId);
-            let updateValues = { sentimentSetting };
-            await this.update({ id: workspace.id}, updateValues);
-            return Promise.resolve();
-        } catch (error) {
-            return this.handleError(error);
-        }
+        return this.updateWorkspace({ id, clientId }, { sentimentSetting });
     }
 
     async updateQualityAssuranceSetting({ id, clientId }, qualityAssuranceSetting) {
-        try {
-            let workspace = await this.getDetails(id, clientId);
-            let updateValues = { qualityAssuranceSetting };
-            await this.update({ id: workspace.id}, updateValues);
-            return Promise.resolve();
-        } catch (error) {
-            return this.handleError(error);
-        }
+        return this.updateWorkspace({ id, clientId }, { qualityAssuranceSetting });
     }
 
     async deleteWorkspace({ id, clientId }) {
         try {
-            let workspace = await this.getDetails(id, clientId);
-            let res = await this.softDelete(workspace.id);
-            return res;
-        } catch(err) {
+            let { error } = await this.supabase
+                .from("workspace")
+                .update({ deletedAt: new Date() })
+                .eq("id", id)
+                .eq("clientId", clientId);
+
+            if (error) throw error;
+        } catch (err) {
+            return this.handleError(err);
+        }
+    }
+
+    async getWorkspaceDetails(workspaceId, clientId) {
+        try {
+            // Fetch workspace details
+            let { data: workspace, error: workspaceError } = await this.supabase
+                .from("workspace")
+                .select("id, name, description, clientId")
+                .eq("id", workspaceId)
+                .eq("clientId", clientId)
+                .single();
+
+            if (workspaceError) throw workspaceError;
+            if (!workspace) return null; // If no workspace found, return null
+
+            // Fetch workspace permissions
+            let { data: workspacePermissions, error: permissionsError } = await this.supabase
+                .from("workspacePermissions")
+                .select("id, userId, role, access")
+                .eq("workspaceId", workspaceId)
+
+            if (permissionsError) throw permissionsError;
+
+            // Extract userIds from permissions
+            const userIds = workspacePermissions.map(wp => wp.userId);
+
+            // Fetch user details only if userIds exist
+            let users = [];
+            if (userIds.length > 0) {
+                let { data: userData, error: userError } = await this.supabase
+                    .from("users")
+                    .select("id, fName, lName, email")
+                    .in("id", userIds);
+
+                if (userError) throw userError;
+                users = userData;
+            }
+
+            // Map users to workspacePermissions
+            workspacePermissions = workspacePermissions.map(permission => ({
+                ...permission,
+                user: users.find(user => user.id === permission.userId) || null
+            }));
+
+            // Attach permissions to workspace
+            return {
+                ...workspace,
+                workspacePermissions
+            };
+        } catch (err) {
             return this.handleError(err);
         }
     }
 
 
-    async getWorkspaceDetails(workspaceId, clientId, userId) {
-        let data = await this.aggregate([
-            {
-                $match: {
-                    id: workspaceId,  // Match workspace by workspaceId
-                    clientId: clientId // Filter by clientId
-                }
-            },
-            {
-                $lookup: {
-                    from: 'workspacepermissions',  // The collection where workspace permissions are stored
-                    localField: 'id',              // Field in the workspace collection (matching workspaceId)
-                    foreignField: 'workspaceId',   // Field in the workspacepermissions collection (matching workspaceId)
-                    as: 'workspacePermissions'     // Alias for the resulting array of permissions
-                }
-            },
-            {
-                $unwind: {
-                    path: '$workspacePermissions',  // Unwind the workspacePermissions array to work with individual permissions
-                    preserveNullAndEmptyArrays: true // Ensures workspaces without any permissions are still processed
-                }
-            },
-            {
-                $match: {
-                    'workspacePermissions.archiveAt': { $exists: false } // Exclude permissions with an `archiveAt` field
-                }
-            },
-            {
-                $lookup: {
-                    from: 'users',                // The users collection
-                    localField: 'workspacePermissions.userId',  // Field to join on (userId in workspacePermissions)
-                    foreignField: 'id',          // Match the _id field in the users collection
-                    as: 'workspacePermissions.user'             // Embed the user details in the permission object
-                }
-            },
-           
-            {
-                $group: {
-                    _id: '$_id',
-                    name: { $first: '$name' },
-                    description: { $first: '$description' },
-                    clientId: { $first: '$clientId' },
-                    workspacePermissions: { $push: '$workspacePermissions' }  // Re-group permissions with userDetails embedded
-                }
-            }
-            
-        ]);
-    
-        return data;
-    }
-    
-
     parseFilters({ name, createdFrom, createdTo, clientId }) {
-        let filters = {};
-        filters.clientId = clientId;
+        let filters = { clientId };
 
         if (name) {
-            filters.name = { $regex : `^${name}`, $options: "i" };
+            filters.name = name;
         }
 
-        if (createdFrom) {
-            if (!filters.createdAt) {
-                filters.createdAt = {}
-            }
-            filters.createdAt['$gte'] = createdFrom;
-        }
-        if (createdTo) {
-            if (!filters.createdAt) {
-                filters.createdAt = {}
-            }
-            filters.createdAt['$lt'] = createdTo;
+        if (createdFrom || createdTo) {
+            filters.createdAt = {};
+            if (createdFrom) filters.createdAt["gte"] = createdFrom;
+            if (createdTo) filters.createdAt["lt"] = createdTo;
         }
 
         return filters;
     }
-
 }
 
 module.exports = WorkspaceService;

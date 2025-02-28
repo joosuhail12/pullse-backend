@@ -13,8 +13,6 @@ class TicketTopicHandler extends BaseHandler {
     req.body.createdBy = req.authUser.id;
     req.body.clientId = req.authUser.clientId;
     req.body.workspaceId = req.query.workspace_id;
-
-    console.log(req.body);
     return this.responder(req, reply, inst.createTicketTopic(req.body));
   }
 

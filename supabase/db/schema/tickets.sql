@@ -1,0 +1,21 @@
+CREATE TABLE tickets (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    sno SERIAL UNIQUE,
+    title TEXT NOT NULL,
+    description TEXT,
+    entity_type TEXT DEFAULT 'ticket',
+    type_id UUID REFERENCES ticket_type(id),
+    status TEXT DEFAULT 'open',
+    customer_id UUID REFERENCES customers(id),
+    chatbot_id UUID REFERENCES chatbot(id),
+    team_id UUID REFERENCES teams(id),
+    assignee_id UUID REFERENCES users(id),
+    workspace_id UUID NOT NULL REFERENCES workspace(id),
+    client_id UUID NOT NULL REFERENCES clients(id),
+    last_message TEXT,
+    last_message_at TIMESTAMP,
+    created_by UUID NOT NULL REFERENCES users(id),
+    deleted_at TIMESTAMP,
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
+);

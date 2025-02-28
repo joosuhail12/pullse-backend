@@ -1,79 +1,51 @@
-const _ = require("lodash");
-const Promise = require("bluebird");
-const CustomerUtility = require('../db/utilities/CustomerUtility');
+const { createClient } = require('@supabase/supabase-js');
+const errors = require("../errors");
 const BaseService = require("./BaseService");
 const CompanyService = require("./CompanyService");
 const TagService = require("./TagService");
-const errors = require("../errors");
-const CSVHandler = require('../FileManagement/CSVFileSystem')
+const CSVHandler = require('../FileManagement/CSVFileSystem');
 const { CustomerEventPublisher } = require("../Events/CustomerEvent");
 
 class CustomerService extends BaseService {
-
-    constructor(fields=null, dependencies={}) {
+    constructor(fields = null, dependencies = {}) {
         super();
-        this.entityName = "Customer";
+        this.supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
+        this.entityName = "customers";
         this.TagService = dependencies.TagService;
-        this.utilityInst = new CustomerUtility();
-        this.listingFields = [ "id","name", "email", "type", "title", "externalId", "language", "companyId", "-_id" ];
+        this.listingFields = ["id", "firstname", "lastname", "email", "type", "title", "externalId", "language", "companyId", "status", "department", "timezone", "linkedin", "twitter", "source", "assignedTo", "accountValue", "tagIds", "notes", "lastContacted", "created_at", "updated_at", "street", "city", "state", "postalCode", "country", "companies(name)"];
         if (fields) {
             this.listingFields = fields;
         }
-        this.updatableFields = [ "name", "email", "type", "title", "workPhone", "phone", "phoneCountry", "externalId", "twitter", "linkedin", "timezone", "language", "address", "about", "notes", "companyId", "sessions", "tagIds", "lastActiveAt", "archiveAt" ];
+        this.updatableFields = ["firstname", "lastname", "email", "type", "title", "workPhone", "phone", "phoneCountry", "externalId", "twitter", "linkedin", "timezone", "language", "address", "about", "notes", "companyId", "sessions", "tagIds", "lastActiveAt", "archiveAt", "status", "department", "source", "assignedTo", "accountValue", "lastContacted", "street", "city", "state", "postalCode", "country"];
     }
 
-     /**
-     * Finds or creates a customer
-     * @param {Object} customerData - Customer data object containing email, workspaceId, and clientId.
-     * @returns {Object} Customer object
-     * @description
-     - Finds a customer by email, workspaceId, and clientId.
-    - If no customer is found, creates a new customer with the provided data.
-    - Returns the found or created customer object.
-    */
     async findOrCreateCustomer(customerData = {}) {
         try {
             const { email, workspaceId, clientId } = customerData;
-            let customer = await this.findOne({ email, workspaceId, clientId });
+            let { data: customer, error } = await this.supabase.from(this.entityName).select("*").eq('email', email).eq('workspaceId', workspaceId).eq('clientId', clientId).single();
+            if (error && error.code !== "PGRST116") throw error;
             if (!customer) {
-                let data = await this.create(customerData);
-                customer = await this.findOne(data);
+                let { data, error: insertError } = await this.supabase.from(this.entityName).insert([customerData]).select().single();
+                if (insertError) throw insertError;
+                customer = data;
                 let inst = new CustomerEventPublisher();
                 await inst.created(customer);
             }
-            return customer;
-        } catch(err) {
+            let customers = await this.getCustomers(workspaceId, clientId);
+            return customers;
+        } catch (err) {
             return this.handleError(err);
         }
     }
 
-    async validateCustomerData(row) {
-        return Promise.resolve();
-    }
-
-     /**
-     * Imports customer data from a CSV file into the database.
-     * @param {{fileSrc, workspaceId, clientId, createdBy}} - Object containing the file source, workspace ID, client ID and creator ID.
-     * @returns {{total, errorRows}} - Object containing the total rows processed and any rows with errors.
-     * @description
-     *   - Reads customer data from the CSV file row by row.
-     *   - Validates the data in each row.
-     *   - Creates a customer object from valid rows and saves to the database.
-     *   - Tracks the total rows processed and any rows with validation errors.
-     *   - Returns the results.
-     */
-    async importCustomerData({fileSrc, workspaceId, clientId, createdBy}) {
+    async importCustomerData({ fileSrc, workspaceId, clientId, createdBy }) {
         try {
             let inst = new CSVHandler();
             let companyServiceInst = new CompanyService();
             let rowCount = 0;
             let errorRows = [];
-            inst.getData(fileSrc, async (row) => {
+            await inst.getData(fileSrc, async (row) => {
                 rowCount++;
-                if (!this.validateCustomerData(row)) {
-                    errorRows.push(rowCount)
-                    return Promise.resolve();
-                }
                 let company = await companyServiceInst.createCompany(row.company);
                 let customerData = {
                     workspaceId, clientId, createdBy,
@@ -87,138 +59,204 @@ class CustomerService extends BaseService {
                 return this.findOrCreateCustomer(customerData);
             });
 
-            return Promise.resolve({
-                total: rowCount,
-                errorRows: errorRows,
-            });
-        } catch(err) {
+            return { total: rowCount, errorRows };
+        } catch (err) {
             return this.handleError(err);
         }
     }
 
-    async getDetails(id, workspaceId, clientId) {
-        try {
-            let customer = await this.findOne({ id, workspaceId, clientId });
+    // async updateCustomer({ id, workspaceId, clientId }, updateValues) {
+    //     try {
+    //         let { error } = await this.supabase.from(this.entityName).update(updateValues).eq('id', id).eq('workspaceId', workspaceId).eq('clientId', clientId);
+    //         if (error) throw error;
+    //         let inst = new CustomerEventPublisher();
+    //         await inst.updated(id, updateValues);
+    //         return this.getCustomers();
+    //     } catch (err) {
+    //         return this.handleError(err);
+    //     }
+    // }
 
-            if (!_.isEmpty(customer)) {
-                return customer;
-            } else {
-                return Promise.reject(new errors.NotFound(this.entityName + " not found."));
-            }
-        }  catch(err) {
+    async deleteCustomer({ id, workspaceId, clientId }) {
+        try {
+            let { error } = await this.supabase.from(this.entityName).update({ archiveAt: new Date() }).eq('id', id).eq('workspaceId', workspaceId).eq('clientId', clientId);
+            if (error) throw error;
+            return this.getCustomers();
+        } catch (err) {
             return this.handleError(err);
         }
     }
 
     async updateCustomer({ id, workspaceId, clientId }, updateValues) {
         try {
-            let customer = await this.getDetails(id, workspaceId, clientId);
+            const selectFields = `
+                id, firstname, lastname, email, phone, type, title, department, timezone,
+                linkedin, twitter, language, source, assignedTo, accountValue, tagIds, notes,
+                lastContacted, created_at, updated_at, street, city, state, postalCode, country,
+                company: companies(name)  -- Fetch company name
+            `;
+            // Update the customer record
+            const { data, error } = await this.supabase
+                .from(this.entityName)
+                .update(updateValues)
+                .match({ id, workspaceId, clientId })  // ✅ More efficient filtering
+                .select(selectFields) // Return updated customer
+                .single();
 
-            if (updateValues.companyId) {
-                let inst = new CompanyService()
-                let team = await inst.getDetails(updateValues.companyId, workspaceId, clientId);
-            }
-            if (updateValues.tagIds) {
-                let inst = new TagService()
-                let tag = await inst.getDetails({ id: { $in: updateValues.tagIds }, workspaceId, clientId }, {id: 1});
-            }
+            if (error) throw error;
 
-            await this.update({ id: customer.id, workspaceId, clientId }, updateValues);
+            // Publish event asynchronously (does not block response)
             let inst = new CustomerEventPublisher();
-            await inst.updated(customer, updateValues);
-            return Promise.resolve();
-        } catch(err) {
+            inst.updated(id, updateValues).catch(err => console.error("Event error:", err));  // ✅ Runs in the background
+            return {
+                id: data.id,
+                firstName: data.firstname,
+                lastName: data.lastname,
+                email: data.email,
+                phone: data.phone || null,
+                company: data.company ? data.company.name : null, // Extract company name
+                status: data.status || "active",
+                type: data.type,
+                title: data.title,
+                department: data.department,
+                timezone: data.timezone,
+                linkedinUrl: data.linkedin,
+                twitterUrl: data.twitter,
+                language: data.language || "English",
+                source: data.source || "website",
+                assignedTo: data.assignedTo || null,
+                accountValue: data.accountValue || 0,
+                tags: data.tagIds ? data.tagIds : [],
+                notes: data.notes || "",
+                lastContacted: data.lastContacted ? new Date(data.lastContacted).toISOString() : null,
+                createdAt: new Date(data.created_at).toISOString(),
+                updatedAt: new Date(data.updated_at).toISOString(),
+                street: data.street || "",
+                city: data.city || "",
+                state: data.state || "",
+                postalCode: data.postalCode || "",
+                country: data.country || "",
+            };
+        } catch (err) {
             return this.handleError(err);
         }
     }
 
-    /**
-     * Performs a bulk action on multiple documents
-     * @param {Object} params - Parameters for bulk action.
-     * @returns {Promise} - Resolves if action succeeds, rejects if fails.
-     * @description
-     * - Archives documents if action is 'archive' by setting archiveAt date.
-     * - Adds or removes tags from documents if action is 'addTags' or 'removeTags' and tagIds are provided.
-     * - Validates tag ids exist before updating documents.
-     * - Updates multiple documents matching filter criteria.
-     * - Handles any errors.
-     */
-    async bulkAction({ ids, action, workspaceId, clientId, tagIds }) {
+    async getCustomerDetails(customer_id, workspaceId, clientId) {
         try {
-            let filters = { id: { $in: ids }, workspaceId, clientId };
-            let updateValues = {};
-            if (action === 'archive') {
-                updateValues.archiveAt = new Date();
-            }
-            if (action === 'restore') {
-                updateValues.archiveAt = null;
-            }
-            if (action === 'removeTags' || action === 'addTags' && tagIds) {
-                let tagServiceInst = new this.TagService();
-                let tagCount = await tagServiceInst.count({ id: { $in: tagIds }, workspaceId, clientId });
-                if (tagCount !== tagIds.length) {
-                    return Promise.reject(new errors.BadRequest("Invalid tag ids"));
-                }
-                if (action === 'removeChatBots') {
-                    updateValues['$pull'] = { tagIds: { $in: tagIds } };
-                } else {
-                    updateValues['$push'] = { tagIds: { $each: tagIds } };
-                }
-            }
-            await this.updateMany(filters, updateValues);
-            return Promise.resolve();
-        } catch (error) {
-            return this.handleError(error);
-        }
-    }
+            // Ensure we select necessary fields, including company name
+            const selectFields = `
+                id, firstname, lastname, email, phone, type, title, department, timezone,
+                linkedin, twitter, language, source, assignedTo, accountValue, tagIds, notes,
+                lastContacted, created_at, updated_at, street, city, state, postalCode, country,
+                company: companies(name)  -- Fetch company name
+            `;
 
-    async deleteCustomer({ id, workspaceId, clientId }) {
-        try {
-            let customer = await this.findOne({ id, workspaceId, clientId });
-            let res = await this.softDelete(customer.id);
-            return res;
-        } catch(err) {
+            // Query Supabase for a single customer
+            const { data, error } = await this.supabase
+                .from(this.entityName)
+                .select(selectFields)
+                .eq("id", customer_id)
+                .eq("workspaceId", workspaceId)
+                .eq("clientId", clientId)
+                .single();
+
+            // Handle errors or missing data
+            if (error) throw error;
+            if (!data) throw new errors.NotFound("Customer not found.");
+
+            // Format the response
+            return {
+                id: data.id,
+                firstname: data.firstname,
+                lastname: data.lastname,
+                email: data.email,
+                phone: data.phone || null,
+                company: data.company ? data.company.name : null, // Extract company name
+                status: data.status || "active",
+                type: data.type,
+                title: data.title,
+                department: data.department,
+                timezone: data.timezone,
+                linkedinUrl: data.linkedin,
+                twitterUrl: data.twitter,
+                language: data.language || "English",
+                source: data.source || "website",
+                assignedTo: data.assignedTo || null,
+                accountValue: data.accountValue || 0,
+                tags: data.tagIds ? data.tagIds : [],
+                notes: data.notes || "",
+                lastContacted: data.lastContacted ? new Date(data.lastContacted).toISOString() : null,
+                createdAt: new Date(data.created_at).toISOString(),
+                updatedAt: new Date(data.updated_at).toISOString(),
+                street: data.street || "",
+                city: data.city || "",
+                state: data.state || "",
+                postalCode: data.postalCode || "",
+                country: data.country || "",
+            };
+        } catch (err) {
             return this.handleError(err);
         }
     }
 
-    parseFilters({ name, email, type, companyId, archived, workspaceId, clientId, lastActiveFrom, lastActiveTo }) {
+
+    async getCustomers(workspaceId, clientId) {
+        const { data, error } = await this.supabase
+            .from(this.entityName)
+            .select(this.listingFields.join(","))
+            .eq("workspaceId", workspaceId)
+            .eq("clientId", clientId)
+            .order("created_at", { ascending: false });
+
+        if (error) throw error;
+
+        return data.map(customer => ({
+            id: customer.id,
+            firstname: customer.firstname,
+            lastname: customer.lastname,
+            email: customer.email,
+            phone: customer.phone || null,
+            company: customer.companies ? customer.companies.name : null, // Ensure this is replaced with the actual company name if needed
+            status: customer.status || 'active',
+            type: customer.type,
+            title: customer.title,
+            department: customer.department,
+            timezone: customer.timezone,
+            linkedinUrl: customer.linkedin,
+            twitterUrl: customer.twitter,
+            language: customer.language || 'English',
+            source: customer.source || 'unknown',
+            assignedTo: customer.assignedTo || null,
+            accountValue: customer.accountValue || 0,
+            tags: customer.tagIds ? customer.tagIds : [], // Ensure proper tag retrieval
+            notes: customer.notes || '',
+            lastContacted: customer.lastContacted ? new Date(customer.lastContacted).toISOString() : null,
+            createdAt: new Date(customer.created_at).toISOString(),
+            updatedAt: new Date(customer.updated_at).toISOString(),
+            street: customer.street || '',
+            city: customer.city || '',
+            state: customer.state || '',
+            postalCode: customer.postalCode || '',
+            country: customer.country || ''
+        }));
+    }
+
+
+    async parseFilters({ name, email, type, companyId, archived, workspaceId, clientId, lastActiveFrom, lastActiveTo }) {
         let filters = {};
-
-        filters.workspaceId = workspaceId;
-        filters.clientId = clientId;
-
-        if (name) {
-            filters.name = { $regex : `^${name}`, $options: "i" };
-        }
-        if (email) {
-            filters.email = email;
-        }
-        if (type) {
-            filters.type = type;
-        }
-        if (companyId) {
-            filters.companyId = companyId;
-        }
-
-
-        if (archived) {
-            filters.archiveAt = { $ne: null };
-        }
-        if (lastActiveFrom) {
-            if (!filters.lastActiveAt) {
-                filters.lastActiveAt = {}
-            }
-            filters.lastActiveAt['$gte'] = lastActiveFrom;
-        }
-        if (lastActiveTo) {
-            if (!filters.lastActiveAt) {
-                filters.lastActiveAt = {}
-            }
-            filters.lastActiveAt['$lt'] = lastActiveTo;
-        }
+        if (workspaceId) filters.workspaceId = workspaceId;
+        if (clientId) filters.clientId = clientId;
+        if (name) filters.firstname = { ilike: `%${name}%` };
+        if (email) filters.email = email;
+        if (type) filters.type = type;
+        if (companyId) filters.companyId = companyId;
+        if (archived) filters.archiveAt = { not: null };
+        if (lastActiveFrom) filters.lastActiveAt = { gte: lastActiveFrom };
+        if (lastActiveTo) filters.lastActiveAt = { lte: lastActiveTo };
         return filters;
     }
+
 }
 
 module.exports = CustomerService;

@@ -2,7 +2,7 @@ const Promise = require('bluebird');
 const crypto = require('crypto');
 const config = require('../../config');
 const errors = require('../../errors');
-const UserUtility = require('../utilities/UserUtility');
+const supabase = require('../supabaseClient');
 
 class AuthUtility {
 

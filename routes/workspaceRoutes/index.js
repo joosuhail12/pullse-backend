@@ -111,12 +111,6 @@ async function activate(app) {
     }
   });
 
-
-
-
-
-
-
   app.route({
     url: base_url + "/:workspace_id",
     method: 'GET',
@@ -151,6 +145,9 @@ async function activate(app) {
         description:  {
           type: 'string',
         },
+        status:{
+          type:'boolean'
+        }
       },
     },
     handler: async (req, reply) => {

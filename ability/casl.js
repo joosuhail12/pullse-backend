@@ -9,9 +9,9 @@ async function caslPlugin(fastify) {
 
   fastify.addHook('preHandler', async (request, reply) => {
     if(request.url.includes('/auth/login')) return
-    let token = request.headers.authorization.split("Bearer ")[1]
+    if(request.url.includes('/auth/logout')) return
+    let token = request?.headers?.authorization?.split("Bearer ")[1]
     let user = await authMiddlewares.verifyUserToken(token);
-    console.log(user,'tokensssss')
     // console.log('workspaceUser',user)
     request.user = user;
     request.authUser = user;

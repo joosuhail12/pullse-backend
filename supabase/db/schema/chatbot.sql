@@ -1,0 +1,20 @@
+CREATE TABLE chatbot (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name TEXT NOT NULL,
+    status TEXT NOT NULL,
+    assistant_id UUID NOT NULL,
+    channels TEXT[],
+    audience TEXT[],
+    rule_ids UUID[],
+    intro_messages TEXT[],
+    answer_mode TEXT CHECK (answer_mode IN ('once', 'loop')),
+    after_answer TEXT CHECK (after_answer IN ('close', 'route')),
+    if_cant_answer TEXT CHECK (if_cant_answer IN ('close', 'route')),
+    handover_messages TEXT[],
+    workspace_id UUID NOT NULL REFERENCES workspace(id),
+    client_id UUID NOT NULL REFERENCES clients(id),
+    created_by UUID NOT NULL REFERENCES users(id),
+    deleted_at TIMESTAMP,
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
+);

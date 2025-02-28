@@ -2,217 +2,206 @@ const _ = require('lodash');
 const bcrypt = require('bcrypt');
 const logger = require('../logger');
 const errors = require("../errors");
-const config = require('../config')
+const config = require('../config');
 const crypto = require('crypto');
 const AuthConstants = require('../constants/AuthConstants');
 const PaginationConstants = require('../constants/PaginationConstants');
+const { createClient } = require('@supabase/supabase-js');
 
 class BaseService {
-
-    constructor() {
-        this.entityName = "Entity";
+    constructor(tableName) {
+        this.entityName = tableName;
+        this.supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
         this.pagination = true;
         this.logger = logger;
         this.listingFields = null;
         this.updatableFields = [];
         this.AuthConstants = AuthConstants;
-        this.loggerMetaData = {
-            service: this.constructor.name
-        };
+        this.loggerMetaData = { service: this.constructor.name };
     }
 
     log({ message, data, level }) {
         let log = this.logger[level] || this.logger.info;
-        log(message, {
-            ...data,
-            ...this.loggerMetaData
-        });
+        log(message, { ...data, ...this.loggerMetaData });
     }
 
-    async create(requestedData = {}) {
+    async create(record) {
         try {
-            let entity = await this.utilityInst.insert(requestedData);
-            return { id: entity.id };
-        }  catch(err) {
+            const { data, error } = await this.supabase.from(this.entityName).insert(record).select("id").single();
+            if (error) throw error;
+            return { id: data.id };
+        } catch (err) {
             return this.handleError(err);
         }
     }
 
-    search(conditions, fields, options, pagination = true) {
-        if (pagination) {
-            return this.utilityInst.paginate(conditions, fields, options);
-        }
-        return this.utilityInst.find(conditions, fields, options);
-    }
+    async search(conditions, fields, options, pagination = true) {
+        let query = this.supabase.from(this.entityName).select(fields ? fields.join(", ") : '*');
 
+        Object.entries(conditions).forEach(([key, value]) => {
+            query = query.eq(key, value);
+        });
+
+        if (pagination) {
+            query = query.range(options.offset, options.offset + options.limit - 1);
+        }
+
+        if (options.sort) {
+            Object.entries(options.sort).forEach(([key, value]) => {
+                query = query.order(key, { ascending: value === 'asc' });
+            });
+        }
+        const { data, error } = await query;
+        if (error) throw error;
+        return data;
+    }
 
     async getDetails(filters, fields = null) {
         try {
-            let entity = await this.findOne(filters, fields);
-
-            if (!_.isEmpty(entity)) {
-                return entity;
-            } else {
-                return Promise.reject(new errors.NotFound(this.entityName + " not found."));
-            }
-        }  catch(err) {
+            const data = await this.findOne(filters, fields);
+            if (!_.isEmpty(data)) return data;
+            throw new errors.NotFound(`${this.entityName} not found.`);
+        } catch (err) {
             return this.handleError(err);
         }
     }
 
     async findOrFail(id) {
-        try {
-            let data = await this.findOne({ id });
-
-            if (!_.isEmpty(data)) {
-                return data;
-            } else {
-                return Promise.reject(new errors.NotFound(this.entityName + " not found."));
-            }
-        }  catch(err) {
-            return this.handleError(err);
-        }
+        return this.getDetails({ id });
     }
 
     async findOne(filter = {}, fields = null) {
-        try {
-            let data = await this.utilityInst.findOne(filter, fields);
-            return data;
-        }  catch(err) {
-            return this.handleError(err);
-        }
+        let query = this.supabase.from(this.entityName).select(fields ? fields.join(", ") : '*').single();
+        Object.entries(filter).forEach(([key, value]) => {
+            query = query.eq(key, value);
+        });
+        const { data, error } = await query;
+        if (error) throw error;
+        return data;
     }
 
-
     async count(filter = {}) {
-        try {
-            let data = await this.utilityInst.countDocuments(filter);
-            return data;
-        }  catch(err) {
-            return this.handleError(err);
-        }
+        let query = this.supabase.from(this.entityName).select('*', { count: 'exact', head: true });
+        Object.entries(filter).forEach(([key, value]) => {
+            query = query.eq(key, value);
+        });
+        const { count, error } = await query;
+        if (error) throw error;
+        return count;
     }
 
     async update(filter, updateValues) {
         try {
             updateValues = _.pick(updateValues, this.updatableFields);
-            let res = await this.updateOne(filter, updateValues);
-            return res;
-        } catch(err) {
+            return this.updateOne(filter, updateValues);
+        } catch (err) {
             return this.handleError(err);
         }
     }
 
     async updateOne(filter = {}, setData = {}) {
-        try {
-            let data = await this.utilityInst.updateOne(filter, setData);
-            return data;
-        }  catch(err) {
-            return this.handleError(err);
-        }
+        let query = this.supabase.from(this.entityName).update(setData);
+        Object.entries(filter).forEach(([key, value]) => {
+            query = query.eq(key, value);
+        });
+        const { data, error } = await query;
+        if (error) throw error;
+        return data;
     }
 
-    async softDelete(id, softDeleteField = 'archiveAt') { // set field to deletedAt when force is true
-        try {
-            let setData = {}
-            setData[softDeleteField] = new Date();
-
-            await this.findOrFail(id);
-            await this.updateOne({ id }, setData);
-            return Promise.resolve();
-        } catch(err) {
-            return this.handleError(err);
-        }
+    async softDelete(id, softDeleteField = 'deletedAt') {
+        return this.updateOne({ id }, { [softDeleteField]: new Date() });
     }
 
-    async updateMany(filters, updateValues, options={}) {
-        try {
-            let res = await this.utilityInst.updateMany(filters, updateValues, options);
-            return res;
-        } catch(err) {
-            return this.handleError(err);
-        }
+    async updateMany(filters, updateValues) {
+        return this.updateOne(filters, updateValues);
     }
 
-    async paginate(requestedData = {}, pagination=true) {
+    async paginate(requestedData = {}, pagination = true) {
         try {
+            if (!this.supabase) {
+                throw new Error("Supabase client is not initialized");
+            }
+
             let conditions = await this.parseFilters(requestedData);
-            if (!conditions.archiveAt) {
-                conditions.archiveAt = null;
+            let query = this.supabase.from(this.entityName).select(this.listingFields ? this.listingFields.join(", ") : '*');
+            Object.entries(conditions).forEach(([key, value]) => {
+                if (key === "archiveAt" && (this.entityName === "tags" || this.entityName === "tickettopic")) {
+                    if (value === null) {
+                        query = query.is("archiveAt", null); // ✅ Correctly checking for NULL values
+                    } else if (value["$ne"] === null) {
+                        query = query.not("archiveAt", "is", null); // ✅ Checking for NOT NULL values
+                    }
+                } else {
+                    query = query.eq(key, value);
+                }
+            });
+
+            // ✅ Ensure we add `archiveAt IS NULL` **only if it's missing from conditions**
+            if (!("archiveAt" in conditions) && (this.entityName === "tags" || this.entityName === "tickettopic")) {
+                query = query.is("archiveAt", null);
             }
 
-            requestedData.limit = parseInt(requestedData.limit) || PaginationConstants.LIMIT;
-            let page = parseInt(requestedData.page) || PaginationConstants.PAGENUMBER;
-            let skipCount = (page - 1) * requestedData.limit;
-            let options = { limit: requestedData.limit, offset: skipCount, sort: {} };
 
-            if (!_.isEmpty(requestedData.sort_by) && !_.isEmpty(requestedData.sort_order)) {
-                options.sort[requestedData.sort_by] = requestedData.sort_order;
+            if (pagination) {
+                const limit = parseInt(requestedData.limit) || PaginationConstants.LIMIT;
+                const page = parseInt(requestedData.page) || PaginationConstants.PAGENUMBER;
+                const offset = (page - 1) * limit;
+                query = query.range(offset, offset + limit - 1);
             }
 
-            let data = await this.search(conditions, this.listingFields, options, pagination);
+            if (requestedData.sort_by && requestedData.sort_order) {
+                query = query.order(requestedData.sort_by, { ascending: requestedData.sort_order === 'asc' });
+            }
+
+            let { data, error } = await query;
+            if (error) throw error;
             return data;
-        } catch(err) {
+        } catch (err) {
             return this.handleError(err);
         }
     }
+
 
     async bcryptToken(password) {
-        let pass;
         try {
-            pass =  await bcrypt.hash(String(password), this.AuthConstants.SALTROUNDS);
+            return await bcrypt.hash(String(password), this.AuthConstants.SALTROUNDS);
+        } catch (err) {
+            return this.handleError(err);
         }
-        catch(err) {
-            this.handleError(err);
-        }
-        return pass;
     }
 
     async generateCryptoToken() {
         return new Promise((resolve, reject) => {
             crypto.randomBytes(20, (err, buf) => {
-                if(err) {
-                    return reject(err);
-                }
-                let token = buf.toString('hex');
-                resolve(token);
+                if (err) reject(err);
+                resolve(buf.toString('hex'));
             });
         });
     }
 
-    /**
-     * Aggregates data based on filters and updates values.
-     * @param {object} options - Options object for aggregation.
-     * @returns {object} Aggregated data.
-     * @description
-     *   - Applies filters to aggregate data from the utility instance.
-     *   - Updates values based on updateValues parameter.
-     *   - Returns aggregated data or handles any errors.
-     */
-    async aggregate(options=[]) {
+    async aggregate(options = []) {
         try {
-            let res = await this.utilityInst.aggregate(options);
-            return res;
-        } catch(err) {
+            let query = supabase.from(this.entityName).select('*');
+            options.forEach(([key, value]) => {
+                query = query.eq(key, value);
+            });
+            const { data, error } = await query;
+            if (error) throw error;
+            return data;
+        } catch (err) {
             return this.handleError(err);
         }
     }
 
     handleError(err) {
-        this.log({
-            level: "error",
-            // message,
-            data: {
-                err
-            }
-        });
+        this.log({ level: "error", data: { err } });
         return Promise.reject(err);
     }
 
     parseFilters() {
         return {};
     }
-
 }
 
 module.exports = BaseService;

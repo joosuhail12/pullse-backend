@@ -1,10 +1,10 @@
 const _ = require("lodash");
-const BaseHandler = require('./BaseHandler');
-const CustomerService = require('../services/CustomerService');
-const TagService = require('../services/TagService');
-const errors = require('../errors');
-class CustomerHandler extends BaseHandler {
+const BaseHandler = require("./BaseHandler");
+const CustomerService = require("../services/CustomerService");
+const TagService = require("../services/TagService");
+const errors = require("../errors");
 
+class CustomerHandler extends BaseHandler {
   constructor() {
     super();
     this.customerServiceInst = new CustomerService(null, { TagService });
@@ -15,7 +15,7 @@ class CustomerHandler extends BaseHandler {
     let createdBy = req.authUser.id;
     let clientId = req.authUser.clientId;
     let workspaceId = req.query.workspace_id;
-    let fileSrc = req.raw.files['customers'].tempFilePath
+    let fileSrc = req.raw.files["customers"].tempFilePath;
     return this.responder(req, reply, inst.importCustomerData({ createdBy, clientId, workspaceId, fileSrc }));
   }
 
@@ -30,8 +30,10 @@ class CustomerHandler extends BaseHandler {
   async listCustomers(req, reply) {
     let clientId = req.authUser.clientId;
     let inst = this.customerServiceInst;
+
     let filters = {
-      name: req.query.name,
+      firstname: req.query.firstname,
+      lastname: req.query.lastname,
       email: req.query.email,
       type: req.query.customer_type,
       companyId: req.query.company_id,
@@ -46,24 +48,69 @@ class CustomerHandler extends BaseHandler {
       sort_order: req.query.sort_order,
       clientId: clientId,
     };
-    return this.responder(req, reply, inst.paginate(filters));
+
+    // Ensure the result of paginate() is awaited
+    let customers = await inst.paginate(filters);
+
+    // Transform data format
+    let formattedCustomers = customers.map(customer => ({
+      id: customer.id,
+      firstname: customer.firstname,
+      lastname: customer.lastname,
+      email: customer.email,
+      phone: customer.phone || null,
+      company: customer.companies ? customer.companies.name : null, // Replace with actual company name if needed
+      status: customer.status || 'active',
+      type: customer.type,
+      title: customer.title,
+      department: customer.department,
+      timezone: customer.timezone,
+      linkedinUrl: customer.linkedin,
+      twitterUrl: customer.twitter,
+      language: customer.language || 'English',
+      source: customer.source || 'website',
+      assignedTo: customer.assignedTo || null,
+      accountValue: customer.accountValue || 0,
+      tags: customer.tagIds ? customer.tagIds : [],
+      notes: customer.notes || '',
+      lastContacted: customer.lastContacted ? new Date(customer.lastContacted).toISOString() : null,
+      createdAt: new Date(customer.created_at).toISOString(),
+      updatedAt: new Date(customer.updated_at).toISOString(),
+      street: customer.street || '',
+      city: customer.city || '',
+      state: customer.state || '',
+      postalCode: customer.postalCode || '',
+      country: customer.country || ''
+    }));
+
+    // Return formatted response
+    return this.responder(req, reply, Promise.resolve(formattedCustomers));
   }
+
+  async updateCustomer(req, reply) {
+    let workspaceId = req.query.workspace_id;
+    let clientId = req.authUser.clientId;
+    let id = req.params.customer_id;
+    let toUpdate = req.body;
+    let inst = this.customerServiceInst;
+
+    return this.responder(req, reply, inst.updateCustomer({ id, workspaceId, clientId }, toUpdate));
+  }
+
 
   async showCustomerDetail(req, reply) {
     let clientId = req.authUser.clientId;
     let customer_id = req.params.customer_id;
     let workspaceId = req.query.workspace_id;
-
     let inst = this.customerServiceInst;
-    return this.responder(req, reply, inst.getDetails(customer_id, workspaceId, clientId));
+    return this.responder(req, reply, this.customerServiceInst.getCustomerDetails(customer_id, workspaceId, clientId));
   }
 
   async getCustomerProfile(req, reply) {
-    if (!req.headers['session-id'] || !req.authUser?.email) {
+    if (!req.headers["session-id"] || !req.authUser?.email) {
       return this.responder(req, reply, Promise.reject(new errors.Unauthorized()));
     }
-
-    let profile = _.pick(req.authUser, [ "id","name", "email", "type",]);
+    let profile = _.pick(req.authUser, ["id", "firstname", "lastname", "email", "type"]);
     return this.responder(req, reply, Promise.resolve(profile));
   }
 
@@ -71,7 +118,6 @@ class CustomerHandler extends BaseHandler {
     let workspaceId = req.query.workspace_id;
     let clientId = req.authUser.clientId;
     let id = req.params.customer_id;
-
     let toUpdate = req.body;
     let inst = this.customerServiceInst;
     return this.responder(req, reply, inst.updateCustomer({ id, workspaceId, clientId }, toUpdate));
@@ -91,11 +137,9 @@ class CustomerHandler extends BaseHandler {
     let workspaceId = req.query.workspace_id;
     let clientId = req.authUser.clientId;
     let id = req.params.customer_id;
-
     let inst = this.customerServiceInst;
     return this.responder(req, reply, inst.deleteCustomer({ id, workspaceId, clientId }));
   }
-
 }
 
 module.exports = CustomerHandler;

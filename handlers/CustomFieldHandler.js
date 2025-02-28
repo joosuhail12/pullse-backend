@@ -20,14 +20,13 @@ class CustomFieldHandler extends BaseHandler {
   async listCustomField(req, reply) {
     let workspaceId = req.query.workspace_id;
     let clientId = req.authUser.clientId;
-
     let filters = {
       name: req.query.name,
-      fieldType: req.query.field_type,
+      fieldType: req.query.fieldType,
       entityType: req.query.entity_type,
-      entityId: req.query.entity_id,
-      createdFrom: req.query.created_from,
-      createdTo: req.query.created_to,
+      entityId: req.query.entityId,
+      createdFrom: req.query.createdFrom,
+      createdTo: req.query.createdTo,
       skip: req.query.skip,
       limit: req.query.limit,
       page: req.query.page,

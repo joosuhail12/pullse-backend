@@ -1,45 +1,39 @@
 const prompts = require('prompts');
-
-const db = require('../db');
-const config = require('../config');
 const UserRoleService = require('../services/UserRoleService');
 
-var inputFields = [{
+const inputFields = [
+  {
     type: 'text',
     name: 'name',
-    message: 'Role Name:'
+    message: 'Role Name:',
   },
   {
     type: 'text',
     name: 'description',
-    message: 'description:'
+    message: 'Description:',
   },
 ];
 
-var adminSeeder = () => {
+const adminSeeder = async () => {
+  try {
+    const response = await prompts(inputFields, {
+      onCancel: () => {
+        console.log('Request cancelled.');
+        process.exit();
+      },
+    });
 
-  const onCancel = async () => {
-    await db.disconnect();
-    console.log('Request cancelled.');
+    response.createdBy = "CLI"; // Ensure consistency with Supabase schema
+
+    const roleInst = new UserRoleService();
+    let role = await roleInst.createRole(response);
+
+    console.log("Role created successfully:", role);
     process.exit();
+  } catch (err) {
+    console.error("Error while creating admin:", err);
+    process.exit(1);
   }
-
-  (async () => {
-    try {
-      await db.connect(config.db);
-      const response = await prompts(inputFields, { onCancel });
-      response.created_by = "CLI";
-
-      const roleInst = new UserRoleService();
-      let role = await roleInst.createRole(response);
-      console.log("Role created successful", role);
-      process.exit();
-    } catch (err) {
-      console.log(err);
-      console.log("Error while creating admin");
-      process.exit(err);
-    }
-  })();
-}
+};
 
 adminSeeder();

@@ -13,14 +13,12 @@ class TagHandler extends BaseHandler {
     req.body.createdBy = req.authUser.id;
     req.body.clientId = req.authUser.clientId;
     req.body.workspaceId = req.query.workspace_id;
-
     return this.responder(req, reply, inst.createTag(req.body));
   }
 
   async listTag(req, reply) {
     let inst = new TagService();
     req.query.clientId = req.authUser.clientId;
-
     return this.responder(req, reply, inst.paginate(req.query));
   }
 

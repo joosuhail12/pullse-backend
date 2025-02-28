@@ -25,7 +25,6 @@ function handler(req, res, promise) {
             res.send(data);
         })
         .catch((data) => {
-            console.trace(data);
             if (data?.httpCode) {
                 let resp = {
                     statusCode: data?.httpCode || 500,

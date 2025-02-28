@@ -14,7 +14,7 @@ async function activate(app) {
     name: "CreateTeam",
     preHandler: authMiddlewares.checkToken(AuthType.user),
     schema: {
-      tags: ['Team'],
+      tags: ['teams'],
       summary: 'Create User Team',
       description: 'API to create user team.',
       body: {
@@ -46,7 +46,7 @@ async function activate(app) {
     name: "ListTeams",
     preHandler: authMiddlewares.checkToken(AuthType.user),
     schema: {
-      tags: ['Team'],
+      tags: ['teams'],
       summary: 'List Teams',
       description: 'API to list all Teams.',
       required: [],
@@ -79,7 +79,7 @@ async function activate(app) {
     name: "ShowTeamDetail",
     preHandler: authMiddlewares.checkToken(AuthType.user),
     schema: {
-      tags: ['Team'],
+      tags: ['teams'],
       summary: 'Show Team Detail',
       description: 'API to show detail of a Team.',
       required: [],
@@ -95,7 +95,7 @@ async function activate(app) {
     name: "UpdateTeam",
     preHandler: authMiddlewares.checkToken(AuthType.user),
     schema: {
-      tags: ['Team'],
+      tags: ['teams'],
       summary: 'Update Team',
       description: 'API to update a Team.',
       required: [],
@@ -120,7 +120,7 @@ async function activate(app) {
     name: "DeleteTeam",
     preHandler: authMiddlewares.checkToken(AuthType.user),
     schema: {
-      tags: ['Team'],
+      tags: ['teams'],
       summary: 'Delete Team',
       description: 'API to delete a Team.',
       required: [],
