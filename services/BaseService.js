@@ -76,9 +76,14 @@ class BaseService {
             query = query.eq(key, value);
         });
         const { data, error } = await query;
-        if (error) throw error;
+
+        if (error) {
+            console.error(error);
+            return null;
+        }
         return data;
     }
+
 
     async count(filter = {}) {
         let query = this.supabase.from(this.entityName).select('*', { count: 'exact', head: true });
@@ -136,6 +141,10 @@ class BaseService {
                     query = query.eq(key, value);
                 }
             });
+
+            if (requestedData?.archiveAt === null) {
+                query = query.is("archiveAt", null);
+            }
 
             // ✅ Ensure we add `archiveAt IS NULL` **only if it's missing from conditions**
             if (!("archiveAt" in conditions) && (this.entityName === "tags" || this.entityName === "tickettopic")) {
