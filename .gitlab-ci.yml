@@ -12,13 +12,13 @@ build:
   stage: build
   script:
     - npm install
-    - echo "$ENV_FILE" | sed 's/\\n/\n/g' > .env  # Create .env file in the project
-    - cat package.json | jq -r '.version' > version.txt  # Extract version number
+    - echo "$ENV_FILE" | sed 's/\\n/\n/g' > .env # Create .env file in the project
+    - echo "$(jq -r '.version' package.json)-$(date '+%Y-%m-%d_%H-%M-%S')" > version.txt # Extract version and add current timestamp
   artifacts:
     paths:
-      - .  # Store everything including `.env` and `version.txt`
+      - . # Store everything including `.env` and `version.txt`
   rules:
-    - if: '$CI_COMMIT_BRANCH == "main"'  # Run only on the main branch
+    - if: '$CI_COMMIT_BRANCH == "main"' # Run only on the main branch
 
 deploy:
   stage: deploy
@@ -46,6 +46,6 @@ deploy:
       pm2 restart backendPullse
       EOF
   after_script:
-    - rm -f ~/.ssh/pullse-development-server-1.pem  # Securely remove the key
+    - rm -f ~/.ssh/pullse-development-server-1.pem # Securely remove the key
   rules:
-    - if: '$CI_COMMIT_BRANCH == "main"'  # Run only on the main branch
+    - if: '$CI_COMMIT_BRANCH == "main"' # Run only on the main branch
