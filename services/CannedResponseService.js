@@ -9,34 +9,71 @@ class CannedResponseService extends BaseService {
     constructor() {
         super();
         this.entityName = 'cannedresponses';
-        this.listingFields = ["id", "name", "description", "message"];
-        this.updatableFields = ["name", "description", "message"];
+        this.listingFields = ["id", "name", "message", "numberOfTimesUsed", "shortcut", "category", "isShared"];
+        this.updatableFields = ["name", "shortcut", "message", "category", "isShared", "sharedTeams", "archiveAt", "updatedAt"];
         this.supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
     }
 
     async createCannedResponse(cannedResponseData) {
         try {
-            let { name, clientId, workspaceId } = cannedResponseData;
-            let { data: existingResponse, error } = await this.supabase
-                .from("cannedresponses")
-                .select("id")
-                .ilike("name", name)
-                .eq("clientId", clientId)
-                .eq("workspaceId", workspaceId)
-                .single();
+            let { name, clientId, workspaceId, createdBy, message, shortcut, category, isShared, sharedTeams } = cannedResponseData;
 
-            if (existingResponse) {
-                return Promise.reject(new errors.Conflict(`${this.entityName} already exists.`));
+            if (!name || !message || !shortcut || !category || isShared === undefined || (isShared && sharedTeams.length === 0)) {
+                return Promise.reject(new errors.BadRequest("Missing required fields."));
             }
+
+            let existingCannedResponse = await this.findOne({ shortcut, clientId, archiveAt: null });
+
+            if (existingCannedResponse) {
+                return Promise.reject(new errors.Conflict(this.entityName + " already exist."));
+            }
+
+            const cannedResponse = {
+                name,
+                clientId,
+                workspaceId,
+                createdBy,
+                message,
+                shortcut,
+                category,
+                isShared,
+            };
 
             let { data, error: insertError } = await this.supabase
                 .from("cannedresponses")
-                .insert(cannedResponseData)
+                .insert(cannedResponse)
                 .select()
                 .single();
 
-            if (insertError) throw insertError;
-            return data;
+            if (insertError) {
+                return Promise.reject(new errors.BadRequest("Error creating canned response."));
+            }
+
+            if (isShared && sharedTeams) {
+                let sharedTeamsData = await Promise.all(sharedTeams.map(async (team) => {
+                    let teamInDb = await this.supabase.from("teams").select("id").eq("workspaceId", workspaceId).eq("clientId", clientId).eq("id", team.teamId).single();
+                    console.log(teamInDb.data);
+
+                    if (!teamInDb?.data?.id) {
+                        return Promise.reject(new errors.BadRequest("Team not found."));
+                    }
+
+                    return {
+                        cannedresponsesId: data.id,
+                        teamId: team.teamId,
+                        typeOfSharing: team.typeOfSharing
+                    };
+                }));
+
+                let { data: cannedresponseTeamRelation, error: sharedTeamsError } = await this.supabase
+                    .from("cannedresponsesteamrelation")
+                    .insert(sharedTeamsData);
+
+                if (sharedTeamsError) {
+                    return Promise.reject(new errors.BadRequest("Error creating shared teams."));
+                }
+            }
+            return Promise.resolve(data);
         } catch (err) {
             return this.handleError(err);
         }
@@ -68,7 +105,7 @@ class CannedResponseService extends BaseService {
                 .from("cannedresponses")
                 .update(updateValues)
                 .eq("id", id);
-            
+
             if (error) throw error;
             return Promise.resolve();
         } catch (e) {
@@ -83,7 +120,7 @@ class CannedResponseService extends BaseService {
                 .from("cannedresponses")
                 .update({ deleted_at: new Date() })
                 .eq("id", id);
-            
+
             if (error) throw error;
             return Promise.resolve();
         } catch (err) {
