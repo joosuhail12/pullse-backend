@@ -43,7 +43,7 @@ class EmailDomainService extends BaseService {
                 if (error) {
                     return Promise.reject(error)
                 }
-                return body
+                return body;
             }).then(async (response) => {
                 const emailDomainDbData = {
                     ...emailDomainData,
@@ -52,7 +52,13 @@ class EmailDomainService extends BaseService {
                 const data = await this.create(emailDomainDbData);
 
                 return data;
+            }).catch((error) => {
+                console.error("Error while adding domain to mailgun: " + error);
             });
+
+            if (!domainId) {
+                return Promise.reject(new errors.Internal("Error while adding domain to mg"));
+            }
 
             return domainId;
 
