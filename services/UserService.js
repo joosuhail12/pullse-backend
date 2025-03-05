@@ -16,64 +16,76 @@ class UserService extends BaseService {
         this.utilityInst = new UserUtility();
         this.WorkspaceService = WorkspaceService;
         this.supabase = supabase;
-        this.listingFields = ["id", "name", "roleIds", "status", "teamId", "createdBy", "created_at", "lastLoggedInAt"];
+        this.listingFields = ["id", "name", "roleIds: userRoles(name)", "status", "teamId", "createdBy", "created_at", "lastLoggedInAt", "avatar"];
         if (fields) {
             this.listingFields = fields;
         }
-        this.updatableFields = ["fName", "lName", "name", "roleIds", "teamId", "status", "defaultWorkspaceId"];
+        this.updatableFields = ["fName", "lName", "name", "roleIds: userRoles(name)", "teamId", "status", "defaultWorkspaceId", "avatar"];
     }
 
-    async createUser({ fName, lName, email, roleIds = [], confirmPassword, password, createdBy, clientId, defaultWorkSpace = null }) {
+    async createUser({ fName, lName, email, roleIds = [], confirmPassword, password, createdBy, clientId, defaultWorkSpace = null, avatar = null }) {
         try {
             let name = this.name(fName, lName);
-            // Step 1: Validate Password Confirmation
+
             if (confirmPassword && confirmPassword !== password) {
                 return new errors.BadRequest("Confirm password and password do not match.");
             }
-    
-            // Step 2: Hash the Password
+
+            if (!avatar) {
+                avatar = `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(name)}`;
+            }
+
             password = await this.bcryptToken(password);
-    
-            // Step 3: Ensure roleIds is stored as an array (PostgreSQL expects an array format)
-            roleIds = roleIds.length > 0 ? roleIds : []; // Ensure empty array if not provided
-    
-            // Step 4: Insert User into Supabase
+
+            // ✅ Fetch role IDs from role names
+            let fetchedRoles = [];
+            if (roleIds.length > 0) {
+                const { data, error } = await this.supabase
+                    .from("userRoles")
+                    .select("id, name")
+                    .eq("name", roleIds)
+                    .single();
+
+                if (error) throw error;
+                fetchedRoles = data.id;
+            }
+
+            // Insert User into Supabase
             const { data: user, error: userError } = await this.supabase
                 .from("users")
-                .insert([
-                    {
-                        fName,
-                        lName,
-                        name,
-                        email,
-                        password,
-                        roleIds, // Ensure this is an array
-                        createdBy,
-                        clientId,
-                        defaultWorkspaceId: defaultWorkSpace || null // Ensuring correct null handling
-                    }
-                ])
-                .select("*") // Selecting all fields to confirm insertion
-                .single(); // Ensure only one user is returned
-    
-            // Step 5: Handle Errors
+                .insert([{
+                    fName,
+                    lName,
+                    name,
+                    email,
+                    password,
+                    roleIds: fetchedRoles, // ✅ Save IDs here
+                    createdBy,
+                    clientId,
+                    defaultWorkspaceId: defaultWorkSpace || null,
+                    avatar
+                }])
+                .select("*")
+                .single();
+
             if (userError) {
                 console.error("Supabase Insert Error:", userError);
-                if (userError.code === "23505") { // Unique constraint violation
+                if (userError.code === "23505") {
                     return new errors.AlreadyExist("User already exists.");
                 }
                 throw userError;
             }
-    
+
             return user;
-    
+
         } catch (e) {
             console.error("Error in createUser:", e);
             return Promise.reject(e);
         }
     }
-    
-    
+
+
+
     async getDetails(id, clientId) {
         try {
 
@@ -83,6 +95,7 @@ class UserService extends BaseService {
                 .select(`
                     *,
                     workspace:workspace!fk_users_workspace(*),
+                    roleIds:userRoles(*),
                     permissions:workspacePermissions(*)
                 `)
                 .eq("id", id)
@@ -144,14 +157,31 @@ class UserService extends BaseService {
 
     async updateUser({ user_id, clientId }, updateValues) {
         try {
-            const { error } = await this.supabase.from('users').update(updateValues).match({ id: user_id, clientId });
+            if (updateValues.roleIds && updateValues.roleIds.length > 0) {
+                const { data, error } = await this.supabase
+                    .from("userRoles")
+                    .select("id, name")
+                    .eq("name", updateValues.roleIds)
+                    .single();
+
+                if (error) throw error;
+                updateValues.roleIds = data.id;
+            }
+
+            const { error } = await this.supabase
+                .from('users')
+                .update(updateValues)
+                .match({ id: user_id, clientId });
+
             if (error) throw error;
             return Promise.resolve();
+
         } catch (e) {
-            console.log("Error in update() of UserService", e);
+            console.log("Error in updateUser()", e);
             return Promise.reject(e);
         }
     }
+
 
     async deleteUser(id) {
         try {

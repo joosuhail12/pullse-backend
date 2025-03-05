@@ -25,7 +25,30 @@ class UserHandler extends BaseHandler {
       roleIds: [req.body.role],
       defaultWorkSpace: defaultWorkspaceId
     };
-    return this.responder(req, reply, inst.createUser(userData));
+
+    // Create the user
+    await inst.createUser(userData);
+
+    // Fetch the list of users
+    let filters = { clientId: clientId };
+    let result = await inst.paginate(filters);
+
+    // Format the response
+    result = result.map(user => ({
+      id: user.id,
+      name: user.name,
+      email: user.email || `${user.name.replace(/\s+/g, '').toLowerCase()}@example.com`,
+      role: 'admin',
+      status: user.status,
+      teamId: user.teamId,
+      createdBy: user.createdBy,
+      createdAt: user.created_at,
+      lastActive: user.lastLoggedInAt,
+      avatar: user.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(user.name)}`,
+      permissions: ['view_reports'],
+    }));
+
+    return this.responder(req, reply, Promise.resolve(result));
   }
 
   async listUsers(req, reply) {
@@ -40,19 +63,63 @@ class UserHandler extends BaseHandler {
       clientId: clientId,
     };
     let inst = new UserService();
-    return this.responder(req, reply, inst.paginate(filters));
+    let result = await inst.paginate(filters);
+    result = result.map(user => ({
+      id: user.id,
+      name: user.name,
+      email: user.email || `${user.name.replace(/\s+/g, '').toLowerCase()}@example.com`,
+      role: user.roleIds ? user.roleIds.name : null,
+      status: user.status,
+      teamId: user.teamId,
+      createdBy: user.createdBy,
+      createdAt: user.created_at,
+      lastActive: user.lastLoggedInAt,
+      avatar: user.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(user.name)}`,
+      permissions: ['view_reports'],
+    }));
+    return this.responder(req, reply, Promise.resolve(result));
   }
 
   async showUserProfile(req, reply) {
     let clientId = req.authUser.clientId;
     let inst = new UserService();
-    return this.responder(req, reply, inst.getDetails(req.authUser.id, clientId));
+    const result = await inst.getDetails(req.authUser.id, clientId);
+    const user = result.data;
+    const userData = {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      role: user.roleIds ? user.roleIds.name : null,
+      status: user.status,
+      teamId: user.teamId,
+      createdBy: user.createdBy,
+      createdAt: user.created_at,
+      lastActive: user.lastLoggedInAt,
+      avatar: user.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(user.name)}`,
+      permissions: ['view_reports'],
+    }
+    return this.responder(req, reply, Promise.resolve(userData));
   }
 
   async showUserDetail(req, reply) {
     let clientId = req.authUser.clientId;
     let inst = new UserService();
-    return this.responder(req, reply, inst.getDetails(req.params.user_id, clientId));
+    const result = await inst.getDetails(req.params.user_id, clientId);
+    const user = result;
+    const userData = {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      role: user.roleIds ? user.roleIds.name : null,
+      status: user.status,
+      teamId: user.teamId,
+      createdBy: user.createdBy,
+      createdAt: user.created_at,
+      lastActive: user.lastLoggedInAt,
+      avatar: user.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(user.name)}`,
+      permissions: ['view_reports'],
+    }
+    return this.responder(req, reply, Promise.resolve(userData));
   }
 
   async updateUser(req, reply) {
@@ -60,7 +127,39 @@ class UserHandler extends BaseHandler {
     let clientId = req.authUser.clientId;
     let toUpdate = req.body;
     let inst = new UserService();
-    return this.responder(req, reply, inst.updateUser({ user_id, clientId }, toUpdate));
+
+    // Transform the incoming data to the storage format
+    let storageFormat = {
+      first_name: toUpdate.first_name,
+      last_name: toUpdate.last_name,
+      email: toUpdate.email,
+      roleIds: toUpdate.role,
+      teamId: toUpdate.teamId,
+      status: toUpdate.status,
+      // Add any other fields that need to be stored
+    };
+
+    // Update the user
+    await inst.updateUser({ user_id, clientId }, storageFormat);
+
+    // Fetch the updated user details
+    const result = await inst.getDetails(user_id, clientId);
+    const user = result;
+    const userData = {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      role: user.roleIds ? user.roleIds.name : null,
+      status: user.status,
+      teamId: user.teamId,
+      createdBy: user.createdBy,
+      createdAt: user.created_at,
+      lastActive: user.lastLoggedInAt,
+      avatar: user.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(user.name)}`,
+      permissions: ['view_reports'],
+    };
+
+    return this.responder(req, reply, Promise.resolve(userData));
   }
 
   async deleteUser(req, reply) {
