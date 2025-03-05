@@ -18,6 +18,7 @@ class EmailDomainHandler extends BaseHandler {
   }
 
   async listEmailDomain(req, reply) {
+    console.log(req.authUser)
     let workspaceId = req.query.workspace_id;
     let clientId = req.authUser.clientId;
 
@@ -32,7 +33,8 @@ class EmailDomainHandler extends BaseHandler {
       sort_by: req.query.sort_by,
       sort_order: req.query.sort_order,
       workspaceId,
-      clientId
+      clientId,
+      archiveAt: null
     };
     let inst = new EmailDomainService();
     return this.responder(req, reply, inst.paginate(filters));
@@ -57,6 +59,7 @@ class EmailDomainHandler extends BaseHandler {
   }
 
   async deleteEmailDomain(req, reply) {
+    console.log(req.authUser);
     let id = req.params.email_domain_id;
     let workspaceId = req.query.workspace_id;
     let clientId = req.authUser.clientId;
@@ -71,7 +74,7 @@ class EmailDomainHandler extends BaseHandler {
     let clientId = req.authUser.clientId;
 
     let inst = new EmailDomainService()
-    return this.responder(req, reply, inst.listDomainKeys({id, clientId}))
+    return this.responder(req, reply, inst.listDomainKeys({ id, clientId }))
   }
 
   async verifyDomainKeys(req, reply) {
@@ -79,8 +82,21 @@ class EmailDomainHandler extends BaseHandler {
     let clientId = req.authUser.clientId;
 
     let inst = new EmailDomainService()
-    return this.responder(req, reply, inst.verifyDomainKeys({id, clientId}))
+    return this.responder(req, reply, inst.verifyDomainKeys({ id, clientId }))
   }
+
+  async sendEmail(req, reply) {
+    let workspaceId = req.query.workspace_id;
+    let clientId = req.authUser.clientId;
+    let inst = new EmailDomainService()
+    return this.responder(req, reply, inst.sendEmail({ ...req.body, workspaceId, clientId }))
+  }
+
+  async emailWebhook(req, reply) {
+    let inst = new EmailDomainService()
+    return this.responder(req, reply, inst.emailWebhook(req.body))
+  }
+
 
 }
 
