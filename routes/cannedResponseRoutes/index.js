@@ -129,7 +129,7 @@ async function activate(app) {
 
   app.route({
     url: base_url + "/:canned_response_id",
-    method: 'PUT',
+    method: 'PATCH',
     name: "UpdateCannedResponse",
     preHandler: authMiddlewares.checkToken(AuthType.user),
     schema: {
