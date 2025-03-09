@@ -1,14 +1,19 @@
 CREATE TABLE cannedResponses (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name TEXT NOT NULL,
-    description TEXT,
     message TEXT NOT NULL,
     workspaceId TEXT NOT NULL,
     clientId TEXT NOT NULL,
     createdBy TEXT NOT NULL,
-    deletedAt TIMESTAMP,
-    created_at TIMESTAMP DEFAULT NOW(),
-    updated_at TIMESTAMP DEFAULT NOW()
+    numberOfTimesUsed INT DEFAULT 0,
+    shortcut TEXT NOT NULL,
+    lastUsedAt TIMESTAMP,
+    category ENUM ('greeting', 'support', 'technical', 'closing') DEFAULT 'general',
+    isShared BOOLEAN DEFAULT FALSE,
+    sharingType ENUM ('view', 'edit') DEFAULT 'view',
+    archiveAt TIMESTAMP,
+    createdAt TIMESTAMP DEFAULT NOW(),
+    updatedAt TIMESTAMP DEFAULT NOW()
 );
 
 CREATE UNIQUE INDEX cannedResponses_id_deletedAt_idx 

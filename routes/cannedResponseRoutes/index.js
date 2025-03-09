@@ -18,25 +18,43 @@ async function activate(app) {
       tags: ['CannedResponse'],
       summary: 'Create CannedResponse',
       description: 'API to create cannedResponse.',
-      required: ['name', 'workspace_id'],
+      required: ['name', 'message', 'shortcut', 'category', 'isShared'],
       body: {
         additionalProperties: false,
         type: 'object',
         properties: {
-          name:  {
+          name: {
             type: 'string',
             minLength: 2
           },
-          description:  {
+          message: {
             type: 'string',
           },
-          message:  {
+          shortcut: {
             type: 'string',
           },
+          category: {
+            type: 'string',
+          },
+          isShared: {
+            type: 'boolean',
+          },
+          sharedTeams: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                teamId: { type: 'string' },
+                typeOfSharing: { type: 'string' }
+              },
+              required: ['teamId', 'typeOfSharing']
+            }
+          }
+
         }
       },
       query: {
-        workspace_id:  {
+        workspace_id: {
           type: 'string',
         },
       }
@@ -58,11 +76,11 @@ async function activate(app) {
       description: 'API to list all CannedResponses.',
       required: ['workspace_id'],
       query: {
-        name:  {
+        name: {
           type: 'string',
           minLength: 2
         },
-        workspace_id:  {
+        workspace_id: {
           type: 'string',
         },
         page: {
@@ -99,7 +117,7 @@ async function activate(app) {
       description: 'API to show detail of a CannedResponse.',
       required: ['workspace_id'],
       query: {
-        workspace_id:  {
+        workspace_id: {
           type: 'string',
         },
       }
@@ -111,7 +129,7 @@ async function activate(app) {
 
   app.route({
     url: base_url + "/:canned_response_id",
-    method: 'PUT',
+    method: 'PATCH',
     name: "UpdateCannedResponse",
     preHandler: authMiddlewares.checkToken(AuthType.user),
     schema: {
@@ -121,19 +139,19 @@ async function activate(app) {
       description: 'API to update a CannedResponse.',
       required: ['workspace_id'],
       body: {
-        name:  {
+        name: {
           type: 'string',
           minLength: 2
         },
-        description:  {
+        description: {
           type: 'string',
         },
-        message:  {
+        message: {
           type: 'string',
         },
       },
       query: {
-        workspace_id:  {
+        workspace_id: {
           type: 'string',
         },
       }
@@ -144,7 +162,7 @@ async function activate(app) {
   });
 
   app.route({
-    url: base_url+ "/:canned_response_id",
+    url: base_url + "/:canned_response_id",
     method: 'DELETE',
     name: "DeleteCannedResponse",
     preHandler: authMiddlewares.checkToken(AuthType.user),
@@ -157,7 +175,7 @@ async function activate(app) {
       body: {
       },
       query: {
-        workspace_id:  {
+        workspace_id: {
           type: 'string',
         },
       }
