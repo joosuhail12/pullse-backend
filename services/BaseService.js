@@ -72,6 +72,12 @@ class BaseService {
 
     async findOne(filter = {}, fields = null) {
         let query = this.supabase.from(this.entityName).select(fields ? fields.join(", ") : '*').single();
+
+        if (filter.archiveAt === null) {
+            query = query.is('archiveAt', null);
+            delete filter.archiveAt;
+        }
+
         Object.entries(filter).forEach(([key, value]) => {
             query = query.eq(key, value);
         });

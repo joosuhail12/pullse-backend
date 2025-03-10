@@ -31,7 +31,8 @@ class CannedResponseHandler extends BaseHandler {
       sort_by: req.query.sort_by,
       sort_order: req.query.sort_order,
       workspaceId,
-      clientId
+      clientId,
+      archiveAt: null
     };
     let inst = new CannedResponseService();
     return this.responder(req, reply, inst.paginate(filters));
