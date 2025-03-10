@@ -167,6 +167,7 @@ class BaseService {
             if (error) throw error;
             return data;
         } catch (err) {
+            console.log(err);
             return this.handleError(err);
         }
     }
