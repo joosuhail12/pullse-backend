@@ -214,8 +214,14 @@ class BaseService {
         return Promise.reject(err);
     }
 
-    parseFilters() {
-        return {};
+    parseFilters(filters) {
+        const validFilters = {};
+        Object.keys(filters).forEach(key => {
+            if (filters[key] !== null && key !== undefined) {
+                validFilters[key] = filters[key];
+            }
+        });
+        return validFilters;
     }
 }
 

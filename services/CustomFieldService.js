@@ -10,7 +10,7 @@ class CustomFieldService extends BaseService {
     constructor() {
         super();
         this.entityName = "customfields";
-        this.listingFields = ["id", "name", "fieldType", "placeholder", "defaultValue", "options", "isRequired"];
+        this.listingFields = ["id", "name", "fieldType", "placeholder", "defaultValue", "options", "isRequired", "description", "entityType"];
         this.updatableFields = ["name", "description", "fieldType", "placeholder", "defaultValue", "options", "isRequired", "visibleTo", "entityType", "entityId"];
 
         this.EntityInstances = {
@@ -23,29 +23,35 @@ class CustomFieldService extends BaseService {
 
     async createCustomField(customFieldData) {
         try {
-            let { name, entityType, clientId, workspaceId, entityId, fieldType, placeholder, defaultValue, options, isRequired, visibleTo } = customFieldData;
+            let { name, entityType, clientId, workspaceId, entityId, fieldType, placeholder, description, defaultValue, options, isRequired, visibleTo } = customFieldData;
 
-            // 🔹 Check if a similar custom field already exists
-            let { data: existingField, error: findError } = await this.supabase
-                .from("customfields")
-                .select("*")
-                .eq("entityType", entityType)
-                .eq("clientId", clientId)
-                .eq("workspaceId", workspaceId)
-                .ilike("name", name)
-                .maybeSingle();
-
-            if (findError) throw findError;
+            let existingField = await this.findOne({ entityType, name, clientId, archiveAt: null });
 
             if (existingField) {
-                return Promise.reject(new errors.AlreadyExist(`${this.entityName} already exists.`));
+                return Promise.reject(new errors.Conflict(this.entityName + " already exist."));
             }
+
+            const customField = {
+                name,
+                entityType,
+                clientId,
+                workspaceId,
+                entityId,
+                fieldType,
+                options,
+                placeholder,
+                defaultValue,
+                isRequired,
+                description,
+                visibleTo: visibleTo ? visibleTo : ["customer", "agent", "admin"],
+            };
 
             // 🔹 Insert new custom field
             let { data: newField, error: insertError } = await this.supabase
                 .from("customfields")
-                .insert([{ name, entityType, clientId, workspaceId, entityId, fieldType, placeholder, defaultValue, options, isRequired, visibleTo, entityType, entityId }])
+                .insert(customField)
                 .select()
+                .single()
 
             if (insertError) throw insertError;
             return newField;
