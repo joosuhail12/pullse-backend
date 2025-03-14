@@ -65,18 +65,6 @@ class CustomerService extends BaseService {
         }
     }
 
-    // async updateCustomer({ id, workspaceId, clientId }, updateValues) {
-    //     try {
-    //         let { error } = await this.supabase.from(this.entityName).update(updateValues).eq('id', id).eq('workspaceId', workspaceId).eq('clientId', clientId);
-    //         if (error) throw error;
-    //         let inst = new CustomerEventPublisher();
-    //         await inst.updated(id, updateValues);
-    //         return this.getCustomers();
-    //     } catch (err) {
-    //         return this.handleError(err);
-    //     }
-    // }
-
     async deleteCustomer({ id, workspaceId, clientId }) {
         try {
             let { error } = await this.supabase.from(this.entityName).update({ archiveAt: new Date() }).eq('id', id).eq('workspaceId', workspaceId).eq('clientId', clientId);
@@ -89,73 +77,79 @@ class CustomerService extends BaseService {
 
     async updateCustomer({ id, workspaceId, clientId }, updateValues) {
         try {
-            const selectFields = `
-                id, firstname, lastname, email, phone, type, title, department, timezone,
-                linkedin, twitter, language, source, assignedTo, accountValue, tagIds, notes,
-                lastContacted, created_at, updated_at, street, city, state, postalCode, country,
-                company: companies(name)  -- Fetch company name
-            `;
-            // Update the customer record
-            const { data, error } = await this.supabase
+            // 1. Check if the customer exists
+            const { data: existingCustomer, error: fetchError } = await this.supabase
                 .from(this.entityName)
-                .update(updateValues)
-                .match({ id, workspaceId, clientId })  // ✅ More efficient filtering
-                .select(selectFields) // Return updated customer
+                .select("id")
+                .match({ id, workspaceId, clientId })
                 .single();
 
-            if (error) throw error;
+            if (fetchError || !existingCustomer) {
+                throw new Error("Customer not found or does not exist.");
+            }
 
-            // Publish event asynchronously (does not block response)
+            // 2. Update customer tags if provided
+            console.log("updateValues", updateValues);
+            if (updateValues.tags) {
+                // Delete existing tags
+                await this.supabase.from('customerTags').delete().eq('customerId', id);
+
+                // Insert new tags
+                const tagEntries = updateValues.tags.map(tag => ({ customerId: id, tagId: tag.id, workspaceId, clientId }));
+                await this.supabase.from('customerTags').insert(tagEntries);
+
+                delete updateValues.tags; // Remove tags from the update object
+            }
+
+            // 3. Check if there are any actual updates to the customer data
+            if (Object.keys(updateValues).length > 0) {
+                const { data, error } = await this.supabase
+                    .from(this.entityName)
+                    .update(updateValues)
+                    .match({ id, workspaceId, clientId })
+                    .select("*")
+                    .maybeSingle(); // Prevents error when no rows are returned
+
+                if (error) throw error;
+                if (!data) throw new Error("No updates were made. Ensure the data is different from existing values.");
+            }
+
+            // 4. Fetch updated customer details including tags with names
+            const { data: updatedCustomer, error: fetchUpdatedError } = await this.supabase
+                .from(this.entityName)
+                .select("*, customerTags(tag: tags(id, name)), companies(name)")
+                .eq("id", id)
+                .eq("workspaceId", workspaceId)
+                .eq("clientId", clientId)
+                .single();
+
+            if (fetchUpdatedError) throw fetchUpdatedError;
+
             let inst = new CustomerEventPublisher();
-            inst.updated(id, updateValues).catch(err => console.error("Event error:", err));  // ✅ Runs in the background
+            inst.updated(id, updateValues).catch(err => console.error("Event error:", err));
+
             return {
-                id: data.id,
-                firstName: data.firstname,
-                lastName: data.lastname,
-                email: data.email,
-                phone: data.phone || null,
-                company: data.company ? data.company.name : null, // Extract company name
-                status: data.status || "active",
-                type: data.type,
-                title: data.title,
-                department: data.department,
-                timezone: data.timezone,
-                linkedinUrl: data.linkedin,
-                twitterUrl: data.twitter,
-                language: data.language || "English",
-                source: data.source || "website",
-                assignedTo: data.assignedTo || null,
-                accountValue: data.accountValue || 0,
-                tags: data.tagIds ? data.tagIds : [],
-                notes: data.notes || "",
-                lastContacted: data.lastContacted ? new Date(data.lastContacted).toISOString() : null,
-                createdAt: new Date(data.created_at).toISOString(),
-                updatedAt: new Date(data.updated_at).toISOString(),
-                street: data.street || "",
-                city: data.city || "",
-                state: data.state || "",
-                postalCode: data.postalCode || "",
-                country: data.country || "",
+                ...updatedCustomer,
+                tags: updatedCustomer.customerTags ? updatedCustomer.customerTags.map(tag => ({ id: tag.tag.id, name: tag.tag.name })) : []
             };
         } catch (err) {
+            console.error("Update error:", err);
             return this.handleError(err);
         }
     }
 
     async getCustomerDetails(customer_id, workspaceId, clientId) {
         try {
-            // Ensure we select necessary fields, including company name
-            const selectFields = `
-                id, firstname, lastname, email, phone, type, title, department, timezone,
-                linkedin, twitter, language, source, assignedTo, accountValue, tagIds, notes,
-                lastContacted, created_at, updated_at, street, city, state, postalCode, country,
-                company: companies(name)  -- Fetch company name
-            `;
-
-            // Query Supabase for a single customer
+            // Query Supabase for a single customer including company and tags
             const { data, error } = await this.supabase
                 .from(this.entityName)
-                .select(selectFields)
+                .select(`
+                    id, firstname, lastname, email, phone, type, title, department, timezone,
+                    linkedin, twitter, language, source, assignedTo, accountValue, notes,
+                    lastContacted, created_at, updated_at, street, city, state, postalCode, country,
+                    company: companies(name),
+                    customerTags(tag: tags(id, name))
+                `)
                 .eq("id", customer_id)
                 .eq("workspaceId", workspaceId)
                 .eq("clientId", clientId)
@@ -184,7 +178,7 @@ class CustomerService extends BaseService {
                 source: data.source || "website",
                 assignedTo: data.assignedTo || null,
                 accountValue: data.accountValue || 0,
-                tags: data.tagIds ? data.tagIds : [],
+                tags: data.customerTags ? data.customerTags.map(tag => ({ id: tag.tag.id, name: tag.tag.name })) : [], // Extract tag objects
                 notes: data.notes || "",
                 lastContacted: data.lastContacted ? new Date(data.lastContacted).toISOString() : null,
                 createdAt: new Date(data.created_at).toISOString(),
