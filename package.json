@@ -1,6 +1,6 @@
 {
   "name": "pullse_ai_base_framework",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "Pullse AI Base Framework",
   "main": "server.js",
   "scripts": {
@@ -8,7 +8,7 @@
     "start": "nodemon --env-file=.env server.js"
   },
   "keywords": [],
-  "author": "Utkarsh Pandey",
+  "author": "Manminder ",
   "license": "SEE LICENSE IN License.md",
   "dependencies": {
     "@azure/storage-blob": "^12.17.0",

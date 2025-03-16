@@ -19,7 +19,7 @@ class TagHandler extends BaseHandler {
   async listTag(req, reply) {
     let inst = new TagService();
     req.query.clientId = req.authUser.clientId;
-    return this.responder(req, reply, inst.paginate(req.query));
+    return this.responder(req, reply, inst.getTagList(req.query));
   }
 
   async showTagDetail(req, reply) {

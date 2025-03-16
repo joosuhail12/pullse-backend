@@ -1,11 +1,18 @@
 const BaseHandler = require('./BaseHandler');
 const TeamService = require('../services/TeamService');
 
-
 class TeamHandler extends BaseHandler {
 
   constructor() {
     super();
+  }
+
+  sanitizeQuery(query) {
+    Object.keys(query).forEach(key => {
+      if (query[key] === 'null' || query[key] === '' || query[key] === undefined) {
+        query[key] = null;
+      }
+    });
   }
 
   async createTeam(req, reply) {
@@ -19,13 +26,12 @@ class TeamHandler extends BaseHandler {
   async listTeam(req, reply) {
     let filters = {
       name: req.query.name,
-      createdFrom: req.query.created_from,
-      createdTo: req.query.created_to,
       workspaceId: req.query.workspace_id,
       clientId: req.authUser.clientId
     };
+
     let inst = new TeamService();
-    return this.responder(req, reply, inst.paginate(filters));
+    return this.responder(req, reply, inst.listTeams(filters));
   }
 
   async showTeamDetail(req, reply) {

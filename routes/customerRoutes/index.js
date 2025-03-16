@@ -207,7 +207,7 @@ async function activate(app) {
           source: { type: "string" },
           assignedTo: { type: "string" },
           accountValue: { type: "number" },
-          tags: { type: "array", items: { type: "string" } },
+          tags: { type: "array", items: { type: "object", properties: { id: { type: "string" }, name: { type: "string" } } } },
           notes: { type: "string" },
           lastContacted: { type: "string", format: "date-time" },
           street: { type: "string" },
