@@ -4,7 +4,8 @@ const CompanyUtility = require('../db/utilities/CompanyUtility');
 const BaseService = require("./BaseService");
 const _ = require("lodash");
 const { CompanyEventPublisher } = require("../Events/CompanyEvent");
-const { createClient } = require('@supabase/supabase-js'); 
+const { createClient } = require('@supabase/supabase-js');
+const TagHistoryService = require("./TagHistoryService");
 
 
 class CompanyService extends BaseService {
@@ -97,7 +98,6 @@ class CompanyService extends BaseService {
                 companyList
             };
         } catch (err) {
-            console.error("Error in createCompany:", err);
             return this.handleError(err);
         }
     }
@@ -107,18 +107,32 @@ class CompanyService extends BaseService {
     async getDetails(id, workspaceId, clientId) {
         try {
             let company = await this.findOne({ id, workspaceId, clientId });
+    
             if (_.isEmpty(company)) {
                 return Promise.reject(new errors.NotFound(`${this.entityName} not found.`));
             }
-            let companies = await this.utilityInst.populate('tags', [company]);
-            return companies[0];
+    
+            // Fetch tags related to the company from companyTags table
+            const { data: companyTags, error: tagError } = await this.supabase
+                .from("companyTags")
+                .select("tag: tags(id, name)") // Fetch associated tag details
+                .eq("companyId", id);
+    
+            if (tagError) throw tagError;
+    
+            // Attach tags to the company object
+            company.tags = companyTags ? companyTags.map(entry => entry.tag) : [];
+    
+            return company;
         } catch (err) {
             return this.handleError(err);
         }
     }
+    
 
     async updateCompany({ id, workspaceId, clientId }, updateValues) {
         try {
+            const tagHistoryService = new TagHistoryService();
             let company = await this.getDetails(id, workspaceId, clientId);
 
             // Ensure location updates are correctly formatted
@@ -138,7 +152,14 @@ class CompanyService extends BaseService {
             }
 
             await this.update({ id: company.id }, updateValues);
-
+            if (updateValues.tags) {
+                await this.supabase.from('companyTags').delete().eq('companyId', id);
+                const tagEntries = updateValues.tags.map(tag => ({ companyId: id, tagId: tag.id, workspaceId: workspaceId, clientId: clientId }));
+                await this.supabase.from('companyTags').insert(tagEntries);
+            }
+            updateValues.tags.forEach(async (tag) => {
+                await tagHistoryService.updateTagHistory(tag.id, "company");
+            });
             let inst = new CompanyEventPublisher();
             await inst.updated(company, updateValues);
 
@@ -146,7 +167,7 @@ class CompanyService extends BaseService {
             let updatedCompany = await this.getDetails(id, workspaceId, clientId);
             return updatedCompany;
         } catch (e) {
-            return Promise.reject(e);
+            return this.handleError(e);
         }
     }
 
