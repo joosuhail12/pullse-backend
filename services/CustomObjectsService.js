@@ -153,14 +153,14 @@ class CustomObjectService extends BaseService {
         }
     }
 
-    async deleteCustomObjectField({ id, workspaceId, clientId }) {
+    async deleteCustomObjectField({ id, workspaceId, clientId }, body) {
         try {
-            let customField = await this.getDetails(id, workspaceId, clientId);
+            const { fieldId } = body;
 
-            let { error } = await this.supabase
+            let { data, error } = await this.supabase
                 .from("customobjectfields")
                 .update({ deletedAt: `now()` })
-                .eq("id", customField.id)
+                .eq("id", fieldId)
                 .eq("customObjectId", id)
                 .eq("workspaceId", workspaceId)
                 .eq("clientId", clientId);
@@ -169,67 +169,8 @@ class CustomObjectService extends BaseService {
 
             return { success: true };
         } catch (err) {
-            return this.handleError(err);
-        }
-    }
+            console.error(err);
 
-    async validateCustomObjectValue(field, fieldValue) {
-        if (field.fieldType === "number") {
-            if (isNaN(parseInt(fieldValue))) {
-                return Promise.reject(new errors.BadRequest("Invalid field value."));
-            }
-        }
-        if (field.fieldType === "boolean") {
-            if (fieldValue !== true && fieldValue !== false) {
-                return Promise.reject(new errors.BadRequest("Invalid field value."));
-            }
-        }
-        if (field.fieldType === "date") {
-            if (isNaN(new Date(fieldValue).getTime())) {
-                return Promise.reject(new errors.BadRequest("Invalid field value."));
-            }
-        }
-        if (field.fieldType === "select" || field.fieldType === "multiselect" || field.fieldType === "checkbox") {
-            if (!field.options.includes(fieldValue)) {
-                return Promise.reject(new errors.BadRequest("Invalid field value."));
-            }
-        }
-        if (field.fieldType === "text" || field.fieldType === "textarea") {
-            if (!_.isString(fieldValue)) {
-                return Promise.reject(new errors.BadRequest("Invalid field value."));
-            }
-        }
-        return Promise.resolve();
-    }
-
-    async setCustomObjectValue({ id, workspaceId, clientId }, entityId, fieldValue) {
-        try {
-            let customField = await this.getDetails(id, workspaceId, clientId);
-
-            await this.validateCustomObjectValue(customField, fieldValue);
-
-            let entityType = customField.entityType;
-            let inst = this.EntityInstances[entityType];
-
-            if (!inst) {
-                return Promise.reject(new errors.BadRequest("Invalid field type."));
-            }
-
-            let entity = await inst.getDetails(entityId, workspaceId, clientId);
-
-            if (_.isEmpty(entity)) {
-                return Promise.reject(new errors.NotFound(`${entityType} not found.`));
-            }
-
-            let { error } = await this.supabase
-                .from(entityType)
-                .update({ [`customobjects.${customField.id}`]: fieldValue })
-                .eq("id", entity.id);
-
-            if (error) throw error;
-
-            return { success: true };
-        } catch (err) {
             return this.handleError(err);
         }
     }

@@ -88,7 +88,7 @@ class CustomObjectHandler extends BaseHandler {
         let clientId = req.authUser.clientId;
         let id = req.params.custom_object_id;
         let inst = new CustomObjectService();
-        return this.responder(req, reply, inst.deleteCustomObjectField({ id, workspaceId, clientId }));
+        return this.responder(req, reply, inst.deleteCustomObjectField({ id, workspaceId, clientId }, req.body));
     }
 
 }
