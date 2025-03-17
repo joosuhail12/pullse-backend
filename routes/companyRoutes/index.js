@@ -131,7 +131,6 @@ async function activate(app) {
           annualRevenue: { type: 'number' },
           website: { type: 'string' },
           notes: { type: 'string' },
-          tagIds: { type: 'array', items: { type: 'string' } },
           tierLevel: { type: 'string' },
           industry: { type: 'string' },
           type: { type: 'string' },
@@ -142,6 +141,7 @@ async function activate(app) {
           marketSegment: { type: 'string' },
           businessModel: { type: 'string' },
           preferredLanguage: { type: 'string' },
+          tags: { type: 'array', items: { type: 'object', properties: { id: { type: 'string' } } } },
           timezone: { type: 'string' },
           socialMedia: { type: 'object', additionalProperties: { type: 'string' } },
           location: {

@@ -1,76 +1,251 @@
 const Promise = require("bluebird");
 const errors = require("../errors");
-const TeamUtility = require("../db/utilities/TeamUtility");
-const BaseService = require("./BaseService");
 const _ = require("lodash");
+const { createClient } = require("@supabase/supabase-js");
 
-class TeamService extends BaseService {
-    constructor(fields = null, dependencies = null) {
-        super();
-        this.utilityInst = new TeamUtility();
+const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
+
+class TeamService {
+    constructor() {
         this.entityName = "teams";
-        this.listingFields = ["id", "name", "description"];
-        if (fields) {
-            this.listingFields = fields;
-        }
-        this.updatableFields = ["name", "description"];
+        this.memberTable = "teamMembers";
+        this.usersTable = "users";
+        this.listingFields = [
+            "id", "name", "icon", "description", "workspaceId", "clientId", "createdBy", "channels",
+            "routingStrategy", "maxTotalTickets", "maxOpenTickets", "maxActiveChats", "officeHours", "holidays",
+            "createdAt", "updatedAt"
+        ];
     }
 
     async createTeam(data) {
         try {
-            return this.create(data);
-        } catch (err) {
-            return this.handleError(err);
+            const { members, workspaceId, clientId, ...teamData } = data;
+            // remove channels if it has empty objects
+            console.log(teamData, members, workspaceId, clientId, "teamData---")
+            if (teamData.channels && Object.keys(teamData.channels).length > 0) {
+                teamData.channels = teamData.channels.filter(channel => channel === "email" || channel === "chat");
+                teamData.channels.length === 0 && delete teamData.channels
+            } else {
+                delete teamData.channels
+            }
+            teamData.workspaceId = workspaceId
+            teamData.clientId = clientId
+
+            const { data: createdTeam, error: teamError } = await supabase
+                .from(this.entityName)
+                .insert([teamData])
+                .select(`
+                    id, name, icon, description, workspaceId, clientId, createdBy, channels, routingStrategy,
+                    maxTotalTickets, maxOpenTickets, maxActiveChats, officeHours, holidays, createdAt, updatedAt
+                `)
+                .single();
+
+            if (teamError) throw teamError;
+
+            // Fetch available team members
+            const { data: availableMembers, error: availableMembersError } = await supabase
+                .from(this.usersTable)
+                .select("id")
+                .is("deletedAt", null);
+
+            if (availableMembersError) throw availableMembersError;
+
+            const selectedMembers = availableMembers.map(user => members.includes(user.id) ? user.id : null).filter(Boolean);
+            const memberEntries = selectedMembers.map(userId => ({
+                team_id: createdTeam.id,
+                user_id: userId
+            }));
+
+            if (memberEntries.length > 0) {
+                const { error: memberError } = await supabase
+                    .from(this.memberTable)
+                    .insert(memberEntries);
+
+                if (memberError) throw memberError;
+            }
+
+            const { data: fullTeam, error: fetchError } = await supabase
+                .from(this.entityName)
+                .select(`
+                    id, name, icon, description, workspaceId, clientId, createdBy, channels, routingStrategy,
+                    maxTotalTickets, maxOpenTickets, maxActiveChats, officeHours, holidays, createdAt, updatedAt,
+                    teamMembers (users (id, name, email))
+                `)
+                .eq("id", createdTeam.id)
+                .single();
+
+            if (fetchError) throw fetchError;
+
+            return {
+                ...fullTeam,
+                teamMembers: fullTeam.teamMembers ? fullTeam.teamMembers.map(m => m.users) : []
+            };
+        } catch (error) {
+            console.log(error)
+            this.handleError(error)
         }
     }
+
+
+    async listTeams(filters) {
+        try {
+            let query = supabase
+                .from(this.entityName)
+                .select(`
+                    id, name, icon, description, workspaceId, clientId, createdBy, channels, routingStrategy,
+                    maxTotalTickets, maxOpenTickets, maxActiveChats, officeHours, holidays, createdAt, updatedAt,
+                    teamMembers (users (id, name, email))
+                `)
+                .eq("clientId", filters.clientId)
+                .eq("workspaceId", filters.workspaceId)
+                .is("deletedAt", null)
+                .order("createdAt", { ascending: false });
+
+            if (filters.name) {
+                query = query.ilike("name", `%${filters.name}%`);
+            }
+
+            const { data, error } = await query;
+
+            if (error) throw error;
+
+            // Transform response to ensure `teamMembers` is an array
+            return data.map(team => ({
+                ...team,
+                teamMembers: team.teamMembers ? team.teamMembers.map(m => m.users) : []
+            }));
+
+        } catch (error) {
+            console.log(error);
+            this.handleError(error);
+        }
+    }
+
+
+
+
 
     async getDetails(id, workspaceId, clientId) {
         try {
-            let team = await this.findOne({ id, workspaceId, clientId });
-            if (_.isEmpty(team)) {
-                return Promise.reject(new errors.NotFound(`${this.entityName} not found.`));
+            const { data: team, error } = await supabase
+                .from(this.entityName)
+                .select(`
+                    id, name, icon, description, workspaceId, clientId, createdBy, channels, routingStrategy,
+                    maxTotalTickets, maxOpenTickets, maxActiveChats, officeHours, holidays, createdAt, updatedAt,
+                    teamMembers (users (id, name, email))
+                `)
+                .eq("id", id)
+                .eq("workspaceId", workspaceId)
+                .eq("clientId", clientId)
+                .is("deletedAt", null)
+                .single();
+
+            if (error) {
+                if (error.code === "PGRST116") {
+                    return Promise.reject(new errors.NotFound(`${this.entityName} not found.`));
+                }
+                throw error;
             }
-            return team;
-        } catch (err) {
-            return this.handleError(err);
+
+            return {
+                ...team,
+                teamMembers: team.teamMembers ? team.teamMembers.map(m => m.users) : []
+            };
+        } catch (error) {
+            console.log(error);
+            this.handleError(error);
         }
     }
 
+
     async updateTeam({ id, workspaceId, clientId }, updateValues) {
-        try {
-            let team = await this.getDetails(id, workspaceId, clientId);
-            await this.update({ id: team.id }, updateValues);
-            return Promise.resolve();
-        } catch (e) {
-            return Promise.reject(e);
-        }
+        const existingTeam = await this.getDetails(id, workspaceId, clientId);
+
+        const { error } = await supabase
+            .from(this.entityName)
+            .update(updateValues)
+            .eq("id", existingTeam.id);
+
+        if (error) throw error;
+        return { message: "Team updated successfully" };
     }
 
     async deleteTeam({ id, workspaceId, clientId }) {
-        try {
-            let team = await this.getDetails(id, workspaceId, clientId);
-            let res = await this.softDelete(team.id);
-            return res;
-        } catch (err) {
-            return this.handleError(err);
-        }
+        const existingTeam = await this.getDetails(id, workspaceId, clientId);
+
+        const { error } = await supabase
+            .from(this.entityName)
+            .update({ deletedAt: new Date().toISOString() })
+            .eq("id", existingTeam.id);
+
+        if (error) throw error;
+        return { message: "Team deleted successfully" };
     }
 
-    parseFilters({ name, createdFrom, createdTo, workspaceId, clientId }) {
-        let filters = { clientId, workspaceId };
+    /** 
+     * Add multiple members to a team 
+     */
+    async addMembersToTeam(teamId, userIds, role = "member") {
+        const members = userIds.map(userId => ({
+            team_id: teamId,
+            user_id: userId,
+            role
+        }));
 
-        if (name) {
-            filters.name = { $ilike: `%${name}%` };
-        }
+        const { data, error } = await supabase
+            .from(this.memberTable)
+            .insert(members)
+            .select();
 
-        if (createdFrom) {
-            filters.createdAt = { $gte: createdFrom };
-        }
-        if (createdTo) {
-            filters.createdAt = { ...filters.createdAt, $lte: createdTo };
-        }
+        if (error) throw error;
+        return data;
+    }
 
-        return filters;
+    /** 
+     * Get all members of a team 
+     */
+    async getTeamMembers(teamId) {
+        const { data, error } = await supabase
+            .from(this.memberTable)
+            .select("user_id, role, added_at, users(name, email)")
+            .eq("team_id", teamId)
+            .order("added_at", { ascending: true });
+
+        if (error) throw error;
+        return data;
+    }
+
+    /** 
+     * Remove a member from a team 
+     */
+    async removeMemberFromTeam(teamId, userId) {
+        const { error } = await supabase
+            .from(this.memberTable)
+            .delete()
+            .eq("team_id", teamId)
+            .eq("user_id", userId);
+
+        if (error) throw error;
+        return { message: "Member removed from team successfully" };
+    }
+
+    async getAvailableTeamMembers(workspaceId, clientId) {
+        try {
+            const { data, error } = await supabase
+                .from(this.usersTable)
+                .select("id, name, email")
+                .eq("workspaceId", workspaceId)
+                .eq("clientId", clientId)
+                .is("deletedAt", null)
+                .order("name", { ascending: true });
+
+            if (error) throw error;
+
+            return data;
+        } catch (error) {
+            console.log(error);
+            this.handleError(error);
+        }
     }
 }
 

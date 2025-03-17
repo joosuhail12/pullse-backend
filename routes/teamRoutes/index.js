@@ -22,16 +22,54 @@ async function activate(app) {
         additionalProperties: false,
         type: 'object',
         properties: {
-          name:  {
+          name: {
             type: 'string',
             minLength: 2
           },
-          description:  {
+          description: {
             type: 'string',
           },
-          workspaceId:  {
+          workspaceId: {
             type: 'string',
           },
+          clientId: {
+            type: 'string',
+          },
+          members: {
+            type: 'array',
+            items: {
+              type: 'string'
+            },
+            minItems: 1
+          },
+          channels: {
+            type: 'object',
+            additionalProperties: {
+              type: 'array',
+              items: { type: 'string' }
+            }
+          },
+          routingStrategy: {
+            type: 'string'
+          },
+          officeHours: {
+            type: 'object'
+          },
+          holidays: {
+            type: 'array',
+            items: {
+              type: 'string'
+            }
+          },
+          maxTotalTickets: {
+            type: 'number'
+          },
+          maxOpenTickets: {
+            type: 'number'
+          },
+          maxActiveChats: {
+            type: 'number'
+          }
         }
       },
     },
@@ -39,6 +77,7 @@ async function activate(app) {
       return handler.createTeam(req, reply);
     }
   });
+
 
   app.route({
     url: base_url,
@@ -100,11 +139,11 @@ async function activate(app) {
       description: 'API to update a Team.',
       required: [],
       body: {
-        name:  {
+        name: {
           type: 'string',
           minLength: 2
         },
-        description:  {
+        description: {
           type: 'string',
         },
       }
@@ -115,7 +154,7 @@ async function activate(app) {
   });
 
   app.route({
-    url: base_url+ "/:team_id",
+    url: base_url + "/:team_id",
     method: 'DELETE',
     name: "DeleteTeam",
     preHandler: authMiddlewares.checkToken(AuthType.user),
