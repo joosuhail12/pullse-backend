@@ -52,7 +52,7 @@ class CustomObjectService extends BaseService {
 
     async createCustomObject(customFieldData) {
         try {
-            let { name, description, slug, showInCustomerContext, showInCustomerDetail, showInCompanyDetail, clientId, workspaceId } = customFieldData;
+            let { name, description, slug, showInCustomerContext, showInCustomerDetail, showInCompanyDetail, clientId, workspaceId, createdBy } = customFieldData;
 
             // 🔹 Check if a similar custom field already exists
             let { data: existingField, error: findError } = await this.supabase
@@ -78,6 +78,7 @@ class CustomObjectService extends BaseService {
                 showInCompanyDetail,
                 clientId,
                 workspaceId,
+                createdBy
             }
 
             // 🔹 Insert new custom field

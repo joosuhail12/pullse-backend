@@ -7,6 +7,7 @@ async function activate(app) {
     let handler = new Handler();
 
     let base_url = "/api/custom-object";
+
     app.route({
         url: base_url,
         method: "POST",
@@ -26,6 +27,13 @@ async function activate(app) {
             body: {
                 additionalProperties: false,
                 type: "object",
+                required: [
+                    "name",
+                    "slug",
+                    "showInCustomerContext",
+                    "showInCustomerDetail",
+                    "showInCompanyDetail",
+                ],
                 properties: {
                     name: {
                         type: "string",
@@ -109,7 +117,7 @@ async function activate(app) {
     });
 
     app.route({
-        url: base_url + "/:custom_field_id",
+        url: base_url + "/:custom_object_id",
         method: "GET",
         name: "ShowCustomObjectDetail",
         preHandler: authMiddlewares.checkToken(AuthType.user),
@@ -130,7 +138,7 @@ async function activate(app) {
     });
 
     app.route({
-        url: base_url + "/:custom_field_id",
+        url: base_url + "/:custom_object_id",
         method: "PATCH",
         name: "UpdateCustomObject",
         preHandler: authMiddlewares.checkToken(AuthType.user),
@@ -175,9 +183,9 @@ async function activate(app) {
             },
             params: {
                 type: "object",
-                required: ["custom_field_id"],
+                required: ["custom_object_id"],
                 properties: {
-                    custom_field_id: {
+                    custom_object_id: {
                         type: "string"
                     }
                 }
@@ -189,35 +197,7 @@ async function activate(app) {
     });
 
     app.route({
-        url: base_url + "/:custom_field_id/set-value",
-        method: "PATCH",
-        name: "SetCustomObjectValue",
-        preHandler: authMiddlewares.checkToken(AuthType.user),
-        schema: {
-            tags: ["CustomObject"],
-            summary: "Set CustomObject Value",
-            description: "API to set value of a CustomObject.",
-            required: ["workspace_id", "entityId", "fieldValue"],
-            body: {
-                entityId: {
-                    type: "string",
-                },
-                fieldValue: {
-                },
-            },
-            query: {
-                workspace_id: {
-                    type: "string",
-                },
-            },
-        },
-        handler: async (req, reply) => {
-            return handler.setCustomObjectValue(req, reply);
-        },
-    });
-
-    app.route({
-        url: base_url + "/:custom_field_id",
+        url: base_url + "/:custom_object_id",
         method: "DELETE",
         name: "DeleteCustomObject",
         preHandler: authMiddlewares.checkToken(AuthType.user),
@@ -239,7 +219,7 @@ async function activate(app) {
     });
 
     app.route({
-        url: base_url + "/:custom_field_id/add-new-field",
+        url: base_url + "/:custom_object_id/add-new-field",
         method: "PUT",
         name: "AddNewField",
         preHandler: authMiddlewares.checkToken(AuthType.user),
@@ -291,7 +271,7 @@ async function activate(app) {
     });
 
     app.route({
-        url: base_url + "/:custom_field_id/update-field",
+        url: base_url + "/:custom_object_id/update-field",
         method: "PATCH",
         name: "UpdataNewField",
         preHandler: authMiddlewares.checkToken(AuthType.user),
@@ -335,7 +315,7 @@ async function activate(app) {
     });
 
     app.route({
-        url: base_url + "/:custom_field_id/delete-field",
+        url: base_url + "/:custom_object_id/delete-field",
         method: "DELETE",
         name: "DeleteField",
         preHandler: authMiddlewares.checkToken(AuthType.user),
