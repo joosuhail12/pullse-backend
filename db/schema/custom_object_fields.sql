@@ -1,0 +1,17 @@
+CREATE TABLE customObjectFields(
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    customObjectId UUID NOT NULL,
+    name TEXT NOT NULL,
+    description TEXT,
+    fieldType TEXT NOT NULL,
+    placeholder TEXT,
+    defaultValue TEXT,
+    options TEXT[],
+    isRequired BOOLEAN DEFAULT FALSE,
+    workspaceId TEXT NOT NULL,
+    clientId TEXT NOT NULL,
+    createdBy TEXT NOT NULL,
+    deletedAt TIMESTAMP,
+    createdAt TIMESTAMP DEFAULT NOW(),
+    updatedAt TIMESTAMP DEFAULT NOW()
+)
