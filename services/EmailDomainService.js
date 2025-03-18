@@ -88,7 +88,7 @@ class EmailDomainService extends BaseService {
 
     async verifyDomainKeys(emailDomainData) {
         try {
-            let { id, clientId } = emailDomainData;
+            let { id, clientId, workspaceId } = emailDomainData;
             console.error(id, clientId)
             let emailDomain = await this.findOne({ id, clientId });
             if (_.isEmpty(emailDomain)) {
@@ -123,6 +123,15 @@ class EmailDomainService extends BaseService {
             this.update({ id: emailDomain.id }, { dnsRecords: [...mailgunResponse.sending_dns_records, ...mailgunResponse.receiving_dns_records], isVerified: mailgunResponse.state === 'unverified' ? false : true, mailgunRouteId: routeId });
 
             const details = await this.getDetails(id, clientId);
+
+            if (mailgunResponse.state !== 'unverified') {
+                // Domain is verified, so we need to deactivate the default email channel
+                const { data: updatedData, error } = await this.supabase.from("emailchannels").update({ isActive: false, updatedAt: `now()` }).eq("workspaceId", workspaceId).eq("clientId", clientId).is("deletedAt", null);
+
+                if (error) {
+                    console.error(`Error while deactivating default email channel: ${error}`);
+                }
+            }
 
             return details;
         } catch (err) {

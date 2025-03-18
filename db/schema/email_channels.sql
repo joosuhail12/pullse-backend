@@ -1,0 +1,21 @@
+CREATE TABLE emailChannels(
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name TEXT NOT NULL,
+    emoji TEXT NOT NULL,
+    teamId TEXT,
+    senderName TEXT NOT NULL,
+    emailAddress TEXT NOT NULL,
+    autoBccMail TEXT,
+    noReplyMail TEXT,
+    allowAgentOutbound BOOLEAN DEFAULT FALSE,
+    orignalSenderAsRequester BOOLEAN DEFAULT FALSE,
+    allowAgentName BOOLEAN DEFAULT FALSE,
+    isActive BOOLEAN DEFAULT TRUE,
+    isDefault BOOLEAN DEFAULT FALSE,
+    workspaceId TEXT NOT NULL,
+    clientId TEXT NOT NULL,
+    createdBy TEXT NOT NULL,
+    deletedAt TIMESTAMP,
+    createdAt TIMESTAMP DEFAULT NOW(),
+    updatedAt TIMESTAMP DEFAULT NOW()
+)

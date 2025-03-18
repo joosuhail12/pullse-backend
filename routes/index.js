@@ -32,7 +32,7 @@ const eventWorkflowRoute = require('./eventWorkflowRoutes');
 const emailTemplateRoute = require('./emailTemplateRoutes');
 const workspacePermission = require('./workspacePermission');
 const customObjectRoute = require('./customObjectRoutes');
-
+const emailChannelsRoute = require('./emailChannelsRoutes');
 
 module.exports = {
   async activate(app) {
@@ -68,5 +68,6 @@ module.exports = {
     await emailTemplateRoute.activate(app);
     await workspacePermission.activate(app);
     await customObjectRoute.activate(app);
+    await emailChannelsRoute.activate(app);
   }
 };
