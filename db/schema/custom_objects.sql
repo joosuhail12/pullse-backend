@@ -1,0 +1,16 @@
+CREATE TABLE customObjects (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name TEXT NOT NULL,
+    description TEXT,
+    workspaceId TEXT NOT NULL,
+    clientId TEXT NOT NULL,
+    createdBy TEXT NOT NULL,
+    deletedAt TIMESTAMP,
+    createdAt TIMESTAMP DEFAULT NOW(),
+    updatedAt TIMESTAMP DEFAULT NOW(),
+    slug TEXT NOT NULL,
+    showInCustomerContext BOOLEAN,
+    showInCustomerDetail BOOLEAN,
+    showInCompanyDetail BOOLEAN,
+    connectiontype TEXT NOT NULL,
+)

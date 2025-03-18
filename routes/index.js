@@ -31,6 +31,7 @@ const emailDomainRoute = require('./emailDomainRoutes');
 const eventWorkflowRoute = require('./eventWorkflowRoutes');
 const emailTemplateRoute = require('./emailTemplateRoutes');
 const workspacePermission = require('./workspacePermission');
+const customObjectRoute = require('./customObjectRoutes');
 
 
 module.exports = {
@@ -66,6 +67,6 @@ module.exports = {
     await eventWorkflowRoute.activate(app);
     await emailTemplateRoute.activate(app);
     await workspacePermission.activate(app);
-
+    await customObjectRoute.activate(app);
   }
 };
