@@ -80,9 +80,9 @@ class EmailDomainHandler extends BaseHandler {
   async verifyDomainKeys(req, reply) {
     let id = req.params.email_domain_id;
     let clientId = req.authUser.clientId;
-
+    let workspaceId = req.query.workspace_id;
     let inst = new EmailDomainService()
-    return this.responder(req, reply, inst.verifyDomainKeys({ id, clientId }))
+    return this.responder(req, reply, inst.verifyDomainKeys({ id, clientId, workspaceId }))
   }
 
   async sendEmail(req, reply) {
