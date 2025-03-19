@@ -35,7 +35,7 @@ const start = async () => {
     await app.register(formBody);
     await app.register(caslPlugin);
     await app.register(fastifyCors, {
-      origin: "*", // config.app.whitelisted_urls.split(','), TODO: remove this
+      origin: true, // config.app.whitelisted_urls.split(','), TODO: remove this
       credentials: true,
       methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
     });
