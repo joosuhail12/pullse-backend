@@ -1,3 +1,5 @@
+const AuthType = require('../constants/AuthType');
+const TicketChannel = require('../constants/TicketChannel');
 const Promise = require("bluebird");
 const errors = require("../errors");
 const EmailDomainUtility = require('../db/utilities/EmailDomainUtility');
@@ -6,6 +8,12 @@ const _ = require("lodash");
 const formData = require('form-data');
 const Mailgun = require('mailgun.js');
 const { createClient } = require('@supabase/supabase-js');
+const EmailChannelService = require('./EmailChannelsService');
+const CustomerService = require('./CustomerService');
+const ConversationService = require('./ConversationService');
+const TicketService = require('./TicketService');
+const ClientService = require('./ClientService');
+const TagService = require('./TagService');
 
 class EmailDomainService extends BaseService {
     constructor() {
@@ -16,6 +24,11 @@ class EmailDomainService extends BaseService {
         this.entityName = 'emaildomains';
         this.listingFields = ["id", "domain", "createdAt", "updatedAt", "description", "isVerified"];
         this.updatableFields = ["name", "domain", "description", "isVerified", "mailgunRouteId", "dnsRecords"];
+        this.conversationServiceInst = new ConversationService();
+        this.customerServiceInst = new CustomerService(null, { TagService });
+        this.ticketServiceInst = new TicketService();
+        this.clientService = new ClientService();
+        this.emailChannelServiceInst = new EmailChannelService();
     }
 
     async createEmailDomain(emailDomainData) {
@@ -109,7 +122,7 @@ class EmailDomainService extends BaseService {
                         priority: 1,
                         description: `Catch-all route for ${emailDomain.domain}`,
                         expression: `match_recipient("^.*@${emailDomain.domain.replace('.', '\\.')}$")`,
-                        action: ['forward("https://pullseapi.devwatts.xyz/api/email-domain/email-webhook")'], // TODO: Make this dynamic -- dev
+                        action: ['forward("https://dev-socket.pullseai.com/api/email-domain/email-webhook")'], // TODO: Make this dynamic -- dev
                     });
 
                     routeId = routeResponse.id;
@@ -126,7 +139,7 @@ class EmailDomainService extends BaseService {
 
             if (mailgunResponse.state !== 'unverified') {
                 // Domain is verified, so we need to deactivate the default email channel
-                const { data: updatedData, error } = await this.supabase.from("emailchannels").update({ isActive: false, updatedAt: `now()` }).eq("workspaceId", workspaceId).eq("clientId", clientId).is("deletedAt", null);
+                const { data: updatedData, error } = await this.supabase.from("emailchannels").update({ isActive: false, updatedAt: `now()` }).eq("workspaceId", workspaceId).eq("clientId", clientId).eq("isDefault", true).is("deletedAt", null);
 
                 if (error) {
                     console.error(`Error while deactivating default email channel: ${error}`);
@@ -269,32 +282,56 @@ class EmailDomainService extends BaseService {
 
     async emailWebhook(data) {
         try {
+            console.log(data, "data from email webhook");
             // let inst = new BaseFileSystem();
             // let fileSrc = path.join(__dirname, "../", "tmp", (Date.now()) + ".json");
             // //            await inst.writeFile(fileSrc, JSON.stringify(data));
-            const domainDetails = await this.getDomainByName(data.recipient.split('@')[1]);
 
-            if (!domainDetails) {
-                return Promise.reject(new errors.NotFound('Domain not found'));
+            const domain = data.recipient.split('@')[1];
+            let domainDetails = null;
+            let workspaceId = "";
+            let clientId = "";
+
+            if (domain !== "mail.pullseai.com") {
+                domainDetails = await this.getDomainByName(data.recipient.split('@')[1]);
+
+                if (!domainDetails) {
+                    return Promise.reject(new errors.NotFound('Domain not found'));
+                }
             }
 
-            let workspaceId = domainDetails.workspaceId;
-            let clientId = domainDetails.clientId;
+            const emailChannel = await this.emailChannelServiceInst.getEmailChannelByEmailAddress({ emailAddress: data.recipient });
 
-            let customer = await this.customerServiceInst.findOrCreateCustomer({ email: data.sender, workspaceId, clientId, createdBy: "email", type: "customer", name: data.from.split(' ')[0] });
+            if (!emailChannel) {
+                return Promise.reject(new errors.NotFound('Email channel not found'));
+            }
+
+            workspaceId = emailChannel.workspaceId;
+            clientId = emailChannel.clientId;
+
+            let customer = await this.customerServiceInst.findOrCreateCustomer({ email: data.sender, workspaceId, clientId, type: "customer", firstname: data.from.split(' ')[0], lastname: data.from.split(' ')[1] });
 
             let createdBy = customer.id;
             let userType = AuthType.customer;
 
             if (data['In-Reply-To'] !== undefined) {
                 // this is a reply to a previous mail
-                let ticket = await this.ticketServiceInst.findOne({ workspaceId, clientId, lastMailgunMessageId: data['In-Reply-To'].replace(/^<|>$/g, "") });
+
+                let { data: ticket, ticketError } = await this.supabase.from("tickets").select("*").eq("workspaceId", workspaceId).eq("clientId", clientId).eq("lastMailgunMessageId", data['In-Reply-To'].replace(/^<|>$/g, "")).single();
 
                 // await this.ticketServiceInst.update({ id: ticket.id }, { mailgunMessageId: data["Message-Id"].replace(/^<|>$/g, "") });
 
+                if (ticketError) {
+                    console.error(ticketError);
+                    return Promise.reject(new errors.Internal("Error while fetching ticket"));
+                }
+
+                if (!ticket) {
+                    return Promise.reject(new errors.NotFound('Ticket not found'));
+                }
+
                 let messageData = {
                     clientId,
-                    createdBy,
                     workspaceId,
                     lastMailgunMessageId: data["Message-Id"].replace(/^<|>$/g, ""),
                     message: data['stripped-text'],
@@ -308,7 +345,6 @@ class EmailDomainService extends BaseService {
                 // this is a new mail
                 let messageData = {
                     clientId,
-                    createdBy,
                     workspaceId,
                     lastMailgunMessageId: data["Message-Id"].replace(/^<|>$/g, ""),
                     message: data['stripped-text'],
@@ -331,11 +367,22 @@ class EmailDomainService extends BaseService {
             return Promise.resolve();
 
         } catch (e) {
+            console.error(e);
             return this.handleError(e);
         }
     }
 
-
+    async getDomainByName(domain) {
+        try {
+            let emailDomain = await this.findOne({ domain });
+            if (_.isEmpty(emailDomain)) {
+                return Promise.reject(new errors.NotFound(this.entityName + " not found."));
+            }
+            return emailDomain;
+        } catch (err) {
+            return this.handleError(err)
+        }
+    }
 
     parseFilters({ name, createdFrom, createdTo, workspaceId, clientId }) {
         let filters = {};
