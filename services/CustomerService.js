@@ -25,6 +25,13 @@
                 const { email, workspaceId, clientId } = customerData;
                 let { data: customer, error } = await this.supabase.from(this.entityName).select("*").eq('email', email).eq('workspaceId', workspaceId).eq('clientId', clientId).single();
                 if (error && error.code !== "PGRST116") throw error;
+                // send a different response if the customer already exists
+                if (customer) {
+                    return {
+                        message: "Customer already exists",
+                        customer: customer
+                    };
+                }
                 if (!customer) {
                     let { data, error: insertError } = await this.supabase.from(this.entityName).insert([customerData]).select().single();
                     if (insertError) throw insertError;
