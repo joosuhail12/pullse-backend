@@ -3,62 +3,55 @@ const moment = require('moment');
 const Promise = require("bluebird");
 const errors = require("../errors");
 const TicketUtility = require('../db/utilities/TicketUtility');
-const BaseService = require("./BaseService");
 const TicketEventPublisher = require("../Events/TicketEvent/TicketEventPublisher");
 const { Status: TicketStatus } = require("../constants/TicketConstants");
 const { UserType } = require("../constants/ClientConstants");
 const { createClient } = require('@supabase/supabase-js');
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
-class TicketService extends BaseService {
+
+class TicketService {
     constructor(fields = null, dependencies = {}) {
-        super();
-        this.utilityInst = new TicketUtility();
+        this.utilityInst = new TicketUtility({
+            team: { table: 'teams', key: 'teamId' },
+            type: { table: 'ticketTypes', key: 'typeId' },
+            customer: { table: 'users', key: 'customerId' },
+            tags: { table: 'tags', key: 'tagIds' },
+            topics: { table: 'topics', key: 'topicIds' },
+            assignee: { table: 'users', key: 'assigneeId' },
+            addedBy: { table: 'users', key: 'createdBy' }
+        });
         this.ConversationService = dependencies.ConversationService || null;
         this.entityName = 'tickets';
-        this.listingFields = [
-            "id", "sno", "title", "description", "customerId", "status",
-            "externalId", "language", "teamId", "typeId", "assigneeId", "trackingId",
-            "lastMessage", "created_at", "tagIds", "chatbotId", "threadId", "assigneeTo"
-        ];
-
-        if (fields) {
-            this.listingFields = fields;
-        }
-
-        this.updatableFields = [
-            "title", "description", "status", "customerId", "externalId", "priority",
-            "language", "teamId", "assigneeId", "assigneeTo", "typeId", "summary",
-            "qa", "reopen", "chatbotId", "threadId"
-        ];
     }
 
     async createTicket(ticketData) {
         try {
-            let { clientId, workspaceId, customerId } = ticketData;
+            const { message, emailChannel, clientId, workspaceId, recipients, assignee, ...ticketUpdateData } = ticketData;
 
-            let { count: workspaceTicketCount } = await supabase
+            const { count: workspaceTicketCount } = await supabase
                 .from(this.entityName)
                 .select('*', { count: 'exact', head: true })
                 .match({ clientId, workspaceId });
 
-            let sno = workspaceTicketCount + 1;
-            let companyId = null;
+            const sno = (workspaceTicketCount ?? 0) + 1;
+            ticketUpdateData.sno = sno;
+            ticketUpdateData.entityType = 'ticket';
+            ticketUpdateData.unread = 1;
+            ticketUpdateData.createdAt = new Date().toISOString();
+            ticketUpdateData.updatedAt = new Date().toISOString();
+            ticketUpdateData.priority = ticketUpdateData.priority === 'high' ? 2 : ticketUpdateData.priority === 'medium' ? 1 : 0;
+            ticketUpdateData.lastMessageAt = new Date().toISOString();
+            ticketUpdateData.title = ticketUpdateData.subject;
+            ticketUpdateData.clientId = clientId;
+            ticketUpdateData.workspaceId = workspaceId;
+            ticketUpdateData.lastMessage = message;
+            delete ticketUpdateData.subject;
 
-            if (customerId) {
-                const { default: CustomerService } = require("./CustomerService");
-                let customerInst = new CustomerService();
-                let customer = await customerInst.getDetails(customerId, workspaceId, clientId);
-                if (customer?.companyId) {
-                    companyId = customer.companyId;
-                }
-            }
+            ticketUpdateData.lastMessageBy = ticketUpdateData.customerId;
 
-            ticketData.sno = sno;
-            ticketData.companyId = companyId;
-
-            const { data, error } = await supabase
+            const { data: insertedTicket, error } = await supabase
                 .from(this.entityName)
-                .insert(ticketData)
+                .insert(ticketUpdateData)
                 .select()
                 .single();
 
@@ -69,125 +62,90 @@ class TicketService extends BaseService {
                 throw new errors.DBError(error.message);
             }
 
-            let ticket = data;
-            let inst = new TicketEventPublisher();
-            await inst.created(ticket);
+            const ticketId = insertedTicket.id;
 
-            return _.pick(ticket, this.listingFields);
+            if (recipients && recipients.length > 0) {
+                await Promise.map(recipients, async (recipient) => {
+                    await supabase.from('ticketMentions').insert({ ticketId, userId: recipient.id });
+                    await supabase.from('ticketCustomers').insert({ ticketId, customerId: recipient.id });
+                });
+            }
+
+            if (assignee?.id) {
+                await supabase.from('ticketAssignees').insert({ ticketId, userId: assignee.id });
+            }
+
+            const inst = new TicketEventPublisher();
+            await inst.created(insertedTicket);
+
+            const customer = recipients[0];
+            const tags = ticketUpdateData.tagIds || [];
+
+            return {
+                id: insertedTicket.id,
+                subject: insertedTicket.title,
+                customer: `${customer.firstname} ${customer.lastname}` || customer.email,
+                lastMessage: insertedTicket.lastMessage,
+                assignee: assignee?.name || null,
+                company: customer.company?.name || null,
+                tags,
+                status: insertedTicket.status,
+                priority: ticketData.priority,
+                createdAt: insertedTicket.createdAt,
+                isUnread: Boolean(insertedTicket.unread),
+                hasNotification: false,
+                notificationType: null,
+                recipients: recipients.map((r) => r.email)
+            };
         } catch (err) {
-            return this.handleError(err);
+            console.log(err, "err---");
+            throw err;
         }
     }
 
     async listTickets(req) {
-        let data = await this.paginate(req);
-        data.docs = await this.utilityInst.populate('team', data.docs);
-        data.docs = await this.utilityInst.populate('type', data.docs);
-        data.docs = await this.utilityInst.populate('customer', data.docs);
-        data.docs = await this.utilityInst.populate('tags', data.docs);
-        data.docs = await this.utilityInst.populate('topics', data.docs);
-
-        return data;
-    }
-
-    async getDetails(sno, workspaceId, clientId, populate = false) {
         try {
-            let { data: ticket, error } = await supabase
+            const { data: tickets, error } = await supabase
                 .from(this.entityName)
                 .select('*')
-                .match({ sno, workspaceId, clientId })
-                .single();
+                .match({ workspaceId: req.workspaceId, clientId: req.clientId });
 
-            if (error || !ticket) {
-                throw new errors.NotFound(`${this.entityName} not found.`);
+            if (error) {
+                throw new errors.DBError(error.message);
             }
 
-            if (!populate) {
-                return ticket;
-            }
+            const enrichedTickets = await Promise.map(tickets, async (ticket) => {
+                const { data: customers } = await supabase.from('ticketCustomers').select('customerId, users(email, firstname, lastname, company(name))').eq('ticketId', ticket.id);
+                const { data: assignees } = await supabase.from('ticketAssignees').select('userId, users(name)').eq('ticketId', ticket.id);
+                const { data: mentions } = await supabase.from('ticketMentions').select('userId, users(email)').eq('ticketId', ticket.id);
+                const { data: companies } = await supabase.from('ticketCompanies').select('companyId, companies(name)').eq('ticketId', ticket.id);
 
-            let tickets = [ticket];
-            tickets = await this.utilityInst.populate('team', tickets);
-            tickets = await this.utilityInst.populate('type', tickets);
-            tickets = await this.utilityInst.populate('customer', tickets);
-            tickets = await this.utilityInst.populate('tags', tickets);
-            tickets = await this.utilityInst.populate('topics', tickets);
-            tickets = await this.utilityInst.populate('assignee', tickets);
-            tickets = await this.utilityInst.populate('addedBy', tickets);
+                const primaryCustomer = customers?.[0]?.users;
+                const primaryCompany = companies?.[0]?.companies;
+                const recipientEmails = mentions?.map(m => m.users?.email).filter(Boolean) || [];
 
-            return tickets[0];
+                return {
+                    id: ticket.id,
+                    subject: ticket.title,
+                    customer: `${primaryCustomer?.firstname} ${primaryCustomer?.lastname}` || primaryCustomer?.email,
+                    lastMessage: ticket.lastMessage,
+                    assignee: assignees?.[0]?.users?.name || null,
+                    company: primaryCompany?.name || null,
+                    tags: ticket.tags || [],
+                    status: ticket.status,
+                    priority: ticket.priority === 2 ? 'high' : ticket.priority === 1 ? 'medium' : 'low',
+                    createdAt: ticket.createdAt,
+                    isUnread: Boolean(ticket.unread),
+                    hasNotification: false,
+                    notificationType: null,
+                    recipients: recipientEmails
+                };
+            });
+
+            return { docs: enrichedTickets };
         } catch (err) {
-            return this.handleError(err);
-        }
-    }
-
-    async updateTicket({ sno, workspaceId, clientId }, updateValues) {
-        try {
-            const { default: TeamService } = require("./TeamService");
-            const { default: UserService } = require("./UserService");
-            const { default: CustomerService } = require("./CustomerService");
-            const { default: TicketTypeService } = require("./TicketTypeService");
-
-            let ticketEventPublisherInst = new TicketEventPublisher();
-            let ticket = await this.getDetails(sno, workspaceId, clientId);
-
-            if (updateValues.teamId) {
-                let inst = new TeamService();
-                await inst.getDetails(updateValues.teamId, workspaceId, clientId);
-            }
-            if (updateValues.assigneeId) {
-                let inst = new UserService();
-                await inst.getDetails(updateValues.assigneeId, clientId);
-                updateValues.assigneeTo = UserType.agent;
-            }
-            if (updateValues.customerId) {
-                let inst = new CustomerService();
-                await inst.getDetails(updateValues.customerId, workspaceId, clientId);
-            }
-            if (updateValues.typeId) {
-                let inst = new TicketTypeService();
-                await inst.getDetails({ id: updateValues.typeId, workspaceId, clientId });
-            }
-
-            if (updateValues.status) {
-                if (ticket.status.toLowerCase() === TicketStatus.closed &&
-                    updateValues.status.toLowerCase() !== TicketStatus.closed) {
-                    updateValues.reopen = {
-                        count: (ticket.reopen?.count || 0) + 1,
-                        lastAt: new Date(),
-                    };
-                } else if (updateValues.status.toLowerCase() === TicketStatus.closed) {
-                    updateValues.closedAt = new Date();
-                    await ticketEventPublisherInst.closed(ticket);
-                }
-            }
-
-            const { error } = await supabase
-                .from(this.entityName)
-                .update(updateValues)
-                .match({ id: ticket.id });
-
-            if (error) throw new errors.DBError(error.message);
-
-            await ticketEventPublisherInst.updated(ticket, updateValues);
-        } catch (err) {
-            return this.handleError(err);
-        }
-    }
-
-    async deleteTicket({ sno, workspaceId, clientId }) {
-        try {
-            let ticket = await this.getDetails(sno, workspaceId, clientId);
-            const { error } = await supabase
-                .from(this.entityName)
-                .update({ deleted_at: new Date() })
-                .match({ id: ticket.id });
-
-            if (error) throw new errors.DBError(error.message);
-
-            return { message: "Ticket soft deleted successfully." };
-        } catch (err) {
-            return this.handleError(err);
+            console.log(err, "err---");
+            throw err;
         }
     }
 }

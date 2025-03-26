@@ -69,6 +69,9 @@ async function activate(app) {
           },
           maxActiveChats: {
             type: 'number'
+          },
+          icon: {
+            type: 'string'
           }
         }
       },
@@ -137,16 +140,64 @@ async function activate(app) {
       tags: ['teams'],
       summary: 'Update Team',
       description: 'API to update a Team.',
-      required: [],
       body: {
-        name: {
-          type: 'string',
-          minLength: 2
-        },
-        description: {
-          type: 'string',
-        },
-      }
+        required: [],
+        additionalProperties: false,
+        type: 'object',
+        properties: {
+          name: {
+            type: 'string',
+            minLength: 2
+          },
+          description: {
+            type: 'string',
+          },
+          workspaceId: {
+            type: 'string',
+          },
+          clientId: {
+            type: 'string',
+          },
+          members: {
+            type: 'array',
+            items: {
+              type: 'string'
+            },
+            minItems: 1
+          },
+          channels: {
+            type: 'object',
+            additionalProperties: {
+              type: 'array',
+              items: { type: 'string' }
+            }
+          },
+          routingStrategy: {
+            type: 'string'
+          },
+          officeHours: {
+            type: 'object'
+          },
+          holidays: {
+            type: 'array',
+            items: {
+              type: 'string'
+            }
+          },
+          maxTotalTickets: {
+            type: 'number'
+          },
+          maxOpenTickets: {
+            type: 'number'
+          },
+          maxActiveChats: {
+            type: 'number'
+          },
+          icon: {
+            type: 'string'
+          } 
+        }
+      },
     },
     handler: async (req, reply) => {
       return handler.updateTeam(req, reply);

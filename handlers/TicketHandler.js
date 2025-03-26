@@ -15,6 +15,7 @@ class TicketHandler extends BaseHandler {
     req.body.createdBy = req.authUser.id;
     req.body.clientId = req.authUser.clientId;
     req.body.workspaceId = req.query.workspace_id;
+    req.body.createdBy = req.authUser.id;
     return this.responder(req, reply, inst.createTicket(req.body));
   }
 

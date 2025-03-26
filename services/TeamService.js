@@ -122,9 +122,6 @@ class TeamService {
     }
 
 
-
-
-
     async getDetails(id, workspaceId, clientId) {
         try {
             const { data: team, error } = await supabase
@@ -159,16 +156,90 @@ class TeamService {
 
 
     async updateTeam({ id, workspaceId, clientId }, updateValues) {
-        const existingTeam = await this.getDetails(id, workspaceId, clientId);
+        try {
+            // Extract members from updateValues if present
+            const { members, channels, ...teamUpdateValues } = updateValues;
 
-        const { error } = await supabase
-            .from(this.entityName)
-            .update(updateValues)
-            .eq("id", existingTeam.id);
+            // Clean up channels if present
+            // if (teamUpdateValues.channels && Array.isArray(teamUpdateValues.channels)) {
+            //     teamUpdateValues.channels = teamUpdateValues.channels.filter(
+            //         channel => channel === "email" || channel === "chat"
+            //     );
 
-        if (error) throw error;
-        return { message: "Team updated successfully" };
+            //     if (teamUpdateValues.channels.length === 0) {
+            //         delete teamUpdateValues.channels;
+            //     }
+            // }
+
+            // Ensure workspaceId and clientId are part of the update
+            teamUpdateValues.workspaceId = workspaceId;
+            teamUpdateValues.clientId = clientId;
+
+            // Update the team data without members
+            const { error: updateError } = await supabase
+                .from(this.entityName)
+                .update(teamUpdateValues)
+                .eq("id", id)
+                .eq("workspaceId", workspaceId)
+                .eq("clientId", clientId);
+
+            if (updateError) throw updateError;
+
+            // If members are provided, update them separately
+            if (members && Array.isArray(members)) {
+                // Delete existing members
+                const { error: deleteError } = await supabase
+                    .from(this.memberTable)
+                    .delete()
+                    .eq("team_id", id);
+
+                if (deleteError) throw deleteError;
+
+                // Add new members
+                const memberEntries = members.map(userId => ({ team_id: id, user_id: userId }));
+                const { error: addError } = await supabase
+                    .from(this.memberTable)
+                    .insert(memberEntries);
+
+                if (addError) throw addError;
+            }
+
+            // Fetch updated team without teamMembers join
+            const { data: updatedTeam, error: fetchError } = await supabase
+                .from(this.entityName)
+                .select(`
+                    id, name, icon, description, workspaceId, clientId, createdBy, channels, routingStrategy,
+                    maxTotalTickets, maxOpenTickets, maxActiveChats, officeHours, holidays, createdAt, updatedAt
+                `)
+                .eq("id", id)
+                .single();
+
+            if (fetchError) throw fetchError;
+
+            // Fetch team members separately by joining with users explicitly
+            const { data: teamMembers, error: membersError } = await supabase
+                .from(this.memberTable)
+                .select(`user_id, users: user_id (id, name, email)`)
+                .eq("team_id", id);
+
+            if (membersError) throw membersError;
+
+            return {
+                message: "Team updated successfully",
+                team: {
+                    ...updatedTeam,
+                    teamMembers: teamMembers ? teamMembers.map(m => m.users) : []
+                }
+            };
+        } catch (error) {
+            console.log(error, "error---");
+            this.handleError(error);
+        }
     }
+
+
+
+
 
     async deleteTeam({ id, workspaceId, clientId }) {
         const existingTeam = await this.getDetails(id, workspaceId, clientId);
