@@ -65,6 +65,17 @@ class EmailChannelsService extends BaseService {
         }
     }
 
+    async getEmailChannelByEmailAddress({ emailAddress }) {
+        try {
+            const { data, error } = await this.supabase.from(this.entityName).select("*").eq("emailAddress", emailAddress).eq("isActive", true).is("deletedAt", null).single();
+            if (error) {
+                throw new errors.Internal(error.message);
+            }
+            return data;
+        } catch (error) {
+            throw new errors.Internal(error.message);
+        }
+    }
 }
 
 module.exports = EmailChannelsService;

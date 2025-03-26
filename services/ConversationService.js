@@ -5,8 +5,9 @@ const errors = require("../errors");
 const BaseService = require("./BaseService");
 const TicketService = require("./TicketService");
 const { UserType } = require("../constants/ClientConstants");
-const { MessageType } = require("../constants/TicketConstants");
 const config = require("../config");
+const { Status: TicketStatus, EntityType, MessageType } = require('../constants/TicketConstants');
+const ConversationEventPublisher = require("../Events/ConversationEvent/ConversationEventPublisher");
 
 class ConversationService extends BaseService {
     constructor() {
@@ -17,29 +18,126 @@ class ConversationService extends BaseService {
         this.ticketInst = new TicketService();
     }
 
-    async addMessage({ ticketId, message, type, userType, createdBy, workspaceId, clientId }) {
+    async addMessage({ ticketId, message, type, userType, tagIds, mentionIds, createdBy, workspaceId, clientId, lastMailgunMessageId = "" }, newTicket = false) {
         try {
-            let { data: ticket, error } = await this.supabase
-                .from("ticket")
-                .select("*")
-                .eq("id", ticketId)
-                .single();
-            
-            if (error || !ticket) {
-                throw new errors.NotFound("Ticket not found.");
+            let ticket;
+            if (Object.keys(newTicket).length > 0) {
+                if (!message) {
+                    return Promise.reject(new errors.BadRequest("Message is required."));
+                }
+
+                const ticketData = {
+                    title: newTicket.title || 'New Ticket',
+                    description: newTicket.description,
+                    ticketCreatedBy: newTicket.ticketCreatedBy,
+                    customerId: newTicket.customerId ?? null,
+                    channel: newTicket.channel || null,
+                    sessionId: newTicket.sessionId || null,
+                    device: newTicket.device,
+                    clientId: clientId,
+                    createdBy: createdBy,
+                    workspaceId: workspaceId,
+                    lastMailgunMessageId: lastMailgunMessageId,
+                    mailgunReferenceIds: [lastMailgunMessageId],
+                    entityType: EntityType.conversation,
+                    lastMessage: message,
+                    lastMessageBy: UserType.customer,
+                    lastMessageAt: new Date().toISOString(),
+                };
+
+                const { data: newTicketData, error: ticketError } = await this.supabase
+                    .from('tickets')
+                    .insert(ticketData)
+                    .select()
+                    .single();
+
+                if (ticketError && Object.keys(ticketError).length > 0) throw ticketError;
+                ticket = newTicketData;
+
+            } else {
+                const { data: existingTicket, error: findError } = await this.supabase
+                    .from('tickets')
+                    .select('*')
+                    .eq('id', ticketId)
+                    .single();
+
+                if (findError) throw findError;
+                ticket = existingTicket;
+
+                const ticketUpdate = {
+                    lastMailgunMessageId: lastMailgunMessageId,
+                    mailgunReferenceIds: [...(ticket.mailgunReferenceIds || []), lastMailgunMessageId],
+                    lastMessage: message,
+                    lastMessageAt: new Date().toISOString()
+                };
+
+                if (mentionIds) {
+                    ticketUpdate.mentionIds = [...new Set([...(ticket.mentionIds || []), ...mentionIds])];
+                }
+
+                if (tagIds) {
+                    ticketUpdate.tagIds = [...new Set([...(ticket.tagIds || []), ...tagIds])];
+                }
+
+                if (userType === ticket.lastMessageBy) {
+                    ticketUpdate.unread = (ticket.unread || 0) + 1;
+                } else {
+                    ticketUpdate.lastMessageBy = userType;
+                    ticketUpdate.unread = 1;
+                }
+
+                const { error: updateError } = await this.supabase
+                    .from('tickets')
+                    .update(ticketUpdate)
+                    .eq('id', ticket.id);
+
+                if (updateError) throw updateError;
             }
-            
-            let { data, insertError } = await this.supabase
-                .from("conversation")
-                .insert([{ ticket_id: ticket.id, message, type, user_type: userType, created_by: createdBy, workspace_id: workspaceId, client_id: clientId }])
+
+            if (!ticket) {
+                return Promise.reject(new errors.NotFound("Ticket not found."));
+            }
+
+            const messageData = {
+                ticketId: ticket.id,
+                message,
+                type,
+                userType,
+                createdBy,
+                workspaceId,
+                clientId
+            };
+
+            if ([MessageType.note, MessageType.summary, MessageType.qa].includes(type)) {
+                messageData.visible_to = UserType.agent;
+            }
+
+            const { data: newMessage, error: messageError } = await this.supabase
+                .from('conversations')
+                .insert([messageData])
                 .select()
                 .single();
-            
-            if (insertError) {
-                throw insertError;
-            }
-            
-            return data;
+
+            if (messageError) throw messageError;
+
+            // const { data: conversationMessage, error: convError } = await this.supabase
+            //     .from('conversations')
+            //     .select('*')
+            //     .eq('id', newMessage.id)
+            //     .single();
+
+            // console.log(conversationMessage, "conversationMessage");
+
+            if (messageError) throw messageError;
+
+            let inst = new ConversationEventPublisher();
+            inst.created(newMessage, ticket, !!newTicket);
+
+            return {
+                newMessage,
+                ticket,
+            };
+
         } catch (err) {
             return this.handleError(err);
         }
@@ -52,11 +150,11 @@ class ConversationService extends BaseService {
                 .select(this.listingFields.join(","))
                 .eq("ticket_id", ticketId)
                 .order("createdAt", { ascending: true });
-            
+
             if (error) {
                 throw error;
             }
-            
+
             return data;
         } catch (err) {
             return this.handleError(err);
@@ -69,11 +167,11 @@ class ConversationService extends BaseService {
                 .from("conversation")
                 .delete()
                 .eq("id", id);
-            
+
             if (error) {
                 throw error;
             }
-            
+
             return { message: "Message deleted successfully." };
         } catch (err) {
             return this.handleError(err);
