@@ -115,34 +115,136 @@ class TicketService {
             }
 
             const enrichedTickets = await Promise.map(tickets, async (ticket) => {
-                const { data: customers } = await supabase.from('ticketCustomers').select('customerId, users(email, firstname, lastname, company(name))').eq('ticketId', ticket.id);
-                const { data: assignees } = await supabase.from('ticketAssignees').select('userId, users(name)').eq('ticketId', ticket.id);
-                const { data: mentions } = await supabase.from('ticketMentions').select('userId, users(email)').eq('ticketId', ticket.id);
-                const { data: companies } = await supabase.from('ticketCompanies').select('companyId, companies(name)').eq('ticketId', ticket.id);
+                const { data: customers } = await supabase
+                    .from('ticketCustomers')
+                    .select(`
+                        customerId, 
+                        users(
+                            id, 
+                            email, 
+                            firstname, 
+                            lastname, 
+                            phone,
+                            type,
+                            title,
+                            department,
+                            company(id, name)
+                        )
+                    `)
+                    .eq('ticketId', ticket.id);
+
+                const { data: assignees } = await supabase
+                    .from('ticketAssignees')
+                    .select('userId, users(id, name, email, role)')
+                    .eq('ticketId', ticket.id);
+
+                const { data: mentions } = await supabase
+                    .from('ticketMentions')
+                    .select('userId, users(id, email, name)')
+                    .eq('ticketId', ticket.id);
+
+                const { data: companies } = await supabase
+                    .from('ticketCompanies')
+                    .select('companyId, companies(id, name, domain)')
+                    .eq('ticketId', ticket.id);
+
+                const { data: tagData } = await supabase
+                    .from('tags')
+                    .select('id, name, color')
+                    .in('id', ticket.tagIds || []);
+
+                const { count: messageCount } = await supabase
+                    .from('conversations')
+                    .select('*', { count: 'exact', head: true })
+                    .match({ ticket_id: ticket.id });
 
                 const primaryCustomer = customers?.[0]?.users;
-                const primaryCompany = companies?.[0]?.companies;
+                const primaryCompany = companies?.[0]?.companies ||
+                    (primaryCustomer?.company ? primaryCustomer.company : null);
                 const recipientEmails = mentions?.map(m => m.users?.email).filter(Boolean) || [];
+                const formattedTags = tagData?.map(tag => ({
+                    id: tag.id,
+                    name: tag.name,
+                    color: tag.color
+                })) || [];
 
                 return {
                     id: ticket.id,
+                    sno: ticket.sno,
                     subject: ticket.title,
-                    customer: `${primaryCustomer?.firstname} ${primaryCustomer?.lastname}` || primaryCustomer?.email,
-                    lastMessage: ticket.lastMessage,
-                    assignee: assignees?.[0]?.users?.name || null,
-                    company: primaryCompany?.name || null,
-                    tags: ticket.tags || [],
+                    description: ticket.description,
+
                     status: ticket.status,
+                    statusType: ticket.statusId,
                     priority: ticket.priority === 2 ? 'high' : ticket.priority === 1 ? 'medium' : 'low',
+                    priorityRaw: ticket.priority,
+
+                    customerId: ticket.customerId,
+                    customer: {
+                        id: primaryCustomer?.id,
+                        name: `${primaryCustomer?.firstname || ''} ${primaryCustomer?.lastname || ''}`.trim() || primaryCustomer?.email,
+                        email: primaryCustomer?.email,
+                        phone: primaryCustomer?.phone,
+                        type: primaryCustomer?.type,
+                        title: primaryCustomer?.title,
+                        department: primaryCustomer?.department
+                    },
+
+                    companyId: ticket.companyId,
+                    company: primaryCompany ? {
+                        id: primaryCompany.id,
+                        name: primaryCompany.name,
+                        domain: primaryCompany.domain
+                    } : null,
+
+                    assigneeId: ticket.assigneeId,
+                    assignee: assignees?.[0]?.users ? {
+                        id: assignees[0].users.id,
+                        name: assignees[0].users.name,
+                        email: assignees[0].users.email,
+                        role: assignees[0].users.role
+                    } : null,
+
+                    teamId: ticket.teamId,
+
+                    lastMessage: ticket.lastMessage,
+                    lastMessageAt: ticket.lastMessageAt,
+                    lastMessageBy: ticket.lastMessageBy,
+                    messageCount: messageCount || 0,
+
+                    channel: ticket.channel,
+                    device: ticket.device,
+                    tags: formattedTags,
+                    intents: ticket.intents,
+                    sentiment: ticket.sentiment,
+
                     createdAt: ticket.createdAt,
+                    updatedAt: ticket.updatedAt,
+                    closedAt: ticket.closedAt,
+
                     isUnread: Boolean(ticket.unread),
                     hasNotification: false,
                     notificationType: null,
-                    recipients: recipientEmails
+                    recipients: recipientEmails,
+
+                    summary: ticket.summary,
+                    threadId: ticket.threadId,
+                    externalId: ticket.externalId,
+
+                    customFields: ticket.customFields || {},
+                    topicIds: ticket.topicIds || [],
+                    mentionIds: ticket.mentionIds || [],
+                    reopenInfo: ticket.reopen || null
                 };
             });
 
-            return { docs: enrichedTickets };
+            return {
+                docs: enrichedTickets,
+                total: tickets.length,
+                page: parseInt(req.page) || 1,
+                limit: parseInt(req.limit) || 20,
+                hasMore: false
+            };
         } catch (err) {
             console.log(err, "err---");
             throw err;
