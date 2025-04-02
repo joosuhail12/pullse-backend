@@ -34,6 +34,7 @@ const workspacePermission = require('./workspacePermission');
 const customObjectRoute = require('./customObjectRoutes');
 const emailChannelsRoute = require('./emailChannelsRoutes');
 const widgetRoute = require('./widgetRoutes');
+const analyticsRoute = require('./analyticsRoutes');
 
 module.exports = {
   async activate(app) {
@@ -71,5 +72,6 @@ module.exports = {
     await customObjectRoute.activate(app);
     await emailChannelsRoute.activate(app);
     await widgetRoute.activate(app);
+    await analyticsRoute.activate(app);
   }
 };
