@@ -179,6 +179,94 @@ class WidgetService extends BaseService {
             throw new errors.Internal(error.message);
         }
     }
+
+    async createContactDevice(requestBody) {
+        try {
+            let { device, operatingSystem, publicIpAddress, name, email, apiKey } = requestBody;
+            if ((!device && !operatingSystem) || !publicIpAddress) {
+                throw new errors.BadRequest("Device, operatingSystem and publicIpAddress are required");
+            }
+
+            // Check widget api key
+            let { data: widgetApiKeyData, error: widgetApiKeyError } = await this.supabase.from("widgetapikeyrelation").select("*").eq("apiKey", apiKey).is("deletedAt", null).single();
+            if (widgetApiKeyError || !widgetApiKeyData) {
+                throw new errors.Internal(widgetApiKeyError.message);
+            }
+
+            // Check widget
+            let { data: widgetData, error: widgetError } = await this.supabase.from(this.entityName).select("*").eq("id", widgetApiKeyData.widgetId).is("deletedAt", null).single();
+            if (widgetError || !widgetData) {
+                throw new errors.Internal(widgetError.message);
+            }
+
+            // Check for customer
+            let { data: customer, error: customerError } = await this.supabase.from("customers").select("*").eq("email", email).eq("workspaceId", widgetData.workspaceId).eq("clientId", widgetData.clientId).is("deletedAt", null).single();
+            if (customerError && customerError.code !== "PGRST116") {
+                throw new errors.Internal(customerError.message);
+            }
+
+            if (!customer) {
+                // Create customer if not found
+                const firstname = name.split(" ")[0];
+                const lastname = name.split(" ")[1];
+
+                let { data: newCustomer, error: insertError } = await this.supabase.from("customers").insert({ email, firstname, lastname, workspaceId: widgetData.workspaceId, clientId: widgetData.clientId, type: "contact" }).select().single();
+                if (insertError) throw insertError;
+                customer = newCustomer;
+            }
+
+            // check if contactdevice already exists
+            const { data: contactDeviceData, error: contactDeviceError } = await this.supabase.from("contactdevice").select("*").eq("publicIpAddress", publicIpAddress).eq("device", device).eq("operatingSystem", operatingSystem).eq("contactId", customer.id).is("deletedAt", null).select().single();
+
+            // PGRST116 is the error code for "no rows returned"
+            if (contactDeviceError && contactDeviceError.code !== "PGRST116") {
+                throw new errors.Internal(contactDeviceError.message);
+            }
+
+            if (contactDeviceData) {
+                return {
+                    ...contactDeviceData,
+                    name: customer.firstname + " " + customer.lastname,
+                    email: customer.email,
+                };
+            }
+
+            const { data, error } = await this.supabase.from("contactdevice").insert({ contactId: customer.id, device, operatingSystem, publicIpAddress }).select().single();
+            if (error) {
+                throw new errors.Internal(error.message);
+            }
+            return {
+                ...data,
+                name: customer.firstname + " " + customer.lastname,
+                email: customer.email,
+            };
+        } catch (error) {
+            console.error(error);
+            throw new errors.Internal(error.message);
+        }
+    }
+
+    async getContactDeviceTickets(contactDeviceId) {
+        try {
+            const { data, error } = await this.supabase.from("contactdevice").select("*").eq("id", contactDeviceId).is("deletedAt", null).single();
+            if (error) {
+                throw new errors.Internal(error.message);
+            }
+
+            if (!data) {
+                throw new errors.NotFound("Contact device not found");
+            }
+
+            const { data: tickets, error: ticketsError } = await this.supabase.from("tickets").select("*").eq("deviceId", contactDeviceId).is("deletedAt", null);
+            if (ticketsError) {
+                throw new errors.Internal(ticketsError.message);
+            }
+            return tickets;
+        } catch (error) {
+            console.error(error);
+            throw new errors.Internal(error.message);
+        }
+    }
 }
 
 module.exports = WidgetService; 

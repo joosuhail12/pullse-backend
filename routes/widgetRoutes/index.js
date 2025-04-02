@@ -200,6 +200,54 @@ async function activate(app) {
             return handler.getWidgetConfig(req, reply);
         },
     });
+
+    app.route({
+        url: base_url + "/createContactDevice/:api_key",
+        method: "POST",
+        name: "CreateContactDevice",
+        schema: {
+            tags: ["Widgets"],
+            summary: "Create Contact Device",
+            params: {
+                type: "object",
+                required: ["api_key"],
+                properties: {
+                    api_key: { type: "string" },
+                },
+            },
+            body: {
+                type: "object",
+                required: ["name", "email"],
+                properties: {
+                    name: { type: "string" },
+                    email: { type: "string" },
+                },
+            },
+        },
+        handler: async (req, reply) => {
+            return handler.createContactDevice(req, reply);
+        },
+    });
+
+    app.route({
+        url: base_url + "/getContactDeviceTickets/:contact_device_id",
+        method: "GET",
+        name: "GetContactDeviceTickets",
+        schema: {
+            tags: ["Widgets"],
+            summary: "Get Contact Device Tickets",
+            params: {
+                type: "object",
+                required: ["contact_device_id"],
+                properties: {
+                    contact_device_id: { type: "string" },
+                },
+            },
+        },
+        handler: async (req, reply) => {
+            return handler.getContactDeviceTickets(req, reply);
+        },
+    });
 }
 
 module.exports = {

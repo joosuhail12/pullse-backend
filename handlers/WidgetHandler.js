@@ -1,6 +1,6 @@
 const BaseHandler = require('./BaseHandler');
 const WidgetService = require('../services/WidgetService');
-
+const parser = require('ua-parser-js');
 
 class WidgetHandler extends BaseHandler {
 
@@ -61,6 +61,26 @@ class WidgetHandler extends BaseHandler {
         let clientId = req.authUser.clientId;
         let inst = new WidgetService();
         return this.responder(req, reply, inst.getWidgetConfig({ apiKey, workspaceId, clientId }));
+    }
+
+    async createContactDevice(req, reply) {
+        let inst = new WidgetService();
+        let ua = parser(req.headers['user-agent']);
+        let device = ua.browser.name || ua.os.name || ua.device.type || null;
+        let operatingSystem = ua.os.name || null;
+        let publicIpAddress = req.ip;
+        req.body.device = device;
+        req.body.operatingSystem = operatingSystem;
+        req.body.publicIpAddress = publicIpAddress;
+        req.body.apiKey = req.params.api_key;
+
+        return this.responder(req, reply, inst.createContactDevice(req.body));
+    }
+
+    async getContactDeviceTickets(req, reply) {
+        let contactDeviceId = req.params.contact_device_id;
+        let inst = new WidgetService();
+        return this.responder(req, reply, inst.getContactDeviceTickets(contactDeviceId));
     }
 }
 
