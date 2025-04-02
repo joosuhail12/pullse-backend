@@ -179,6 +179,27 @@ async function activate(app) {
                 return handler.getWidgetById(req, reply);
             },
     });
+
+    // Get widget by api key
+    app.route({
+        url: base_url + "/getWidgetConfig/:api_key",
+        method: "GET",
+        name: "GetWidgetConfig",
+        schema: {
+            tags: ["Widgets"],
+            summary: "Get Widget Config",
+            params: {
+                type: "object",
+                required: ["api_key"],
+                properties: {
+                    api_key: { type: "string" },
+                },
+            },
+        },
+        handler: async (req, reply) => {
+            return handler.getWidgetConfig(req, reply);
+        },
+    });
 }
 
 module.exports = {
