@@ -153,6 +153,32 @@ class WidgetService extends BaseService {
             throw new errors.Internal(error.message);
         }
     }
+
+    async getWidgetConfig({ apiKey, workspaceId, clientId }) {
+        try {
+            const { data, error } = await this.supabase.from("widgetapikeyrelation").select("*").eq("apiKey", apiKey).is("deletedAt", null).single();
+
+            if (error) {
+                throw new errors.Internal(error.message);
+            }
+
+            if (!data) {
+                throw new errors.NotFound("Widget not found");
+            }
+
+            const { data: widgetData, error: widgetError } = await this.supabase.from(this.entityName).select(`
+                *,
+                widgettheme!widgettheme_widgetId_fkey(id, name, colors, position, labels, persona, isCompact)
+            `).eq("id", data.widgetId).eq("workspaceId", workspaceId).eq("clientId", clientId).is("deletedAt", null).single();
+            if (widgetError) {
+                throw new errors.Internal(widgetError.message);
+            }
+            return widgetData;
+        } catch (error) {
+            console.error(error);
+            throw new errors.Internal(error.message);
+        }
+    }
 }
 
-module.exports = WidgetService;
+module.exports = WidgetService; 
