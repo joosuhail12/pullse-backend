@@ -7,10 +7,22 @@ const authMiddlewares = require('../middlewares/auth');
 async function caslPlugin(fastify) {
   fastify.decorateRequest('ability', null);
 
+  // =====================================================================
+  // TEMPORARY CODE: REMOVE BEFORE COMMITTING
+  // Modify authentication hook to allow Swagger UI access without token
   fastify.addHook('preHandler', async (request, reply) => {
-    if (request.url.includes('/auth/login')) return
-    if (request.url.includes('/auth/logout')) return
-    if (request.url.includes('/api/email-domain/email-webhook')) return
+    const skipAuthPaths = [
+      '/auth/login',
+      '/auth/logout',
+      '/api/email-domain/email-webhook',
+      '/api/widget/getWidgetConfig',
+      // TEMP: Remove this line when done with Swagger documentation
+      // '/api-docs'
+    ];
+
+    if (skipAuthPaths.some(path => request.url.includes(path))) return;
+
+    // Original authentication logic below
     let token = request?.headers?.authorization?.split("Bearer ")[1]
     let user = await authMiddlewares.verifyUserToken(token);
     // console.log('workspaceUser',user)
@@ -22,6 +34,8 @@ async function caslPlugin(fastify) {
     }
     request.ability = defineAbilityFor(request.user);
   });
+  // END TEMPORARY CODE
+  // =====================================================================
 
   fastify.decorateRequest('checkPermission', function (action, subject) {
     if (!this.ability.can(action, subject)) {
