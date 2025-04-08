@@ -12,6 +12,7 @@ const WorkspacePermissionService = require("./WorkspacePermissionService");
 const UserUtility = require('../db/utilities/UserUtility');
 const AuthUtility = require('../db/utilities/AuthUtility');
 const { createClient } = require('@supabase/supabase-js');
+const authMiddlewares = require('../middlewares/auth');
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
 class AuthService extends UserService {
 
@@ -106,6 +107,52 @@ class AuthService extends UserService {
         }
     }
 
+    async checkToken(token) {
+        try {
+            // Fetch user based on the token
+            let { data: session, error: sessionError } = await supabase
+                .from('userAccessTokens') // Assuming userSessions table stores access tokens
+                .select('user_id, expiry')
+                .eq('token', token)
+                .single();
+            if (sessionError || !session) {
+                return Promise.reject(new errors.Unauthorized());
+            }
+
+            // Check if session expired
+            if (session.expiry < Date.now()) {
+                return Promise.reject(new errors.Unauthorized("Session expired, please login again."));
+            }
+
+            // Fetch full user details
+            let { data: user, error: userError } = await supabase
+                .from('users')
+                .select('id, email, fName, lName, defaultWorkspaceId, clientId')
+                .eq('id', session.user_id)
+                .single();
+
+            if (userError || !user) {
+                return Promise.reject(new errors.Unauthorized());
+            }
+
+            // Fetch user role from workspacePermissions
+            let { data: permission, error: permissionError } = await supabase
+                .from('workspacePermissions')
+                .select('role')
+                .eq('userId', user.id)
+                .eq('workspaceId', user.defaultWorkspaceId)
+                .single();
+
+            return {
+                ...user,
+                role: permission?.role || null, // Add role if available
+            };
+        } catch (err) {
+            console.log(err);
+            return this.handleError(err);
+        }
+    }
+
     async verifyEmail(email) {
         try {
             email = email?.toLowerCase();
@@ -133,10 +180,13 @@ class AuthService extends UserService {
             audience: config.app.baseUrl,
             tokenId: uuidv4()
         };
-        return jwt.sign(data, '$$SUPER_SECRET_JWT_SECRET!@#$%5');
+        const token = jwt.sign(data, '$$SUPER_SECRET_JWT_SECRET!@#$%5')
+        console.log(token);
+        return token;
     }
 
-    verifyJWTToken(token, secret = config.auth.jwtSecret) {
+    verifyJWTToken(token, secret = '$$SUPER_SECRET_JWT_SECRET!@#$%5') {
+        console.log(jwt.verify(token, secret));
         return jwt.verify(token, secret);
     }
 

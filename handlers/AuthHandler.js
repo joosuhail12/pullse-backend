@@ -33,6 +33,7 @@ class AuthHandler extends BaseHandler {
         path: '/',
         // signed: true
       });
+      console.log(res);
       return this.responder(req, reply, Promise.resolve(res));
     } catch (error) {
       console.log(error);
@@ -52,6 +53,14 @@ class AuthHandler extends BaseHandler {
     let password = req.body.password;
     let inst = new AuthService();
     return this.responder(req, reply, inst.resetPassword(token, password));
+  }
+
+  async checkToken(req, reply) {
+    let token = req.headers.authorization;
+    token = token.split(" ")[1] ;
+
+    let inst = new AuthService();
+    return this.responder(req, reply, inst.checkToken(token));
   }
 
   async logoutUser(req, reply) {

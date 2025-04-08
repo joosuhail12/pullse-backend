@@ -43,7 +43,7 @@
 	},
 	"whitelisted_urls": {
 		"doc": "URLs which will use APIs of this app. ie: App will allow CORS for URLs which are defined here.",
-		"default": "http://localhost:3000,http://localhost:8080",
+		"default": "http://localhost:3000,http://localhost:8080,http://localhost:8000,http://localhost:58764",
 		"env": "APP_WHITELISTED_URLS",
 		"arg": "app_whitelisted_urls"
 	},
