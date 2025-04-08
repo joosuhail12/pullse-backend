@@ -58,9 +58,8 @@ class WidgetHandler extends BaseHandler {
     async getWidgetConfig(req, reply) {
         let apiKey = req.params.api_key;
         let workspaceId = req.query.workspace_id;
-        let clientId = req.authUser.clientId;
         let inst = new WidgetService();
-        return this.responder(req, reply, inst.getWidgetConfig({ apiKey, workspaceId, clientId }));
+        return this.responder(req, reply, inst.getWidgetConfig({ apiKey, workspaceId }));
     }
 
     async createContactDevice(req, reply) {

@@ -154,8 +154,9 @@ class WidgetService extends BaseService {
         }
     }
 
-    async getWidgetConfig({ apiKey, workspaceId, clientId }) {
+    async getWidgetConfig({ apiKey, workspaceId }) {
         try {
+            console.log(apiKey, workspaceId);
             const { data, error } = await this.supabase.from("widgetapikeyrelation").select("*").eq("apiKey", apiKey).is("deletedAt", null).single();
 
             if (error) {
@@ -168,8 +169,11 @@ class WidgetService extends BaseService {
 
             const { data: widgetData, error: widgetError } = await this.supabase.from(this.entityName).select(`
                 *,
-                widgettheme!widgettheme_widgetId_fkey(id, name, colors, position, labels, persona, isCompact)
-            `).eq("id", data.widgetId).eq("workspaceId", workspaceId).eq("clientId", clientId).is("deletedAt", null).single();
+                widgettheme!widgettheme_widgetId_fkey(
+                colors, brandAssets, layout, widgetSettings, interfaceSettings, labels
+                ),
+                widgetfield!widgetfield_widgetId_fkey(*)
+            `).eq("id", data.widgetId).eq("workspaceId", workspaceId).is("deletedAt", null).single();
             if (widgetError) {
                 throw new errors.Internal(widgetError.message);
             }
