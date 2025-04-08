@@ -16,6 +16,8 @@ async function caslPlugin(fastify) {
       '/auth/logout',
       '/api/email-domain/email-webhook',
       '/api/widget/getWidgetConfig',
+      '/api/widgets/createContactDevice',
+      '/api/widgets/getContactDeviceTickets'
       // TEMP: Remove this line when done with Swagger documentation
       // '/api-docs'
     ];

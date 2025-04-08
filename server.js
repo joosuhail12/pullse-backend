@@ -23,7 +23,7 @@ const supabase = require('./db/supabaseClient');
 let app;
 const start = async () => {
   try {
-    app = fastify({ logger: config.logger.enable });
+    app = fastify({ logger: config.logger.enable, trustProxy: true });
     // console.log(config.db,"config.dbconfig.dbconfig.dbconfig.db")
     // await db.connect(config.db);
     app.register(cookie, {
