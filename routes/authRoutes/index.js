@@ -141,6 +141,22 @@ async function activate(app) {
     }
   });
 
+  app.route({
+    url: base_url + "/check-token",
+    method: 'GET',
+    name: "CheckToken",
+    schema: {
+      operationId: "CheckToken",
+      tags: ['Authorization'],
+      summary: 'Check Token',
+      description: 'API to check token.',
+      required: ["token"],
+    },
+    handler: async (req, reply) => {
+      return handler.checkToken(req, reply);
+    }
+  });
+
 }
 
 module.exports = {

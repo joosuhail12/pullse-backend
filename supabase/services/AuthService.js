@@ -100,6 +100,7 @@ class AuthService extends UserService {
     }
 
     generateJWTToken(data = {}, secret = config.auth.jwtSecret) {
+        console.log(data, secret);
         return jwt.sign(data, secret);
     }
 
