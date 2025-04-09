@@ -666,6 +666,152 @@ class TicketService {
             throw err;
         }
     }
+
+    /**
+     * List tickets assigned to a specific team
+     */
+    async listTicketsByTeam(filters) {
+        try {
+            const { teamId, clientId, workspaceId, status, priority, skip = 0, limit = 10 } = filters;
+
+            if (!teamId) {
+                return Promise.reject(new errors.BadRequest("Team ID is required"));
+            }
+
+            let query = supabase
+                .from(this.entityName)
+                .select(`
+                    id, sno, title, description, status, priority, teamId,
+                    assigneeId, lastMessage, lastMessageAt, created_at, updated_at,
+                    teams!teamId(id, name),
+                    users!assigneeId(id, name, email)
+                `)
+                .eq('teamId', teamId)
+                .eq('clientId', clientId)
+                .is('deletedAt', null);
+
+            if (workspaceId) query = query.eq('workspaceId', workspaceId);
+            if (status) query = query.eq('status', status);
+            if (priority !== undefined) query = query.eq('priority', priority);
+
+            const { data: tickets, error } = await query
+                .order('created_at', { ascending: false })
+                .range(skip, skip + limit - 1);
+
+            if (error) throw error;
+
+            // Format ticket priorities
+            return tickets.map(ticket => ({
+                ...ticket,
+                priority: ticket.priority === 2 ? 'high' : ticket.priority === 1 ? 'medium' : 'low',
+                team: ticket.teams,
+                assignee: ticket.users,
+            }));
+        } catch (error) {
+            console.error('Error listing team tickets:', error);
+            return Promise.reject(this.handleError(error));
+        }
+    }
+
+    /**
+     * List tickets assigned to any team the user belongs to
+     */
+    async listTicketsForUserTeams(userId, filters = {}) {
+        try {
+            const { status, workspaceId, clientId, priority, skip = 0, limit = 10 } = filters;
+
+            // First, get all teams the user belongs to
+            const { data: userTeams, error: teamsError } = await supabase
+                .from('teamMembers')
+                .select('team_id')
+                .eq('user_id', userId);
+
+            if (teamsError) throw teamsError;
+
+            // No teams found
+            if (!userTeams || userTeams.length === 0) {
+                return [];
+            }
+
+            const teamIds = userTeams.map(team => team.team_id);
+
+            // Get all tickets assigned to these teams
+            let query = supabase
+                .from(this.entityName)
+                .select(`
+                    id, sno, title, description, status, priority, teamId,
+                    assigneeId, lastMessage, lastMessageAt, created_at, updated_at,
+                    teams!teamId(id, name),
+                    users!assigneeId(id, name, email)
+                `)
+                .in('teamId', teamIds)
+                .eq('clientId', clientId)
+                .is('deletedAt', null);
+
+            if (workspaceId) query = query.eq('workspaceId', workspaceId);
+            if (status) query = query.eq('status', status);
+            if (priority !== undefined) query = query.eq('priority', priority);
+
+            const { data: tickets, error } = await query
+                .order('created_at', { ascending: false })
+                .range(skip, skip + limit - 1);
+
+            if (error) throw error;
+
+            // Format ticket priorities
+            return tickets.map(ticket => ({
+                ...ticket,
+                priority: ticket.priority === 2 ? 'high' : ticket.priority === 1 ? 'medium' : 'low',
+                team: ticket.teams,
+                assignee: ticket.users,
+            }));
+        } catch (error) {
+            console.error('Error listing user team tickets:', error);
+            return Promise.reject(this.handleError(error));
+        }
+    }
+
+    /**
+     * Assign a ticket to a team
+     */
+    async assignTicketToTeam(ticketId, teamId, workspaceId, clientId) {
+        try {
+            // Update ticket with new team
+            const { data: updatedTicket, error } = await supabase
+                .from(this.entityName)
+                .update({
+                    teamId,
+                    updated_at: new Date()
+                })
+                .eq('id', ticketId)
+                .eq('clientId', clientId)
+                .eq('workspaceId', workspaceId)
+                .select()
+                .single();
+
+            if (error) throw error;
+
+            // Publish team assignment event
+            const inst = new TicketEventPublisher();
+            await inst.teamAssigned(updatedTicket, teamId);
+
+            return updatedTicket;
+        } catch (error) {
+            console.error('Error assigning ticket to team:', error);
+            return Promise.reject(this.handleError(error));
+        }
+    }
+
+    /**
+     * Helper method to handle errors
+     */
+    handleError(error) {
+        console.log(error);
+        if (error.code === "PGRST116") {
+            return new errors.NotFound(`${this.entityName} not found.`);
+        }
+        return error;
+    }
 }
 
 module.exports = TicketService;

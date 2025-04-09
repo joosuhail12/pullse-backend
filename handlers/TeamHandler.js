@@ -1,5 +1,6 @@
 const BaseHandler = require('./BaseHandler');
 const TeamService = require('../services/TeamService');
+const TicketService = require('../services/TicketService');
 
 class TeamHandler extends BaseHandler {
 
@@ -62,6 +63,46 @@ class TeamHandler extends BaseHandler {
     return this.responder(req, reply, inst.deleteTeam({ id: teamId, workspaceId, clientId }));
   }
 
+  async getUserTeamTickets(req, reply) {
+    const userId = req.authUser.id;
+    const clientId = req.authUser.clientId;
+    const workspaceId = req.query.workspace_id;
+
+    this.sanitizeQuery(req.query);
+
+    const filters = {
+      status: req.query.status,
+      priority: req.query.priority,
+      workspaceId,
+      clientId,
+      skip: parseInt(req.query.skip || 0),
+      limit: parseInt(req.query.limit || 10)
+    };
+
+    const ticketService = new TicketService();
+    return this.responder(req, reply, ticketService.listTicketsForUserTeams(userId, filters));
+  }
+
+  async getTeamTickets(req, reply) {
+    const teamId = req.params.team_id;
+    const clientId = req.authUser.clientId;
+    const workspaceId = req.query.workspace_id;
+
+    this.sanitizeQuery(req.query);
+
+    const filters = {
+      teamId,
+      clientId,
+      workspaceId,
+      status: req.query.status,
+      priority: req.query.priority,
+      skip: parseInt(req.query.skip || 0),
+      limit: parseInt(req.query.limit || 10)
+    };
+
+    const ticketService = new TicketService();
+    return this.responder(req, reply, ticketService.listTicketsByTeam(filters));
+  }
 }
 
 module.exports = TeamHandler;
