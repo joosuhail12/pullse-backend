@@ -24,6 +24,16 @@ class TicketEventPublisher extends EventPublisher {
     return this.publish(EVENTS.summarizeConversation, { ticket, user });
   }
 
+  async teamAssigned(ticket, teamId) {
+    return this.publish(EVENTS.ticketTeamAssigned, { ticket, teamId });
+  }
+
+  async assigned(ticket, assigneeId) {
+    return this.publish(EVENTS.ticketUpdated, {
+      ticket,
+      updateValues: { assigneeId }
+    });
+  }
 }
 
 module.exports = TicketEventPublisher;

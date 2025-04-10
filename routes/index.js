@@ -19,6 +19,7 @@ const tagRoutes = require('./tagRoutes');
 const teamRoutes = require('./teamRoutes');
 const chatbotProfileRoute = require('./chatbotProfileRoutes');
 const chatbotDocumentRoute = require('./chatbotDocumentRoutes');
+const mentionRoutes = require('./mentionRoutes');
 
 const customFieldRoute = require('./customFieldRoutes');
 const workflowRoute = require('./workflowRoutes');
@@ -58,6 +59,7 @@ module.exports = {
     await teamRoutes.activate(app);
     await chatbotProfileRoute.activate(app);
     await chatbotDocumentRoute.activate(app);
+    await mentionRoutes.activate(app);
     await customFieldRoute.activate(app);
     await workflowRoute.activate(app);
     await aiToolRoute.activate(app);
