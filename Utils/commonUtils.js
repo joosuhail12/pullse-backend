@@ -3,8 +3,8 @@ const UserService = require('../services/UserService');
 const TeamService = require('../services/TeamService');
 const TagService = require('../services/TagService');
 const CustomerService = require('../services/CustomerService');
-
-async function getAttributeOptions(entity, { workspaceId, clientId }, filters={}) {
+const jwt = require('jsonwebtoken');
+async function getAttributeOptions(entity, { workspaceId, clientId }, filters = {}) {
     let options = [];
     let inst, resp;
     filters["workspaceId"] = workspaceId;
@@ -102,6 +102,27 @@ async function getAttributeOptions(entity, { workspaceId, clientId }, filters={}
     return options;
 }
 
+async function verifyJWTToken(authHeader, secret = '$$SUPER_SECRET_JWT_SECRET!@#$%5') {
+    if (!authHeader) {
+        return false;
+    }
+    const token = authHeader.split(" ")[1];
+    return new Promise((resolve, reject) => {
+        jwt.verify(token, secret, (err, decoded) => {
+            if (err) {
+                resolve(false);
+            } else {
+                if (decoded && decoded.exp && decoded.exp < Date.now()) {
+                    resolve(false);
+                } else {
+                    resolve(decoded);
+                }
+            }
+        });
+    });
+};
+
 module.exports = {
-    getAttributeOptions
+    getAttributeOptions,
+    verifyJWTToken
 }
