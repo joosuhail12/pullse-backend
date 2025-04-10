@@ -58,8 +58,11 @@ class WidgetHandler extends BaseHandler {
     async getWidgetConfig(req, reply) {
         let apiKey = req.params.api_key;
         let workspaceId = req.query.workspace_id;
+        let publicIpAddress = req.ip;
+        let timezone = req.body.timezone;
+        let domain = req.headers['host'];
         let inst = new WidgetService();
-        return this.responder(req, reply, inst.getWidgetConfig({ apiKey, workspaceId }));
+        return this.responder(req, reply, inst.getWidgetConfig({ apiKey, workspaceId, publicIpAddress, timezone, domain }));
     }
 
     async createContactDevice(req, reply) {
@@ -72,14 +75,15 @@ class WidgetHandler extends BaseHandler {
         req.body.operatingSystem = operatingSystem;
         req.body.publicIpAddress = publicIpAddress;
         req.body.apiKey = req.params.api_key;
+        req.body.authUser = req.authUser;
 
         return this.responder(req, reply, inst.createContactDevice(req.body));
     }
 
     async getContactDeviceTickets(req, reply) {
-        let contactDeviceId = req.params.contact_device_id;
+        req.body.authUser = req.authUser;
         let inst = new WidgetService();
-        return this.responder(req, reply, inst.getContactDeviceTickets(contactDeviceId));
+        return this.responder(req, reply, inst.getContactDeviceTickets(req.body));
     }
 }
 

@@ -178,7 +178,7 @@ class AuthService extends UserService {
             issuer: config.app.baseUrl,
             subject: 'customer',
             audience: config.app.baseUrl,
-            tokenId: uuidv4()
+            tokenId: uuidv4(),
         };
         const token = jwt.sign(data, '$$SUPER_SECRET_JWT_SECRET!@#$%5')
         console.log(token);

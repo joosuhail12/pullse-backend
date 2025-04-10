@@ -36,6 +36,7 @@ const customObjectRoute = require('./customObjectRoutes');
 const emailChannelsRoute = require('./emailChannelsRoutes');
 const widgetRoute = require('./widgetRoutes');
 const analyticsRoute = require('./analyticsRoutes');
+const ablyRoute = require('./ablyRoutes');
 
 module.exports = {
   async activate(app) {
@@ -75,5 +76,6 @@ module.exports = {
     await emailChannelsRoute.activate(app);
     await widgetRoute.activate(app);
     await analyticsRoute.activate(app);
+    await ablyRoute.activate(app);
   }
 };
