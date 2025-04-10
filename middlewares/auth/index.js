@@ -14,6 +14,7 @@ const Handler = require("../../handlers/BaseHandler");
 
 const config = require("../../config");
 const { createClient } = require('@supabase/supabase-js');
+const jwt = require('jsonwebtoken');
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
 var _checkRole = (req, roles) => {
@@ -140,41 +141,41 @@ const _verifyUser = async (token) => {
 
   // Fetch user based on the token
   let { data: session, error: sessionError } = await supabase
-      .from('userAccessTokens') // Assuming userSessions table stores access tokens
-      .select('user_id, expiry')
-      .eq('token', token)
-      .single();
+    .from('userAccessTokens') // Assuming userSessions table stores access tokens
+    .select('user_id, expiry')
+    .eq('token', token)
+    .single();
   if (sessionError || !session) {
-      return Promise.reject(new errors.Unauthorized());
+    return Promise.reject(new errors.Unauthorized());
   }
 
   // Check if session expired
   if (session.expiry < Date.now()) {
-      return Promise.reject(new errors.Unauthorized("Session expired, please login again."));
+    return Promise.reject(new errors.Unauthorized("Session expired, please login again."));
   }
 
   // Fetch full user details
   let { data: user, error: userError } = await supabase
-      .from('users')
-      .select('id, email, fName, lName, defaultWorkspaceId, clientId')
-      .eq('id', session.user_id)
-      .single();
+    .from('users')
+    .select('id, email, fName, lName, defaultWorkspaceId, clientId')
+    .eq('id', session.user_id)
+    .single();
 
   if (userError || !user) {
-      return Promise.reject(new errors.Unauthorized());
+    return Promise.reject(new errors.Unauthorized());
   }
 
   // Fetch user role from workspacePermissions
   let { data: permission, error: permissionError } = await supabase
-      .from('workspacePermissions')
-      .select('role')
-      .eq('userId', user.id)
-      .eq('workspaceId', user.defaultWorkspaceId)
-      .single();
+    .from('workspacePermissions')
+    .select('role')
+    .eq('userId', user.id)
+    .eq('workspaceId', user.defaultWorkspaceId)
+    .single();
 
   return {
-      ...user,
-      role: permission?.role || null, // Add role if available
+    ...user,
+    role: permission?.role || null, // Add role if available
   };
 };
 
@@ -194,7 +195,7 @@ var _checkToken = async (authUserType, req) => {
     sessionId = await _getSessionId(req);
     let authUser;
     switch (
-      req.authUserType // authUserType is not user role, it's user table name
+    req.authUserType // authUserType is not user role, it's user table name
     ) {
       case AuthType.client:
         let tokenString = new Buffer.from(token, "base64").toString();
@@ -253,6 +254,31 @@ const authMiddlewares = {
           let handler = new Handler();
           return handler.responder(req, reply, Promise.reject(error));
         });
+    };
+  },
+
+  verifyJWTToken(secret = '$$SUPER_SECRET_JWT_SECRET!@#$%5') {
+    return (req, reply, next) => {
+      const token = req.headers.authorization.split(" ")[1];
+      jwt.verify(token, secret, (err, decoded) => {
+        if (err) {
+          return reply.status(401).send({
+            statusCode: 401,
+            error: "Unauthorized",
+            message: err.message || "Invalid token"
+          });
+        } else {
+          if (decoded && decoded.exp && decoded.exp < Date.now()) {
+            return reply.status(401).send({
+              statusCode: 401,
+              error: "Unauthorized",
+              message: "Token expired"
+            });
+          }
+          req.authUser = decoded;
+          next();
+        }
+      });
     };
   },
 
