@@ -26,44 +26,81 @@ class TicketService {
 
     async createTicket(ticketData) {
         try {
-            const { message, emailChannel, clientId, workspaceId, recipients, assignee, ...ticketUpdateData } = ticketData;
+            const {
+                message,
+                emailChannel,
+                clientId,
+                workspaceId,
+                recipients,
+                assignee,
+                ...ticketUpdateData
+            } = ticketData;
 
+            // 1. Get ticket serial number for the workspace
             const { count: workspaceTicketCount } = await supabase
                 .from(this.entityName)
                 .select('*', { count: 'exact', head: true })
                 .match({ clientId, workspaceId });
 
             const sno = (workspaceTicketCount ?? 0) + 1;
-            ticketUpdateData.sno = sno;
-            ticketUpdateData.entityType = 'ticket';
-            ticketUpdateData.unread = 1;
-            ticketUpdateData.createdAt = new Date().toISOString();
-            ticketUpdateData.updatedAt = new Date().toISOString();
-            ticketUpdateData.priority = ticketUpdateData.priority === 'high' ? 2 : ticketUpdateData.priority === 'medium' ? 1 : 0;
-            ticketUpdateData.lastMessageAt = new Date().toISOString();
-            ticketUpdateData.title = ticketUpdateData.subject;
-            ticketUpdateData.clientId = clientId;
-            ticketUpdateData.workspaceId = workspaceId;
-            ticketUpdateData.lastMessage = message;
-            delete ticketUpdateData.subject;
 
-            ticketUpdateData.lastMessageBy = ticketUpdateData.customerId;
+            // 2. Prepare the ticket data
+            const now = new Date().toISOString();
+            const priorityMap = { high: 2, medium: 1, low: 0 };
+            const customerId = ticketUpdateData.customerId;
+            const tags = ticketUpdateData.tagIds || [];
 
-            const { data: insertedTicket, error } = await supabase
+            const ticketPayload = {
+                ...ticketUpdateData,
+                sno,
+                entityType: 'ticket',
+                unread: 1,
+                createdAt: now,
+                updatedAt: now,
+                lastMessageAt: now,
+                priority: priorityMap[ticketUpdateData.priority] ?? 0,
+                title: ticketUpdateData.subject,
+                clientId,
+                workspaceId,
+                lastMessage: message,
+                lastMessageBy: customerId,
+            };
+            delete ticketPayload.subject;
+
+            // Step 3: Lookup team for the channel (e.g., emailChannel)
+            let assignedTeamId = null;
+            if (emailChannel) {
+                const { data: teamMapping, error: teamError } = await supabase
+                    .from('teamChannels')
+                    .select('teamId, channels(name)')
+                    .eq('channels.name', emailChannel)
+                    .maybeSingle();
+
+
+                if (teamError) {
+                    console.warn('Team mapping lookup failed', teamError);
+                } else if (teamMapping?.teamId) {
+                    assignedTeamId = teamMapping.teamId;
+                }
+            }
+
+            // 4. Insert the main ticket
+            const { data: insertedTicket, error: insertError } = await supabase
                 .from(this.entityName)
-                .insert(ticketUpdateData)
+                .insert(ticketPayload)
                 .select()
                 .single();
 
-            if (error) {
-                if (error.code === '23505') {
+            if (insertError) {
+                if (insertError.code === '23505') {
                     throw new errors.AlreadyExist("Ticket already exists.");
                 }
-                throw new errors.DBError(error.message);
+                throw new errors.DBError(insertError.message);
             }
 
             const ticketId = insertedTicket.id;
 
+            // 5. Insert mentions & customers
             if (recipients && recipients.length > 0) {
                 await Promise.map(recipients, async (recipient) => {
                     await supabase.from('ticketMentions').insert({ ticketId, userId: recipient.id });
@@ -71,18 +108,20 @@ class TicketService {
                 });
             }
 
+            // 6. Insert assignee
             if (assignee?.id) {
                 await supabase.from('ticketAssignees').insert({ ticketId, userId: assignee.id });
             }
 
-            const inst = new TicketEventPublisher();
-            await inst.created(insertedTicket);
+            // 7. Publish event
+            const eventPublisher = new TicketEventPublisher();
+            console.log("insertedTicket", insertedTicket);
+            await eventPublisher.created(insertedTicket);
 
-            const customer = recipients[0];
-            const tags = ticketUpdateData.tagIds || [];
-
+            // 8. Prepare response
+            const customer = recipients?.[0];
             return {
-                id: insertedTicket.id,
+                id: ticketId,
                 subject: insertedTicket.title,
                 customer: `${customer.firstname} ${customer.lastname}` || customer.email,
                 lastMessage: insertedTicket.lastMessage,
@@ -95,8 +134,9 @@ class TicketService {
                 isUnread: Boolean(insertedTicket.unread),
                 hasNotification: false,
                 notificationType: null,
-                recipients: recipients.map((r) => r.email)
+                recipients: recipients.map(r => r.email)
             };
+
         } catch (err) {
             console.log(err, "err---");
             throw err;
@@ -268,78 +308,56 @@ class TicketService {
 
     async updateTicket(ticketIdentifier, updateData) {
         try {
-            console.log('Start of updating ticket');
-
-            const { id, sno, workspaceId, clientId } = ticketIdentifier;
-            const { message, recipients, assignee, ...ticketUpdateData } = updateData;
-
-            console.log('Processing ticket update data', { id, sno, hasRecipients: !!recipients, hasAssignee: !!assignee });
-
-            // Format priority if provided
-            if (ticketUpdateData.priority !== undefined) {
-                if (typeof ticketUpdateData.priority === 'string') {
-                    ticketUpdateData.priority = ticketUpdateData.priority === 'high' ? 2 :
-                        ticketUpdateData.priority === 'medium' ? 1 : 0;
-                }
+            const { sno, workspaceId, clientId } = ticketIdentifier;
+            const { message, recipients, assignee, lastMessageBy, ...ticketUpdateData } = updateData;
+            // Format priority
+            if (typeof ticketUpdateData.priority === 'string') {
+                const priorityMap = { high: 2, medium: 1, low: 0 };
+                ticketUpdateData.priority = priorityMap[ticketUpdateData.priority] ?? 0;
             }
 
-            // Handle subject to title mapping
+            // Map subject to title
             if (ticketUpdateData.subject) {
                 ticketUpdateData.title = ticketUpdateData.subject;
                 delete ticketUpdateData.subject;
             }
 
-            // Set updated timestamp
             ticketUpdateData.updatedAt = new Date().toISOString();
 
-            console.log('Fetching existing ticket');
-            // Fetch the ticket first to ensure it exists
+            // Fetch ticket
             let query = supabase.from(this.entityName).select('*');
-
-            if (id) {
-                query = query.eq('id', id);
-            } else if (sno) {
-                query = query.eq('sno', sno);
-            } else {
-                throw new errors.ValidationFailed("Either id or sno is required to update a ticket");
-            }
-
-            // FIXED: Use camelCase column names as per the database schema
+            if (sno) query = query.eq('id', sno);
+            else throw new errors.ValidationFailed("Either id or sno is required to update a ticket");
             query = query.eq('workspaceId', workspaceId).eq('clientId', clientId);
 
             const { data: existingTicket, error: fetchError } = await query.single();
+            if (fetchError || !existingTicket) throw new errors.NotFound("Ticket not found");
 
-            if (fetchError || !existingTicket) {
-                console.log("Ticket lookup failed:", fetchError, "ID:", id, "SNO:", sno, "Workspace:", workspaceId);
-                throw new errors.NotFound("Ticket not found");
-            }
+            const previousAssigneeId = existingTicket.assigneeId;
 
-            console.log('Existing ticket found:', existingTicket.id);
-
-            // Handle status changes
+            // Handle status transitions
             if (ticketUpdateData.status === 'closed' && existingTicket.status !== 'closed') {
                 ticketUpdateData.closedAt = new Date().toISOString();
             } else if (ticketUpdateData.status && ticketUpdateData.status !== 'closed' && existingTicket.status === 'closed') {
-                // Ticket being reopened
                 ticketUpdateData.reopen = {
                     ...(existingTicket.reopen || {}),
                     lastReopenedAt: new Date().toISOString(),
-                    reopenCount: ((existingTicket.reopen?.reopenCount || 0) + 1)
+                    reopenCount: (existingTicket.reopen?.reopenCount || 0) + 1
                 };
                 ticketUpdateData.closedAt = null;
             }
 
-            // Update message-related fields if a new message is provided
+            // Handle new message
             if (message) {
                 ticketUpdateData.lastMessage = message;
                 ticketUpdateData.lastMessageAt = new Date().toISOString();
-                if (updateData.lastMessageBy) {
-                    ticketUpdateData.lastMessageBy = updateData.lastMessageBy;
-                }
+                if (lastMessageBy) ticketUpdateData.lastMessageBy = lastMessageBy;
+            }
+            if (assignee) {
+                ticketUpdateData.assigneeId = assignee.id;
             }
 
-            console.log('Updating ticket in database');
-            // Update the ticket in the database
+            // Update ticket
             const { data: updatedTicket, error: updateError } = await supabase
                 .from(this.entityName)
                 .update(ticketUpdateData)
@@ -347,20 +365,14 @@ class TicketService {
                 .select()
                 .single();
 
-            if (updateError) {
-                console.log("Update error:", updateError);
-                throw new errors.DBError(updateError.message);
-            }
+            if (updateError) throw new errors.DBError(updateError.message);
 
-            console.log('Ticket updated successfully:', updatedTicket.id);
+            // Fire-and-forget async updates
+            this._updateRecipientsAndAssignee(existingTicket.id, recipients, assignee);
+            this._publishTicketEvent(updatedTicket, ticketUpdateData, previousAssigneeId);
 
-            // Start preparing the response immediately after the main update
-            console.log('Preparing response data');
-
-            // ADDED DETAILED LOGGING
-            console.log('Step 1: Creating simplified response');
-            // Immediately create a simplified response
-            const simplifiedResponse = {
+            // Build simplified response
+            return {
                 id: updatedTicket.id,
                 sno: updatedTicket.sno,
                 subject: updatedTicket.title,
@@ -372,60 +384,53 @@ class TicketService {
                 language: updatedTicket.language || 'en',
                 type: updatedTicket.type || 'general'
             };
-
-            console.log('Step 2: Processing secondary updates (background)');
-            // Process additional operations in the background
-            if (recipients && recipients.length > 0) {
-                console.log('Processing recipients update (not waiting)');
-                (async () => {
-                    try {
-                        await supabase.from('ticketMentions').delete().eq('ticketId', existingTicket.id);
-                        await supabase.from('ticketCustomers').delete().eq('ticketId', existingTicket.id);
-
-                        await Promise.all(recipients.map(async (recipient) => {
-                            await supabase.from('ticketMentions').insert({ ticketId: existingTicket.id, userId: recipient.id });
-                            await supabase.from('ticketCustomers').insert({ ticketId: existingTicket.id, customerId: recipient.id });
-                        }));
-                        console.log('Recipients updated successfully');
-                    } catch (err) {
-                        console.error('Failed to update recipients:', err);
-                    }
-                })();
-            }
-
-            if (assignee?.id) {
-                console.log('Processing assignee update (not waiting)');
-                (async () => {
-                    try {
-                        await supabase.from('ticketAssignees').delete().eq('ticketId', existingTicket.id);
-                        await supabase.from('ticketAssignees').insert({ ticketId: existingTicket.id, userId: assignee.id });
-                        console.log('Assignee updated successfully');
-                    } catch (err) {
-                        console.error('Failed to update assignee:', err);
-                    }
-                })();
-            }
-
-            // Publish event in background
-            console.log('Publishing event (not waiting)');
-            (async () => {
-                try {
-                    const inst = new TicketEventPublisher();
-                    await inst.updated(updatedTicket, ticketUpdateData);
-                    console.log('Event published successfully');
-                } catch (err) {
-                    console.error('Failed to publish event:', err);
-                }
-            })();
-
-            console.log('Step 3: Returning simplified response');
-            // Return the simplified response immediately
-            return simplifiedResponse;
         } catch (err) {
-            console.log(err, "err---");
+            console.error("updateTicket error:", err);
             throw err;
         }
     }
+
+    // 🔧 Background tasks extracted for clarity
+    async _updateRecipientsAndAssignee(ticketId, recipients, assignee) {
+        try {
+            if (recipients?.length) {
+                await supabase.from('ticketMentions').delete().eq('ticketId', ticketId);
+                await supabase.from('ticketCustomers').delete().eq('ticketId', ticketId);
+                await Promise.all(recipients.map(recipient => (
+                    Promise.all([
+                        supabase.from('ticketMentions').insert({ ticketId, userId: recipient.id }),
+                        supabase.from('ticketCustomers').insert({ ticketId, customerId: recipient.id })
+                    ])
+                )));
+            }
+
+            if (assignee?.id) {
+                await supabase.from('ticketAssignees').delete().eq('ticketId', ticketId);
+                await supabase.from('ticketAssignees').insert({ ticketId, userId: assignee.id });
+            }
+        } catch (err) {
+            console.error('Failed to update recipients or assignee:', err);
+        }
+    }
+
+    async _publishTicketEvent(updatedTicket, updateData, previousAssigneeId) {
+        try {
+            const publisher = new TicketEventPublisher();
+            const isReassigned = previousAssigneeId !== updatedTicket.assigneeId;
+
+            if (isReassigned) {
+                await publisher.reassigned(updatedTicket, {
+                    from: previousAssigneeId,
+                    to: updatedTicket.assigneeId
+                });
+            } else {
+                await publisher.updated(updatedTicket, updateData);
+            }
+        } catch (err) {
+            console.error('Failed to publish ticket event:', err);
+        }
+    }
+
 
     async getDetails(identifier, workspaceId, clientId, includeDetails = false) {
         try {

@@ -131,7 +131,7 @@ class CustomerService extends BaseService {
             if (fetchUpdatedError) throw fetchUpdatedError;
 
             let inst = new CustomerEventPublisher();
-            inst.updated(id, updateValues).catch(err => console.error("Event error:", err));
+            inst.updated(updatedCustomer, updateValues).catch(err => console.error("Event error:", err));
 
             return {
                 ...updatedCustomer,

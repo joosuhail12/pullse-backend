@@ -215,6 +215,7 @@ async function activate(app) {
           state: { type: "string" },
           postalCode: { type: "string" },
           country: { type: "string" },
+          address: { type: "string" },
         },
       },
     },
