@@ -8,7 +8,7 @@ const fastifyStatic = require('@fastify/static');
 const fileUpload = require('fastify-file-upload')
 const formBody = require('@fastify/formbody');
 const cookie = require('@fastify/cookie');
-
+// require('dotenv').config();
 const Socket = require('./Socket')();
 const DecisionEngine = require('./DecisionEngine');
 const path = require('node:path');
