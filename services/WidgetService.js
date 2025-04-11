@@ -226,12 +226,14 @@ class WidgetService extends BaseService {
                     return {
                         ...widgetData,
                         accessToken: updatedSessionData.token,
-                        contact: contactData
+                        contact: contactData,
+                        sessionId: updatedSessionData.id
                     };
                 } else {
                     return {
                         ...widgetData,
-                        accessToken: updatedSessionData.token
+                        accessToken: updatedSessionData.token,
+                        sessionId: updatedSessionData.id
                     };
                 }
             } else {
@@ -258,7 +260,8 @@ class WidgetService extends BaseService {
                 }
                 return {
                     ...widgetData,
-                    accessToken: updatedSessionData.token
+                    accessToken: updatedSessionData.token,
+                    sessionId: sessionData.id
                 };
             }
 
