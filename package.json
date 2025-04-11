@@ -1,11 +1,12 @@
 {
   "name": "pullse_ai_base_framework",
-  "version": "1.0.19",
+  "version": "1.0.20",
   "description": "Pullse AI Base Framework",
   "main": "server.js",
   "scripts": {
     "test": "mocha",
-    "start": "nodemon --env-file=.env server.js"
+    "start": "nodemon --env-file=.env server.js",
+    "dev": "nodemon --require dotenv/config server.js"
   },
   "keywords": [],
   "author": "Manminder ",

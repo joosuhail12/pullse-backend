@@ -80,7 +80,7 @@ class MentionService {
             // Fetch tickets with filtering
             let ticketQuery = supabase
                 .from('tickets')
-                .select('id, title, status, priority, clientId')
+                .select('id, title, status, priority, customerId, clientId, sno, createdAt, updatedAt')
                 .in('id', ticketIds);
 
             // Apply filters on tickets
@@ -101,10 +101,56 @@ class MentionService {
 
             console.log(`Found ${tickets ? tickets.length : 0} associated tickets`);
 
+            // Extract customer IDs to fetch customer details
+            const customerIds = tickets
+                .map(ticket => ticket.customerId)
+                .filter(id => id);
+
+            // Fetch customer details
+            let customerMap = {};
+            if (customerIds.length > 0) {
+                const { data: customers, error: customersError } = await supabase
+                    .from('customers')
+                    .select('id, firstname, lastname, email, phone')
+                    .in('id', customerIds);
+
+                if (customersError) {
+                    console.error("Error in customers query:", customersError);
+                    throw customersError;
+                }
+
+                customerMap = customers.reduce((map, customer) => {
+                    map[customer.id] = customer;
+                    return map;
+                }, {});
+            }
+
             // Create a lookup map for ticket data
             const ticketMap = {};
             tickets.forEach(ticket => {
-                ticketMap[ticket.id] = ticket;
+                const priority = ticket.priority === 2 ? 'high' : ticket.priority === 1 ? 'medium' : 'low';
+                const customer = ticket.customerId ? customerMap[ticket.customerId] : null;
+
+                ticketMap[ticket.id] = {
+                    id: ticket.id,
+                    title: ticket.title,
+                    sno: ticket.sno,
+                    status: ticket.status,
+                    priority: priority,
+                    createdAt: ticket.createdAt,
+                    updatedAt: ticket.updatedAt,
+                    clientId: ticket.clientId,
+                    isUnread: false, // Default value, update if needed
+                    hasNotification: false, // Default value, update if needed
+                    notificationType: null, // Default value, update if needed
+                    customerId: ticket.customerId,
+                    customer: customer ? {
+                        id: customer.id,
+                        name: `${customer.firstname} ${customer.lastname}`.trim() || customer.email,
+                        email: customer.email,
+                        phone: customer.phone,
+                    } : null
+                };
             });
 
             // Fetch mentioner data
@@ -143,7 +189,7 @@ class MentionService {
                     mentionedAt: mention.mentionedAt,
                     isRead: mention.isRead,
                     mentionedBy: mention.mentionedBy,
-                    ticket,
+                    ticket: ticket,
                     mentioner
                 };
             }).filter(mention => mention.ticket !== null); // Only return mentions with valid tickets
