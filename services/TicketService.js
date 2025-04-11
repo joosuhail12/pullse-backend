@@ -1139,6 +1139,103 @@ class TicketService {
             return Promise.reject(this.handleError(error));
         }
     }
+
+    async getUnassignedTickets(filters = {}) {
+        try {
+            const { status, workspaceId, clientId, priority, skip = 0, limit = 10 } = filters;
+            console.log(`Getting unassigned tickets with filters:`, filters);
+
+            // Get tickets with no assignee
+            let query = supabase
+                .from(this.entityName)
+                .select('id, sno, title, description, status, priority, customerId, teamId, assigneeId, lastMessage, lastMessageAt, createdAt, updatedAt')
+                .is('assigneeId', null)
+                .eq('clientId', clientId)
+                .is('deletedAt', null);
+
+            if (workspaceId) query = query.eq('workspaceId', workspaceId);
+            if (status) query = query.eq('status', status);
+            if (priority !== undefined) query = query.eq('priority', priority);
+
+            const { data: tickets, error } = await query
+                .order('createdAt', { ascending: false })
+                .range(skip, skip + limit - 1);
+
+            if (error) {
+                console.error("Error fetching unassigned tickets:", error);
+                throw error;
+            }
+
+            console.log(`Found ${tickets ? tickets.length : 0} unassigned tickets`);
+
+            if (!tickets || tickets.length === 0) {
+                return [];
+            }
+
+            // Extract customer IDs to fetch customer details
+            const customerIds = tickets
+                .map(ticket => ticket.customerId)
+                .filter(id => id);
+
+            console.log(`Extracted ${customerIds.length} customer IDs:`, customerIds);
+
+            // Fetch customer details
+            let customerMap = {};
+            if (customerIds.length > 0) {
+                console.log(`Fetching customer details for ${customerIds.length} customers`);
+
+                const { data: customers, error: customersError } = await supabase
+                    .from('customers')
+                    .select('id, firstname, lastname, email, phone')
+                    .in('id', customerIds);
+
+                if (customersError) {
+                    console.error("Error in customers query:", customersError);
+                    throw customersError;
+                }
+
+                console.log(`Found ${customers ? customers.length : 0} customers`);
+
+                customerMap = customers.reduce((map, customer) => {
+                    map[customer.id] = customer;
+                    return map;
+                }, {});
+            }
+
+            // Format ticket response
+            const result = tickets.map(ticket => {
+                const priority = ticket.priority === 2 ? 'high' : ticket.priority === 1 ? 'medium' : 'low';
+                const customer = ticket.customerId ? customerMap[ticket.customerId] : null;
+
+                return {
+                    id: ticket.id,
+                    sno: ticket.sno,
+                    subject: ticket.title,
+                    description: ticket.description,
+                    status: ticket.status,
+                    priority: priority,
+                    createdAt: ticket.createdAt,
+                    updatedAt: ticket.updatedAt,
+                    isUnread: false,
+                    hasNotification: false,
+                    notificationType: null,
+                    customerId: ticket.customerId,
+                    customer: customer ? {
+                        id: customer.id,
+                        name: `${customer.firstname || ''} ${customer.lastname || ''}`.trim() || customer.email || 'Unknown',
+                        email: customer.email,
+                        phone: customer.phone
+                    } : {}
+                };
+            });
+
+            console.log(`Returning ${result.length} formatted tickets`);
+            return result;
+        } catch (error) {
+            console.error('Error listing unassigned tickets:', error);
+            return Promise.reject(this.handleError(error));
+        }
+    }
 }
 
 module.exports = TicketService;

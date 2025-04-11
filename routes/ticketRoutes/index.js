@@ -229,6 +229,39 @@ async function activate(app) {
       return handler.getAssignedTickets(req, reply);
     }
   });
+
+  // Get unassigned tickets
+  app.route({
+    url: base_url + "/unassigned",
+    method: 'GET',
+    name: "GetUnassignedTickets",
+    preHandler: authMiddlewares.checkToken(AuthType.user),
+    schema: {
+      tags: ['Ticket'],
+      summary: 'Get Unassigned Tickets',
+      description: 'API to fetch all tickets that are not assigned to any user.',
+      query: {
+        workspace_id: {
+          type: 'string',
+        },
+        status: {
+          type: 'string',
+        },
+        priority: {
+          type: 'number',
+        },
+        skip: {
+          type: 'number'
+        },
+        limit: {
+          type: 'number'
+        }
+      }
+    },
+    handler: async (req, reply) => {
+      return handler.getUnassignedTickets(req, reply);
+    }
+  });
 }
 
 // get conversation by ticket id
