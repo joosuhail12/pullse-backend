@@ -15,14 +15,6 @@ async function activate(app) {
             tags: ["Ably"],
             summary: "Generate Widget Ably Token",
             description: "API to generate a temporary Ably token for widget clients.",
-            headers: {
-                type: "object",
-                required: ["x-workspace-id"],
-                properties: {
-                    "x-workspace-id": { type: "string" },
-                    "x-api-key": { type: "string" }
-                }
-            }
         },
         handler: async (req, reply) => {
             return handler.generateWidgetToken(req, reply);
