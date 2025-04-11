@@ -9,7 +9,7 @@ class TicketEventPublisher extends EventPublisher {
   }
 
   async created(ticket) {
-    return this.publish(EVENTS.newTicket, { ticket });
+    return this.publish(EVENTS.newTicket, ticket);
   }
 
   async updated(ticket, updateValues) {
@@ -30,6 +30,13 @@ class TicketEventPublisher extends EventPublisher {
 
   async assigned(ticket, assigneeId) {
     return this.publish(EVENTS.ticketUpdated, {
+      ticket,
+      updateValues: { assigneeId }
+    });
+  }
+
+  async reassigned(ticket, assigneeId) {
+    return this.publish(EVENTS.ticketReassigned, {
       ticket,
       updateValues: { assigneeId }
     });

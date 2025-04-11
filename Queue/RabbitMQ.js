@@ -49,6 +49,7 @@ class RabbitMQ {
 
   async sendMessage(messageJSON = {}) {
     try {
+      console.log("messageJSON", messageJSON);
       let msgStr = JSON.stringify(messageJSON);
       console.log("[x] Sending msg %s", msgStr);
       return this.channel.sendToQueue(this.queue, Buffer.from(msgStr));

@@ -1,10 +1,11 @@
 module.exports = {
   events: {
-    newTicket: 'new_ticket',
+    newTicket: 'ticket_created',
     ticketUpdated: 'ticket_updated',
     ticketClosed: 'ticket_closed',
-    summarizeConversation: 'summarize_conversation',
+    summarizeConversation: 'conversation_summarized',
     ticketTeamAssigned: 'ticket_team_assigned',
+    ticketReassigned: 'ticket_reassigned',
   },
-  queue: 'ticket_events'
+  queue: 'events_queue'
 };

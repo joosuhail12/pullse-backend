@@ -1,6 +1,6 @@
 const Consumer = require('../Queue/Consumer');
 const Publisher = require('../Queue/Publisher');
-
+const TriggerCatalog = require('./TriggerCatalog');
 
 class EventPublisher extends Publisher {
 
@@ -8,20 +8,30 @@ class EventPublisher extends Publisher {
     super();
   }
 
-  async publish(event, data) {
+  async publish(triggerId, data) {
     try {
       await this.init(this.queue);
-      let message = {
-        event,
+      console.log("this.queue", this.queue);
+      const isKnown = TriggerCatalog.isValidTrigger(triggerId);
+      const message = {
+        event_type: triggerId,
+        at: new Date(),
         data,
-        at: new Date()
+        delay: 300
       };
-      let res = await this.sendMessage(message);
-      return res;
-    } catch (error) {
 
+      // If known trigger, add additional fields for rule engine
+      if (isKnown) {
+        message.event_type = TriggerCatalog.getEventTypeByTriggerId(triggerId); // e.g., "ticket.created"
+        message.entity_type = TriggerCatalog.getEntityTypeByTriggerId(triggerId); // e.g., "ticket", "conversation"
+      }
+
+      return await this.sendMessage(message);
+    } catch (error) {
+      console.error('Event publish failed:', error);
     }
   }
+
 
 }
 
@@ -59,7 +69,8 @@ class EventConsumer extends Consumer {
 
 }
 
+
 module.exports = {
   EventPublisher,
-  EventConsumer
+  EventConsumer,
 };
