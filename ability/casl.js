@@ -18,7 +18,8 @@ async function caslPlugin(fastify) {
       '/api/widgets/getWidgetConfig',
       '/api/widgets/createContactDevice',
       '/api/widgets/getContactDeviceTickets',
-      '/api/ably/widgetToken'
+      '/api/ably/widgetToken',
+      '/api/widgets/getConversationWithTicketId',
       // TEMP: Remove this line when done with Swagger documentation
       // '/api-docs'
     ];

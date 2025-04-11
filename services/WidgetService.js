@@ -449,6 +449,52 @@ class WidgetService extends BaseService {
         }
     }
 
+    async getConversationWithTicketId(ticketId, authUser) {
+        try {
+            const { workspaceId, clientId, sessionId } = authUser;
+
+            // Check if the widget session is active
+            const { data: widgetSession, error: widgetSessionError } = await this.supabase.from("widgetsessions").select("*").eq("id", sessionId).eq("workspaceId", workspaceId).eq("clientId", clientId).is("deletedAt", null).single();
+
+            if (widgetSessionError) {
+                throw new errors.Internal(widgetSessionError.message);
+            }
+
+            if (!widgetSession) {
+                throw new errors.NotFound("Widget session not found");
+            }
+
+            if (widgetSession.status !== "active") {
+                throw new errors.BadRequest("Widget session is not active");
+            }
+
+            console.log("widgetSession", workspaceId, clientId);
+
+            // Check if ticket exists
+            const { data: ticket, error: ticketError } = await this.supabase.from("tickets").select("*").eq("id", ticketId).eq("workspaceId", workspaceId).eq("clientId", clientId).eq("deviceId", widgetSession.contactDeviceId).is("deletedAt", null).single();
+
+            if (ticketError) {
+                throw new errors.Internal(ticketError.message);
+            }
+
+            if (!ticket) {
+                throw new errors.NotFound("Ticket not found");
+            }
+
+            const { data: conversations, error: conversationsError } = await this.supabase.from("conversations").select("*").eq("ticketId", ticketId).is("deletedAt", null).limit(20);
+
+            if (conversationsError) {
+                throw new errors.Internal(conversationsError.message);
+            }
+
+            return conversations;
+
+        } catch (error) {
+            console.error(error);
+            throw error;
+        }
+    }
+
 }
 
 module.exports = WidgetService; 
