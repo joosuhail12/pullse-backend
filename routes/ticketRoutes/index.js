@@ -187,6 +187,7 @@ async function activate(app) {
       return handler.assignTicket(req, reply);
     }
   });
+<<<<<<< HEAD
 
   // Get tickets assigned to a specific user
   app.route({
@@ -227,9 +228,26 @@ async function activate(app) {
     },
     handler: async (req, reply) => {
       return handler.getAssignedTickets(req, reply);
+=======
+  app.route({
+    url: base_url + "/:ticket_sno/conversation",
+    method: 'GET',
+    name: "GetConversationByTicketId",
+    preHandler: authMiddlewares.checkToken(AuthType.user),
+    schema: {
+      tags: ['Ticket'],
+      summary: 'Get Conversation by Ticket ID',
+      description: 'API to get conversation by ticket ID.',
+      required: ['ticket_sno'],
+    },
+    handler: async (req, reply) => {
+      return handler.getConversationByTicketId(req, reply);
+>>>>>>> 754b6f7bcf579aca14aa8e3d38d678a68558f0a2
     }
   });
 }
+
+// get conversation by ticket id
 
 module.exports = {
   activate

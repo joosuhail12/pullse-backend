@@ -110,22 +110,15 @@ class TicketHandler extends BaseHandler {
     let inst = this.ticketServiceInst;
     return this.responder(req, reply, inst.assignTicketToUser(sno, userId, workspaceId, clientId));
   }
-
-  async getAssignedTickets(req, reply) {
-    const userId = req.params.user_id;
-    let filters = {
-      status: req.query.status,
-      priority: req.query.priority,
-      workspaceId: req.query.workspace_id,
-      skip: req.query.skip,
-      limit: req.query.limit,
-      clientId: req.authUser.clientId
-    };
+  // get conversation by ticket id
+  async getConversationByTicketId(req, reply) {
+    const workspaceId = req.query.workspace_id;
+    const clientId = req.authUser.clientId;
+    const sno = req.params.ticket_sno;
 
     let inst = this.ticketServiceInst;
-    return this.responder(req, reply, inst.getAssignedTickets(userId, filters));
+    return this.responder(req, reply, inst.getConversationByTicketId(sno, workspaceId, clientId));
   }
-
 }
 
 module.exports = TicketHandler;

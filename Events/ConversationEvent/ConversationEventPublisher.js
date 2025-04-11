@@ -44,6 +44,10 @@ class ConversationEventPublisher extends EventPublisher {
     return this.publish(EVENTS.messageUpdated, { message, updateValues });
   }
 
+  async started(ticket, widgetSession) {
+    return this.publish(EVENTS.newConversation, { ticket, widgetSession });
+  }
+
 }
 
 module.exports = ConversationEventPublisher;
