@@ -326,7 +326,7 @@ class TicketService {
 
             // Fetch ticket
             let query = supabase.from(this.entityName).select('*');
-            if (sno) query = query.eq('id', sno);
+            if (sno) query = query.eq('sno', sno);
             else throw new errors.ValidationFailed("Either id or sno is required to update a ticket");
             query = query.eq('workspaceId', workspaceId).eq('clientId', clientId);
 
@@ -745,7 +745,7 @@ class TicketService {
                 .from(this.entityName)
                 .select(`
                     id, sno, title, description, status, priority, teamId,
-                    assigneeId, lastMessage, lastMessageAt, created_at, updated_at,
+                    assigneeId, lastMessage, lastMessageAt, createdAt, updatedAt,
                     teams!teamId(id, name),
                     users!assigneeId(id, name, email)
                 `)
@@ -758,16 +758,42 @@ class TicketService {
             if (priority !== undefined) query = query.eq('priority', priority);
 
             const { data: tickets, error } = await query
-                .order('created_at', { ascending: false })
+                .order('createdAt', { ascending: false })
                 .range(skip, skip + limit - 1);
 
             if (error) throw error;
 
-            // Format ticket priorities
+            // Get team members for each team
+            const teamMembersPromises = teamIds.map(teamId =>
+                supabase
+                    .from('teamMembers')
+                    .select(`
+                        user_id,
+                        users!user_id(id, name)
+                    `)
+                    .eq('team_id', teamId)
+            );
+
+            const teamMembersResults = await Promise.all(teamMembersPromises);
+            const teamMembersMap = {};
+
+            teamMembersResults.forEach((result, index) => {
+                if (!result.error && result.data) {
+                    teamMembersMap[teamIds[index]] = result.data.map(member => ({
+                        id: member.users.id,
+                        name: member.users.name
+                    }));
+                }
+            });
+
+            // Format ticket priorities and add team members
             return tickets.map(ticket => ({
                 ...ticket,
                 priority: ticket.priority === 2 ? 'high' : ticket.priority === 1 ? 'medium' : 'low',
-                team: ticket.teams,
+                team: {
+                    ...ticket.teams,
+                    members: teamMembersMap[ticket.teamId] || []
+                },
                 assignee: ticket.users,
             }));
         } catch (error) {
