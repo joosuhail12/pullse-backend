@@ -116,6 +116,19 @@ class TeamHandler extends BaseHandler {
     let inst = new TeamService();
     return this.responder(req, reply, inst.getUserTeams(userId, workspaceId, clientId));
   }
+
+  async getUserTeammates(req, reply) {
+    const userId = req.params.user_id;
+    const clientId = req.authUser.clientId;
+    const workspaceId = req.query.workspace_id;
+
+    if (!userId) {
+      return this.responder(req, reply, Promise.reject(new Error('User ID is required')));
+    }
+
+    let inst = new TeamService();
+    return this.responder(req, reply, inst.getUserTeammates(userId, workspaceId, clientId));
+  }
 }
 
 module.exports = TeamHandler;

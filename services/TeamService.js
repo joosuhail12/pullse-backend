@@ -365,6 +365,85 @@ class TeamService {
             return Promise.reject(this.handleError(error));
         }
     }
+
+    // Get all teammates for a user across all teams
+    async getUserTeammates(userId, workspaceId, clientId) {
+        try {
+            console.log(`Getting all teammates for user ${userId}`);
+
+            // Step 1: Find all teams the user belongs to
+            const { data: userTeamMemberships, error: membershipError } = await supabase
+                .from(this.memberTable)
+                .select('team_id')
+                .eq('user_id', userId);
+
+            if (membershipError) {
+                console.error("Error fetching team memberships:", membershipError);
+                throw membershipError;
+            }
+
+            if (!userTeamMemberships || userTeamMemberships.length === 0) {
+                console.log(`User ${userId} doesn't belong to any teams`);
+                return [];
+            }
+
+            // Extract team IDs
+            const teamIds = userTeamMemberships.map(membership => membership.team_id);
+            console.log(`Found ${teamIds.length} teams for user ${userId}`);
+
+            // Step 2: Find all user_ids in these teams (excluding the original user)
+            const { data: teammates, error: teammatesError } = await supabase
+                .from(this.memberTable)
+                .select('user_id')
+                .in('team_id', teamIds)
+                .neq('user_id', userId);  // Exclude the original user
+
+            if (teammatesError) {
+                console.error("Error fetching teammates:", teammatesError);
+                throw teammatesError;
+            }
+
+            // Extract unique user IDs
+            const teammateIds = [...new Set(teammates.map(tm => tm.user_id))];
+            console.log(`Found ${teammateIds.length} unique teammates`);
+
+            if (teammateIds.length === 0) {
+                return [];
+            }
+
+            // Step 3: Fetch user details for all teammates
+            const { data: teammateDetails, error: detailsError } = await supabase
+                .from(this.usersTable)
+                .select('id, name, email')
+                .in('id', teammateIds)
+                .eq('clientId', clientId)
+                .is('deletedAt', null);
+            // .eq('workspaceId', workspaceId)
+
+            if (detailsError) {
+                console.error("Error fetching teammate details:", detailsError);
+                throw detailsError;
+            }
+
+            console.log(`Returning ${teammateDetails.length} teammates for user ${userId}`);
+            return teammateDetails;
+        } catch (error) {
+            console.error('Error getting user teammates:', error);
+            return Promise.reject(this.handleError(error));
+        }
+    }
+
+    /**
+     * Helper method to handle errors
+     */
+    handleError(error) {
+        console.log(error);
+        if (error.code === "PGRST116") {
+            return new errors.NotFound(`${this.entityName} not found.`);
+        }
+        return error;
+    }
 }
 
 module.exports = TeamService;
+
