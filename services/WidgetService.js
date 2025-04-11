@@ -156,8 +156,9 @@ class WidgetService extends BaseService {
         }
     }
 
-    async getWidgetConfig({ apiKey, workspaceId, publicIpAddress, timezone, domain }) {
+    async getWidgetConfig({ apiKey, workspaceId, publicIpAddress, timezone, domain, authUser = null }) {
         try {
+            console.log(apiKey, workspaceId, publicIpAddress, timezone, domain, authUser);
             const { data, error } = await this.supabase.from("widgetapikeyrelation").select("*").eq("apiKey", apiKey).is("deletedAt", null).single();
 
             if (error) {
@@ -203,41 +204,63 @@ class WidgetService extends BaseService {
                 widgetData.widgetfield[0].customDataFields = customDataFieldsArray;
             }
 
-
             const widgetSettings = widgetData.widgettheme[0].widgetSettings;
 
-            if (!widgetSettings["allowedDomains"].includes(domain)) {
+            if (widgetSettings["allowedDomains"] && !widgetSettings["allowedDomains"].includes(domain)) {
                 throw new errors.BadRequest("Domain not allowed");
             }
 
-            const expiryDate = new Date();
-            expiryDate.setHours(expiryDate.getHours() + 24);
+            if (authUser) {
+                // Create a token here! JWT
+                // Expiry time is 10 hours
+                const token = this.authService.generateJWTToken({ widgetId: data.widgetId, ipAddress: publicIpAddress, timezone, workspaceId, clientId: widgetData.clientId, domain, sessionId: authUser.sessionId, exp: Date.now() + (10 * 60 * 60 * 1000) });
 
-            // Convert to ISO string which is compatible with PostgreSQL timestamptz
-            const expiryTimestamptz = expiryDate.toISOString(); // e.g. "2023-07-15T10:30:00.000Z"
+                const { data: updatedSessionData, error: updateSessionError } = await this.supabase.from("widgetsessions").update({ token: token }).eq("id", authUser.sessionId).select().single();
+                if (updateSessionError) {
+                    throw new errors.Internal(updateSessionError.message);
+                }
 
-            const { data: sessionData, error: sessionError } = await this.supabase.from("widgetsessions").insert({ widgetId: data.widgetId, ipAddress: publicIpAddress, timezone, workspaceId, clientId: widgetData.clientId, domain, widgetApiKey: data.id, status: "active", expiry: expiryTimestamptz }).select().single();
+                if (updatedSessionData && updatedSessionData.contactId) {
+                    const { data: contactData, error: contactError } = await this.supabase.from("customers").select("*").eq("id", updatedSessionData.contactId).is("deletedAt", null).single();
+                    return {
+                        ...widgetData,
+                        accessToken: updatedSessionData.token,
+                        contact: contactData
+                    };
+                } else {
+                    return {
+                        ...widgetData,
+                        accessToken: updatedSessionData.token
+                    };
+                }
+            } else {
+                const expiryDate = new Date();
+                expiryDate.setHours(expiryDate.getHours() + 24);
 
-            if (sessionError) {
-                throw new errors.Internal(sessionError.message);
+                // Convert to ISO string which is compatible with PostgreSQL timestamptz
+                const expiryTimestamptz = expiryDate.toISOString(); // e.g. "2023-07-15T10:30:00.000Z"
+
+                const { data: sessionData, error: sessionError } = await this.supabase.from("widgetsessions").insert({ widgetId: data.widgetId, ipAddress: publicIpAddress, timezone, workspaceId, clientId: widgetData.clientId, domain, widgetApiKey: data.id, status: "active", expiry: expiryTimestamptz }).select().single();
+
+                if (sessionError) {
+                    throw new errors.Internal(sessionError.message);
+                }
+                // Create a token here! JWT
+                // Expiry time is 10 hours
+                const token = this.authService.generateJWTToken({ widgetId: data.widgetId, ipAddress: publicIpAddress, timezone, workspaceId, clientId: widgetData.clientId, domain, sessionId: sessionData.id, exp: Date.now() + (10 * 60 * 60 * 1000) });
+
+                // Update session with token
+                const { data: updatedSessionData, error: updateSessionError } = await this.supabase.from("widgetsessions").update({ token }).eq("id", sessionData.id).select().single();
+
+                if (updateSessionError) {
+                    throw new errors.Internal(updateSessionError.message);
+                }
+                return {
+                    ...widgetData,
+                    accessToken: updatedSessionData.token
+                };
             }
 
-            // Create a token here! JWT
-            const token = this.authService.generateJWTToken({ widgetId: data.widgetId, ipAddress: publicIpAddress, timezone, workspaceId, clientId: widgetData.clientId, domain, sessionId: sessionData.id, exp: Date.now() + (10 * 60 * 60 * 1000) });
-
-            // Expiry time is 10 hours
-
-            // Update session with token
-            const { data: updatedSessionData, error: updateSessionError } = await this.supabase.from("widgetsessions").update({ token }).eq("id", sessionData.id).select().single();
-
-            if (updateSessionError) {
-                throw new errors.Internal(updateSessionError.message);
-            }
-
-            return {
-                ...widgetData,
-                accessToken: updatedSessionData.token
-            };
         } catch (error) {
             console.error(error);
             throw new errors.Internal(error.message);
@@ -420,6 +443,52 @@ class WidgetService extends BaseService {
             // });
 
             return tickets;
+        } catch (error) {
+            console.error(error);
+            throw error;
+        }
+    }
+
+    async getConversationWithTicketId(ticketId, authUser) {
+        try {
+            const { workspaceId, clientId, sessionId } = authUser;
+
+            // Check if the widget session is active
+            const { data: widgetSession, error: widgetSessionError } = await this.supabase.from("widgetsessions").select("*").eq("id", sessionId).eq("workspaceId", workspaceId).eq("clientId", clientId).is("deletedAt", null).single();
+
+            if (widgetSessionError) {
+                throw new errors.Internal(widgetSessionError.message);
+            }
+
+            if (!widgetSession) {
+                throw new errors.NotFound("Widget session not found");
+            }
+
+            if (widgetSession.status !== "active") {
+                throw new errors.BadRequest("Widget session is not active");
+            }
+
+            console.log("widgetSession", workspaceId, clientId);
+
+            // Check if ticket exists
+            const { data: ticket, error: ticketError } = await this.supabase.from("tickets").select("*").eq("id", ticketId).eq("workspaceId", workspaceId).eq("clientId", clientId).eq("deviceId", widgetSession.contactDeviceId).is("deletedAt", null).single();
+
+            if (ticketError) {
+                throw new errors.Internal(ticketError.message);
+            }
+
+            if (!ticket) {
+                throw new errors.NotFound("Ticket not found");
+            }
+
+            const { data: conversations, error: conversationsError } = await this.supabase.from("conversations").select("*").eq("ticketId", ticketId).is("deletedAt", null).limit(20);
+
+            if (conversationsError) {
+                throw new errors.Internal(conversationsError.message);
+            }
+
+            return conversations;
+
         } catch (error) {
             console.error(error);
             throw error;

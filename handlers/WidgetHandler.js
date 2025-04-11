@@ -1,7 +1,7 @@
 const BaseHandler = require('./BaseHandler');
 const WidgetService = require('../services/WidgetService');
 const parser = require('ua-parser-js');
-
+const { verifyJWTToken } = require('../Utils/commonUtils');
 class WidgetHandler extends BaseHandler {
 
     constructor() {
@@ -61,8 +61,11 @@ class WidgetHandler extends BaseHandler {
         let publicIpAddress = req.ip;
         let timezone = req.body.timezone;
         let domain = req.headers['host'];
+
+        let authUser = await verifyJWTToken(req.headers.authorization);
+        console.log(authUser);
         let inst = new WidgetService();
-        return this.responder(req, reply, inst.getWidgetConfig({ apiKey, workspaceId, publicIpAddress, timezone, domain }));
+        return this.responder(req, reply, inst.getWidgetConfig({ apiKey, workspaceId, publicIpAddress, timezone, domain, authUser }));
     }
 
     async createContactDevice(req, reply) {
@@ -84,6 +87,13 @@ class WidgetHandler extends BaseHandler {
         req.body.authUser = req.authUser;
         let inst = new WidgetService();
         return this.responder(req, reply, inst.getContactDeviceTickets(req.body));
+    }
+
+    async getConversationWithTicketId(req, reply) {
+        let ticketId = req.params.ticket_id;
+        let authUser = req.authUser;
+        let inst = new WidgetService();
+        return this.responder(req, reply, inst.getConversationWithTicketId(ticketId, authUser));
     }
 }
 
