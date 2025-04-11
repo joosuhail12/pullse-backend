@@ -2,6 +2,7 @@ const errors = require("../errors");
 const BaseService = require("./BaseService");
 const _ = require("lodash");
 const AuthService = require("./AuthService");
+const ConversationEventPublisher = require("../Events/ConversationEvent/ConversationEventPublisher");
 
 class WidgetService extends BaseService {
     constructor() {
@@ -486,6 +487,17 @@ class WidgetService extends BaseService {
             if (conversationsError) {
                 throw new errors.Internal(conversationsError.message);
             }
+
+            // Step: Fire new_convo event if first access
+            const eventPublisher = new ConversationEventPublisher();
+
+            await eventPublisher.started({
+                ticketId: ticket.id,
+                sessionId: widgetSession.id,
+                workspaceId,
+                clientId,
+                contactDeviceId: widgetSession.contactDeviceId
+            });
 
             return conversations;
 
