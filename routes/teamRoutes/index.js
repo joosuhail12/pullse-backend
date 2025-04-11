@@ -297,6 +297,37 @@ async function activate(app) {
     }
   });
 
+  // Get all teams a user belongs to
+  app.route({
+    url: base_url + "/user/:user_id",
+    method: 'GET',
+    name: "GetUserTeams",
+    preHandler: authMiddlewares.checkToken(AuthType.user),
+    schema: {
+      tags: ['teams'],
+      summary: 'Get User Teams',
+      description: 'API to fetch all teams that a specific user belongs to.',
+      params: {
+        type: 'object',
+        properties: {
+          user_id: {
+            type: 'string',
+            description: 'ID of the user whose teams you want to retrieve'
+          }
+        }
+      },
+      query: {
+        workspace_id: {
+          type: 'string',
+          description: 'ID of the workspace'
+        }
+      }
+    },
+    handler: async (req, reply) => {
+      return handler.getUserTeams(req, reply);
+    }
+  });
+
   // Assign ticket to team
   app.route({
     url: "/api/ticket/:ticket_id/assign-team",

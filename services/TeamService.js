@@ -318,6 +318,53 @@ class TeamService {
             this.handleError(error);
         }
     }
+
+    // Get all teams that a user belongs to
+    async getUserTeams(userId, workspaceId, clientId) {
+        try {
+            console.log(`Getting teams for user ${userId}`);
+
+            // Query to get all team_ids from teamMembers where user_id = userId
+            const { data: userTeamMemberships, error: membershipError } = await supabase
+                .from(this.memberTable)
+                .select('team_id')
+                .eq('user_id', userId);
+
+            if (membershipError) {
+                console.error("Error fetching team memberships:", membershipError);
+                throw membershipError;
+            }
+
+            if (!userTeamMemberships || userTeamMemberships.length === 0) {
+                console.log(`User ${userId} doesn't belong to any teams`);
+                return [];
+            }
+
+            // Extract team IDs
+            const teamIds = userTeamMemberships.map(membership => membership.team_id);
+            console.log(`Found ${teamIds.length} teams for user ${userId}:`, teamIds);
+
+            // Fetch team details
+            const { data: teams, error: teamsError } = await supabase
+                .from(this.entityName)
+                .select('id, name, description, icon, workspaceId, clientId')
+                .in('id', teamIds)
+                .eq('workspaceId', workspaceId)
+                .eq('clientId', clientId)
+                .is('deletedAt', null);
+
+            if (teamsError) {
+                console.error("Error fetching team details:", teamsError);
+                throw teamsError;
+            }
+
+            console.log(`Returning ${teams.length} teams for user ${userId}`);
+            return teams;
+        } catch (error) {
+            console.error('Error getting user teams:', error);
+            return Promise.reject(this.handleError(error));
+        }
+    }
 }
 
 module.exports = TeamService;
