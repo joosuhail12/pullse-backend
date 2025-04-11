@@ -8,6 +8,9 @@ const { Status: TicketStatus } = require("../constants/TicketConstants");
 const { UserType } = require("../constants/ClientConstants");
 const { createClient } = require('@supabase/supabase-js');
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
+const Ably = require("ably");
+const { setAblyTicketChatListener } = require("../ExternalService/ablyListener");
+const ably = new Ably.Realtime(process.env.ABLY_API_KEY);
 
 class TicketService {
     constructor(fields = null, dependencies = {}) {
@@ -947,6 +950,41 @@ class TicketService {
             };
         } catch (error) {
             console.error('Error assigning ticket to user:', error);
+            return Promise.reject(this.handleError(error));
+        }
+    }
+
+    // get conversation by ticket id
+    async getConversationByTicketId(sno, workspaceId, clientId) {
+        try {
+            const { data, error } = await supabase
+                .from('conversations')
+                .select('*')
+                .eq('ticketId', sno)
+                .eq('workspaceId', workspaceId)
+                .eq('clientId', clientId)
+                .order('createdAt', { ascending: true })
+                .limit(10);
+            if (error) throw error;
+
+            // at this point i want to subscribe to an ably channel i.e ticket:sno
+            // and return the response from the channel
+            setAblyTicketChatListener(sno)
+            const response = data.map(item => ({
+                id: item.id,
+                content: item.message,
+                sender: item.userType,
+                senderName: item.senderName,
+                timestamp: item.createdAt,
+                isCustomer: item.userType === 'customer',
+                readBy: item.readBy,
+                lastReadAt: item.lastReadAt,
+                reactions: item.reactions,
+                type: item.type
+            }));
+            return response;
+        } catch (error) {
+            console.error('Error getting conversation by ticket id:', error);
             return Promise.reject(this.handleError(error));
         }
     }

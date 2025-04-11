@@ -187,7 +187,24 @@ async function activate(app) {
       return handler.assignTicket(req, reply);
     }
   });
+  app.route({
+    url: base_url + "/:ticket_sno/conversation",
+    method: 'GET',
+    name: "GetConversationByTicketId",
+    preHandler: authMiddlewares.checkToken(AuthType.user),
+    schema: {
+      tags: ['Ticket'],
+      summary: 'Get Conversation by Ticket ID',
+      description: 'API to get conversation by ticket ID.',
+      required: ['ticket_sno'],
+    },
+    handler: async (req, reply) => {
+      return handler.getConversationByTicketId(req, reply);
+    }
+  });
 }
+
+// get conversation by ticket id
 
 module.exports = {
   activate

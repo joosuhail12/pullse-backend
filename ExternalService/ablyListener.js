@@ -11,6 +11,54 @@ const ably = new Ably.Realtime({ key: ABLY_API_KEY });
  * 2. Customer channel
  * 3. Specific ticket channel (agent-facing)
  */
+
+const subscribedChannels = new Set();
+// set ably ticket chat listener
+async function setAblyTicketChatListener(ticketId) {
+  if (subscribedChannels.has(ticketId)) return; // already subscribed
+  subscribedChannels.add(ticketId);
+  console.log('✅ Setting Ably ticket chat listener for ticket', ticketId);
+  const ticketChannel = ably.channels.get(`ticket:${ticketId}`);
+  const handleMessage = async (msg) => {
+    console.log(msg);
+    const msgData = typeof msg.data === 'string' ? JSON.parse(msg.data) : msg.data;
+    /*
+    this is the incomming message format
+    text: newMessage,
+                extras: {
+                    sender: currentUserRef.current,
+                    senderName: displayName,
+                    senderId: currentUserRef.current,
+                    isCustomer: false,
+                    type: isInternalNote ? "internal_note" : "message",
+                    // Initialize readBy with just the sender and timestamp
+                    readBy: [{
+                        userId: currentUserRef.current,
+                        name: displayName,
+                        readAt: new Date().toISOString()
+                    }],
+                    timestamp: new Date().toISOString()
+                }
+                    */
+
+    const {
+      sessionId: msgSessionId,
+      customerId,
+      ticketId,
+      text,
+    } = msgData;
+    const {
+      sender,
+      senderName,
+      senderId,
+      isCustomer,
+      type,
+    } = msgData.extras;
+    console.log('✅ Handling incoming chat message', msgSessionId, customerId, text, source, ticketId);
+  }
+  ticketChannel.subscribe('message', (msg) => handleMessage(msg, 'ticket'));
+}
+
 async function startAblyListener() {
   console.log('✅ Ably listener started for chat widget + ticket channel');
 
@@ -59,4 +107,4 @@ async function startAblyListener() {
   ticketChannel.subscribe('new_message', (msg) => handleMessage(msg, 'ticket'));
 }
 
-module.exports = { startAblyListener };
+module.exports = { startAblyListener, setAblyTicketChatListener };

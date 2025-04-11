@@ -12,7 +12,6 @@ const cookie = require('@fastify/cookie');
 const Socket = require('./Socket')();
 const DecisionEngine = require('./DecisionEngine');
 const path = require('node:path');
-const { startAblyListener } = require('./ExternalService/ablyListener');
 
 
 // const db = require('./db');
@@ -32,7 +31,6 @@ const start = async () => {
       parseOptions: {}
     });
     await swagger(app);
-    startAblyListener();
 
     await app.register(formBody);
     await app.register(caslPlugin);
