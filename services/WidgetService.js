@@ -257,7 +257,8 @@ class WidgetService extends BaseService {
                 }
                 return {
                     ...widgetData,
-                    accessToken: updatedSessionData.token
+                    accessToken: updatedSessionData.token,
+                    sessionId: sessionData.id
                 };
             }
 
