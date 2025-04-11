@@ -183,7 +183,7 @@ async function activate(app) {
     // Get widget by api key
     app.route({
         url: base_url + "/getWidgetConfig/:api_key",
-        method: "GET",
+        method: "POST",
         name: "GetWidgetConfig",
         schema: {
             tags: ["Widgets"],
@@ -193,6 +193,13 @@ async function activate(app) {
                 required: ["api_key"],
                 properties: {
                     api_key: { type: "string" },
+                },
+            },
+            body: {
+                type: "object",
+                required: ["timezone"],
+                properties: {
+                    timezone: { type: "string" },
                 },
             },
         },
@@ -205,6 +212,7 @@ async function activate(app) {
         url: base_url + "/createContactDevice/:api_key",
         method: "POST",
         name: "CreateContactDevice",
+        preHandler: authMiddlewares.verifyJWTToken(),
         schema: {
             tags: ["Widgets"],
             summary: "Create Contact Device",
@@ -217,10 +225,16 @@ async function activate(app) {
             },
             body: {
                 type: "object",
-                required: ["name", "email"],
                 properties: {
-                    name: { type: "string" },
-                    email: { type: "string" },
+                    contact: {
+                        type: "array",
+                    },
+                    company: {
+                        type: "array",
+                    },
+                    customData: {
+                        type: "array",
+                    },
                 },
             },
         },
@@ -230,19 +244,13 @@ async function activate(app) {
     });
 
     app.route({
-        url: base_url + "/getContactDeviceTickets/:contact_device_id",
+        url: base_url + "/getContactDeviceTickets",
         method: "GET",
         name: "GetContactDeviceTickets",
+        preHandler: authMiddlewares.verifyJWTToken(),
         schema: {
             tags: ["Widgets"],
             summary: "Get Contact Device Tickets",
-            params: {
-                type: "object",
-                required: ["contact_device_id"],
-                properties: {
-                    contact_device_id: { type: "string" },
-                },
-            },
         },
         handler: async (req, reply) => {
             return handler.getContactDeviceTickets(req, reply);

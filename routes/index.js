@@ -19,6 +19,7 @@ const tagRoutes = require('./tagRoutes');
 const teamRoutes = require('./teamRoutes');
 const chatbotProfileRoute = require('./chatbotProfileRoutes');
 const chatbotDocumentRoute = require('./chatbotDocumentRoutes');
+const mentionRoutes = require('./mentionRoutes');
 
 const customFieldRoute = require('./customFieldRoutes');
 const workflowRoute = require('./workflowRoutes');
@@ -35,6 +36,7 @@ const customObjectRoute = require('./customObjectRoutes');
 const emailChannelsRoute = require('./emailChannelsRoutes');
 const widgetRoute = require('./widgetRoutes');
 const analyticsRoute = require('./analyticsRoutes');
+const ablyRoute = require('./ablyRoutes');
 
 module.exports = {
   async activate(app) {
@@ -58,6 +60,7 @@ module.exports = {
     await teamRoutes.activate(app);
     await chatbotProfileRoute.activate(app);
     await chatbotDocumentRoute.activate(app);
+    await mentionRoutes.activate(app);
     await customFieldRoute.activate(app);
     await workflowRoute.activate(app);
     await aiToolRoute.activate(app);
@@ -73,5 +76,6 @@ module.exports = {
     await emailChannelsRoute.activate(app);
     await widgetRoute.activate(app);
     await analyticsRoute.activate(app);
+    await ablyRoute.activate(app);
   }
 };

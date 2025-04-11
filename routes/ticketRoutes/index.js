@@ -162,6 +162,31 @@ async function activate(app) {
       return handler.deleteTicket(req, reply);
     }
   });
+
+  // Dedicated API for assigning tickets
+  app.route({
+    url: base_url + "/:ticket_sno/assign",
+    method: 'POST',
+    name: "AssignTicket",
+    preHandler: authMiddlewares.checkToken(AuthType.user),
+    schema: {
+      tags: ['Ticket'],
+      summary: 'Assign Ticket to User',
+      description: 'API to assign a ticket to a user without updating other ticket fields.',
+      body: {
+        required: ['userId'],
+        properties: {
+          userId: {
+            type: 'string',
+            description: 'ID of the user to assign the ticket to'
+          }
+        }
+      }
+    },
+    handler: async (req, reply) => {
+      return handler.assignTicket(req, reply);
+    }
+  });
 }
 
 module.exports = {

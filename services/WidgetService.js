@@ -1,11 +1,13 @@
 const errors = require("../errors");
 const BaseService = require("./BaseService");
 const _ = require("lodash");
+const AuthService = require("./AuthService");
 
 class WidgetService extends BaseService {
     constructor() {
         super();
         this.entityName = "widget";
+        this.authService = new AuthService();
     }
 
     async getWidgets({ workspaceId, clientId }) {
@@ -154,9 +156,9 @@ class WidgetService extends BaseService {
         }
     }
 
-    async getWidgetConfig({ apiKey, workspaceId }) {
+    async getWidgetConfig({ apiKey, workspaceId, publicIpAddress, timezone, domain, authUser = null }) {
         try {
-            console.log(apiKey, workspaceId);
+            console.log(apiKey, workspaceId, publicIpAddress, timezone, domain, authUser);
             const { data, error } = await this.supabase.from("widgetapikeyrelation").select("*").eq("apiKey", apiKey).is("deletedAt", null).single();
 
             if (error) {
@@ -177,7 +179,88 @@ class WidgetService extends BaseService {
             if (widgetError) {
                 throw new errors.Internal(widgetError.message);
             }
-            return widgetData;
+
+            const customDataFieldsIds = widgetData.widgetfield[0].customDataFields;
+
+            const { data: customDataFields, error: customFieldsError } = await this.supabase.from("customfields").select("*").in("id", customDataFieldsIds).is("deletedAt", null);
+
+            if (customFieldsError) {
+                console.error("Error fetching custom fields:", customFieldsError);
+            }
+
+            if (customDataFields && customDataFields.length > 0) {
+                let customDataFieldsArray = [];
+                customDataFields.forEach((field) => {
+                    customDataFieldsArray.push({
+                        entityname: "customfield",
+                        columnname: field.id, // Use id incase of custom data
+                        label: field.name,
+                        type: field.fieldType,
+                        placeholder: field.placeholder,
+                        required: field.isRequired,
+                        options: field.options
+                    });
+                });
+                widgetData.widgetfield[0].customDataFields = customDataFieldsArray;
+            }
+
+            const widgetSettings = widgetData.widgettheme[0].widgetSettings;
+
+            if (widgetSettings["allowedDomains"] && !widgetSettings["allowedDomains"].includes(domain)) {
+                throw new errors.BadRequest("Domain not allowed");
+            }
+
+            if (authUser) {
+                // Create a token here! JWT
+                // Expiry time is 10 hours
+                const token = this.authService.generateJWTToken({ widgetId: data.widgetId, ipAddress: publicIpAddress, timezone, workspaceId, clientId: widgetData.clientId, domain, sessionId: authUser.sessionId, exp: Date.now() + (10 * 60 * 60 * 1000) });
+
+                const { data: updatedSessionData, error: updateSessionError } = await this.supabase.from("widgetsessions").update({ token: token }).eq("id", authUser.sessionId).select().single();
+                if (updateSessionError) {
+                    throw new errors.Internal(updateSessionError.message);
+                }
+
+                if (updatedSessionData && updatedSessionData.contactId) {
+                    const { data: contactData, error: contactError } = await this.supabase.from("customers").select("*").eq("id", updatedSessionData.contactId).is("deletedAt", null).single();
+                    return {
+                        ...widgetData,
+                        accessToken: updatedSessionData.token,
+                        contact: contactData
+                    };
+                } else {
+                    return {
+                        ...widgetData,
+                        accessToken: updatedSessionData.token
+                    };
+                }
+            } else {
+                const expiryDate = new Date();
+                expiryDate.setHours(expiryDate.getHours() + 24);
+
+                // Convert to ISO string which is compatible with PostgreSQL timestamptz
+                const expiryTimestamptz = expiryDate.toISOString(); // e.g. "2023-07-15T10:30:00.000Z"
+
+                const { data: sessionData, error: sessionError } = await this.supabase.from("widgetsessions").insert({ widgetId: data.widgetId, ipAddress: publicIpAddress, timezone, workspaceId, clientId: widgetData.clientId, domain, widgetApiKey: data.id, status: "active", expiry: expiryTimestamptz }).select().single();
+
+                if (sessionError) {
+                    throw new errors.Internal(sessionError.message);
+                }
+                // Create a token here! JWT
+                // Expiry time is 10 hours
+                const token = this.authService.generateJWTToken({ widgetId: data.widgetId, ipAddress: publicIpAddress, timezone, workspaceId, clientId: widgetData.clientId, domain, sessionId: sessionData.id, exp: Date.now() + (10 * 60 * 60 * 1000) });
+
+                // Update session with token
+                const { data: updatedSessionData, error: updateSessionError } = await this.supabase.from("widgetsessions").update({ token }).eq("id", sessionData.id).select().single();
+
+                if (updateSessionError) {
+                    throw new errors.Internal(updateSessionError.message);
+                }
+                return {
+                    ...widgetData,
+                    accessToken: updatedSessionData.token
+                };
+            }
+
         } catch (error) {
             console.error(error);
             throw new errors.Internal(error.message);
@@ -186,7 +269,7 @@ class WidgetService extends BaseService {
 
     async createContactDevice(requestBody) {
         try {
-            let { device, operatingSystem, publicIpAddress, name, email, apiKey } = requestBody;
+            let { device, operatingSystem, publicIpAddress, apiKey, name, authUser, contact, company, customData } = requestBody;
             if ((!device && !operatingSystem) || !publicIpAddress) {
                 throw new errors.BadRequest("Device, operatingSystem and publicIpAddress are required");
             }
@@ -203,20 +286,75 @@ class WidgetService extends BaseService {
                 throw new errors.Internal(widgetError.message);
             }
 
+            // Process contact data
+            let contactUpdateData = {};
+            if (contact && Array.isArray(contact)) {
+                contact.forEach(field => {
+                    if (field.value && field.columnname) {
+                        contactUpdateData[field.columnname] = field.value;
+                    }
+                });
+            }
+
             // Check for customer
-            let { data: customer, error: customerError } = await this.supabase.from("customers").select("*").eq("email", email).eq("workspaceId", widgetData.workspaceId).eq("clientId", widgetData.clientId).is("deletedAt", null).single();
+            let { data: customer, error: customerError } = await this.supabase.from("customers").select("*").eq("email", contactUpdateData.email).eq("workspaceId", widgetData.workspaceId).eq("clientId", widgetData.clientId).is("deletedAt", null).single();
             if (customerError && customerError.code !== "PGRST116") {
                 throw new errors.Internal(customerError.message);
             }
 
             if (!customer) {
                 // Create customer if not found
-                const firstname = name.split(" ")[0];
-                const lastname = name.split(" ")[1];
+                let firstname = contactUpdateData.firstname || "New";
+                let lastname = contactUpdateData.lastname || "Contact";
+                let email = contactUpdateData.email;
 
-                let { data: newCustomer, error: insertError } = await this.supabase.from("customers").insert({ email, firstname, lastname, workspaceId: widgetData.workspaceId, clientId: widgetData.clientId, type: "contact" }).select().single();
+                if (email === undefined) {
+                    throw new errors.BadRequest("Email is required");
+                }
+
+                if (name !== undefined) {
+                    firstname = name.split(" ")[0];
+                    lastname = name.split(" ")[1];
+                }
+
+                let { data: newCustomer, error: insertError } = await this.supabase.from("customers")
+                    .insert({
+                        email,
+                        firstname,
+                        lastname,
+                        ...contactUpdateData,
+                        workspaceId: widgetData.workspaceId,
+                        clientId: widgetData.clientId,
+                        type: "contact"
+                    })
+                    .select()
+                    .single();
                 if (insertError) throw insertError;
                 customer = newCustomer;
+            }
+
+            // Process company data
+            if (company && Array.isArray(company)) {
+                let companyData = {};
+                company.forEach(field => {
+                    if (field.value && field.columnname) {
+                        companyData[field.columnname] = field.value;
+                    }
+                });
+            }
+
+            // Process custom data
+            if (customData && Array.isArray(customData)) {
+                for (const field of customData) {
+                    if (field.value) {
+                        let { error: customDataError } = await this.supabase.from("customfielddata")
+                            .upsert({
+                                customfieldId: field.columnname, // columnname contains the UUID of the custom field
+                                data: field.value,
+                            });
+                        if (customDataError) throw customDataError;
+                    }
+                }
             }
 
             // check if contactdevice already exists
@@ -228,6 +366,12 @@ class WidgetService extends BaseService {
             }
 
             if (contactDeviceData) {
+                // Update widget sessions with contact device id and contact id
+                let { data: widgetSessions, error: widgetSessionsError } = await this.supabase.from("widgetsessions").update({ contactDeviceId: contactDeviceData.id, contactId: customer.id }).eq("widgetId", widgetApiKeyData.widgetId).eq("id", authUser.sessionId).is("deletedAt", null);
+                if (widgetSessionsError) {
+                    throw new errors.Internal(widgetSessionsError.message);
+                }
+
                 return {
                     ...contactDeviceData,
                     name: customer.firstname + " " + customer.lastname,
@@ -239,6 +383,13 @@ class WidgetService extends BaseService {
             if (error) {
                 throw new errors.Internal(error.message);
             }
+
+            // Update widget sessions with contact device id and contact id
+            let { data: widgetSessions, error: widgetSessionsError } = await this.supabase.from("widgetsessions").update({ contactDeviceId: data.id, contactId: customer.id }).eq("widgetId", widgetApiKeyData.widgetId).eq("id", authUser.sessionId).is("deletedAt", null);
+            if (widgetSessionsError) {
+                throw new errors.Internal(widgetSessionsError.message);
+            }
+
             return {
                 ...data,
                 name: customer.firstname + " " + customer.lastname,
@@ -250,9 +401,25 @@ class WidgetService extends BaseService {
         }
     }
 
-    async getContactDeviceTickets(contactDeviceId) {
+    async getContactDeviceTickets(requestBody) {
         try {
-            const { data, error } = await this.supabase.from("contactdevice").select("*").eq("id", contactDeviceId).is("deletedAt", null).single();
+            const authUser = requestBody.authUser;
+
+            if (!authUser && !authUser.sessionId) {
+                throw new errors.Unauthorized("Unauthorized");
+            }
+
+            const { data: sessionData, error: sessionError } = await this.supabase.from("widgetsessions").select("*").eq("id", authUser.sessionId).is("deletedAt", null).single();
+
+            if (sessionError) {
+                throw new errors.Internal(sessionError.message);
+            }
+
+            if (!sessionData || !sessionData.contactDeviceId) {
+                throw new errors.NotFound("Contact device not found");
+            }
+
+            const { data, error } = await this.supabase.from("contactdevice").select("*").eq("id", sessionData.contactDeviceId).is("deletedAt", null).single();
             if (error) {
                 throw new errors.Internal(error.message);
             }
@@ -261,16 +428,27 @@ class WidgetService extends BaseService {
                 throw new errors.NotFound("Contact device not found");
             }
 
-            const { data: tickets, error: ticketsError } = await this.supabase.from("tickets").select("*").eq("deviceId", contactDeviceId).is("deletedAt", null);
+            const { data: tickets, error: ticketsError } = await this.supabase.from("tickets").select("*").eq("deviceId", sessionData.contactDeviceId).is("deletedAt", null);
             if (ticketsError) {
                 throw new errors.Internal(ticketsError.message);
             }
+
+
+            // tickets.forEach(async (ticket) => {
+            //     const { data: lastMessage, error: lastMessageError } = await this.supabase.from("conversations").select("*").eq("ticketId", ticket.id).order("createdAt", { ascending: false }).limit(1).single();
+            //     if (lastMessageError) {
+            //         throw new errors.Internal(lastMessageError.message);
+            //     }
+            //     ticket.lastMessage = lastMessage;
+            // });
+
             return tickets;
         } catch (error) {
             console.error(error);
-            throw new errors.Internal(error.message);
+            throw error;
         }
     }
+
 }
 
 module.exports = WidgetService; 

@@ -7,7 +7,7 @@ class TicketHandler extends BaseHandler {
 
   constructor() {
     super();
-    this.ticketServiceInst = new TicketService(null, {ConversationService});
+    this.ticketServiceInst = new TicketService(null, { ConversationService });
   }
 
   async createTicket(req, reply) {
@@ -98,7 +98,17 @@ class TicketHandler extends BaseHandler {
     let sno = req.params.ticket_sno;
 
     let inst = this.ticketServiceInst;
-    return this.responder(req, reply, inst.deleteTicket({sno, workspaceId, clientId}));
+    return this.responder(req, reply, inst.deleteTicket({ sno, workspaceId, clientId }));
+  }
+
+  async assignTicket(req, reply) {
+    const workspaceId = req.query.workspace_id;
+    const clientId = req.authUser.clientId;
+    const sno = req.params.ticket_sno;
+    const userId = req.body.userId;
+
+    let inst = this.ticketServiceInst;
+    return this.responder(req, reply, inst.assignTicketToUser(sno, userId, workspaceId, clientId));
   }
 
 }
