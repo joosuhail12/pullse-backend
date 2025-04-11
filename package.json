@@ -5,7 +5,8 @@
   "main": "server.js",
   "scripts": {
     "test": "mocha",
-    "start": "nodemon --env-file=.env server.js"
+    "start": "nodemon --env-file=.env server.js",
+    "dev": "nodemon --require dotenv/config server.js"
   },
   "keywords": [],
   "author": "Manminder ",
