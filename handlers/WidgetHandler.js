@@ -88,6 +88,13 @@ class WidgetHandler extends BaseHandler {
         let inst = new WidgetService();
         return this.responder(req, reply, inst.getContactDeviceTickets(req.body));
     }
+
+    async getConversationWithTicketId(req, reply) {
+        let ticketId = req.params.ticket_id;
+        let authUser = req.authUser;
+        let inst = new WidgetService();
+        return this.responder(req, reply, inst.getConversationWithTicketId(ticketId, authUser));
+    }
 }
 
 module.exports = WidgetHandler;

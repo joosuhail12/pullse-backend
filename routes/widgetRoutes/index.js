@@ -256,6 +256,27 @@ async function activate(app) {
             return handler.getContactDeviceTickets(req, reply);
         },
     });
+
+    app.route({
+        url: base_url + "/getConversationWithTicketId/:ticket_id",
+        method: "GET",
+        name: "GetConversationWithTicketId",
+        preHandler: authMiddlewares.verifyJWTToken(),
+        schema: {
+            tags: ["Widgets"],
+            summary: "Get Conversation With Ticket Id",
+            params: {
+                type: "object",
+                required: ["ticket_id"],
+                properties: {
+                    ticket_id: { type: "string" },
+                },
+            },
+        },
+        handler: async (req, reply) => {
+            return handler.getConversationWithTicketId(req, reply);
+        },
+    });
 }
 
 module.exports = {
