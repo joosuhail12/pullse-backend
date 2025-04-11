@@ -187,6 +187,48 @@ async function activate(app) {
       return handler.assignTicket(req, reply);
     }
   });
+
+  // Get tickets assigned to a specific user
+  app.route({
+    url: base_url + "/user/:user_id/assigned",
+    method: 'GET',
+    name: "GetAssignedTickets",
+    preHandler: authMiddlewares.checkToken(AuthType.user),
+    schema: {
+      tags: ['Ticket'],
+      summary: 'Get User Assigned Tickets',
+      description: 'API to fetch all tickets assigned to a specific user.',
+      params: {
+        type: 'object',
+        properties: {
+          user_id: {
+            type: 'string',
+            description: 'ID of the user whose assigned tickets you want to retrieve'
+          }
+        }
+      },
+      query: {
+        workspace_id: {
+          type: 'string',
+        },
+        status: {
+          type: 'string',
+        },
+        priority: {
+          type: 'number',
+        },
+        skip: {
+          type: 'number'
+        },
+        limit: {
+          type: 'number'
+        }
+      }
+    },
+    handler: async (req, reply) => {
+      return handler.getAssignedTickets(req, reply);
+    }
+  });
 }
 
 module.exports = {
