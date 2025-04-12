@@ -969,7 +969,7 @@ class TicketService {
 
             // at this point i want to subscribe to an ably channel i.e ticket:sno
             // and return the response from the channel
-            setAblyTicketChatListener(sno)
+            setAblyTicketChatListener(sno, clientId, workspaceId)
             const response = data.map(item => ({
                 id: item.id,
                 content: item.message,

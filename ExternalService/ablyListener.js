@@ -1,6 +1,8 @@
 // ablyListener.js
 const Ably = require('ably');
 const ticketAssociationService = require('../services/ticketAssociationService');
+const ConversationEventConsumer = require('../Events/ConversationEvent/ConversationEventConsumer');
+const ConversationEventPublisher = require('../Events/ConversationEvent/ConversationEventPublisher');
 const { ABLY_API_KEY } = process.env;
 
 const ably = new Ably.Realtime({ key: ABLY_API_KEY });
@@ -14,7 +16,7 @@ const ably = new Ably.Realtime({ key: ABLY_API_KEY });
 
 const subscribedChannels = new Set();
 // set ably ticket chat listener
-async function setAblyTicketChatListener(ticketId) {
+async function setAblyTicketChatListener(ticketId, clientId, workspaceId) {
   if (subscribedChannels.has(ticketId)) return; // already subscribed
   subscribedChannels.add(ticketId);
   console.log('✅ Setting Ably ticket chat listener for ticket', ticketId);
@@ -22,40 +24,36 @@ async function setAblyTicketChatListener(ticketId) {
   const handleMessage = async (msg) => {
     console.log(msg);
     const msgData = typeof msg.data === 'string' ? JSON.parse(msg.data) : msg.data;
-    /*
-    this is the incomming message format
-    text: newMessage,
-                extras: {
-                    sender: currentUserRef.current,
-                    senderName: displayName,
-                    senderId: currentUserRef.current,
-                    isCustomer: false,
-                    type: isInternalNote ? "internal_note" : "message",
-                    // Initialize readBy with just the sender and timestamp
-                    readBy: [{
-                        userId: currentUserRef.current,
-                        name: displayName,
-                        readAt: new Date().toISOString()
-                    }],
-                    timestamp: new Date().toISOString()
-                }
-                    */
 
     const {
-      sessionId: msgSessionId,
-      customerId,
-      ticketId,
       text,
-    } = msgData;
-    const {
-      sender,
-      senderName,
       senderId,
-      isCustomer,
       type,
-    } = msgData.extras;
-    console.log('✅ Handling incoming chat message', msgSessionId, customerId, text, source, ticketId);
+    } = msgData;
+
+    console.log('✅ Handling incoming chat message', text, senderId, isCustomer, type, ticketId);
+    //save this msg to conversations table
+    const { data, error } = await supabase
+      .from('conversations')
+      .insert({
+        message: text,
+        createdBy: senderId,
+        type: 'chat',
+        ticketId: ticketId,
+        userType: type === 'agent' ? 'agent' : 'internal-note',
+        clientId: clientId,
+        workspaceId: workspaceId,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      });
+    if (error) throw error;
+    console.log('✅ Message saved to conversations table', data);
   }
+  const publisher = new ConversationEventPublisher();
+  await publisher.created(text, updatedTicket, false);
+  
+
+
   ticketChannel.subscribe('message', (msg) => handleMessage(msg, 'ticket'));
 }
 
