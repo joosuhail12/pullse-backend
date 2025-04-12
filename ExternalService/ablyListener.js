@@ -3,6 +3,8 @@ const Ably = require('ably');
 const ticketAssociationService = require('../services/ticketAssociationService');
 const ConversationEventConsumer = require('../Events/ConversationEvent/ConversationEventConsumer');
 const ConversationEventPublisher = require('../Events/ConversationEvent/ConversationEventPublisher');
+const { createClient } = require('@supabase/supabase-js');
+const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
 const { ABLY_API_KEY } = process.env;
 
 const ably = new Ably.Realtime({ key: ABLY_API_KEY });
