@@ -3,10 +3,7 @@ const BaseService = require("./BaseService");
 const _ = require("lodash");
 const config = require("../config");
 const { createClient } = require("@supabase/supabase-js");
-const AuthService = require("./AuthService");
-const UserService = require("./UserService");
 const WorkspacePermissionService = require("./WorkspacePermissionService");
-const ClientService = require("./ClientService");
 
 class WorkspaceService extends BaseService {
     constructor(fields = null, dependencies = {}) {

@@ -23,7 +23,6 @@ class TicketService {
             assignee: { table: 'users', key: 'assigneeId' },
             addedBy: { table: 'users', key: 'createdBy' }
         });
-        this.ConversationService = dependencies.ConversationService || null;
         this.entityName = 'tickets';
     }
 

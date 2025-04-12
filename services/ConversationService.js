@@ -3,7 +3,6 @@ const Promise = require("bluebird");
 const { createClient } = require("@supabase/supabase-js");
 const errors = require("../errors");
 const BaseService = require("./BaseService");
-const TicketService = require("./TicketService");
 const { UserType } = require("../constants/ClientConstants");
 const config = require("../config");
 const { Status: TicketStatus, EntityType, MessageType } = require('../constants/TicketConstants');
@@ -15,7 +14,6 @@ class ConversationService extends BaseService {
         this.entityName = "Conversation";
         this.supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
         this.listingFields = ["id", "message", "type", "userType", "createdBy", "createdAt", "updatedAt"];
-        this.ticketInst = new TicketService();
     }
 
     async addMessage({ ticketId, message, type, userType, tagIds, mentionIds, createdBy, workspaceId, clientId, lastMailgunMessageId = "" }, newTicket = false) {

@@ -5,11 +5,10 @@ const jwt = require('jsonwebtoken');
 const Promise = require("bluebird");
 const errors = require("../errors");
 const config = require("../config");
-const BaseService = require("./BaseService");
 const UserTokenService = require("./UserTokenService");
 const UserService = require("./UserService");
+console.log("UserService is:", UserService);
 const WorkspacePermissionService = require("./WorkspacePermissionService");
-const UserUtility = require('../db/utilities/UserUtility');
 const AuthUtility = require('../db/utilities/AuthUtility');
 const { createClient } = require('@supabase/supabase-js');
 const authMiddlewares = require('../middlewares/auth');
@@ -22,7 +21,6 @@ class AuthService extends UserService {
         this.supabase = supabase;
         this.authUtilityInst = new AuthUtility();
         this.WorkspacePermission = WorkspacePermissionService;
-        this.utilityInst = new UserUtility();
         this.listingFields = ['id', 'role', 'accessToken'];
     }
 

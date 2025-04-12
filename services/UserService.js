@@ -136,24 +136,24 @@ class UserService extends BaseService {
     }
 
 
-    async getUserDefaultWorkspace(user) {
-        try {
-            let clientId = user.clientId;
-            let defaultWorkspace;
-            let inst = new this.WorkspaceService();
-            if (!user.defaultWorkspaceId) {
-                defaultWorkspace = await inst.findOne({ clientId });
-            } else {
-                defaultWorkspace = await inst.findOne({ id: user.defaultWorkspaceId, clientId });
-            }
-            if (!defaultWorkspace) {
-                return Promise.reject(new errors.NotFound("User don't have a workspace."));
-            }
-            return defaultWorkspace;
-        } catch (err) {
-            return this.handleError(err);
-        }
-    }
+    // async getUserDefaultWorkspace(user) {
+    //     try {
+    //         let clientId = user.clientId;
+    //         let defaultWorkspace;
+    //         let inst = new this.WorkspaceService();
+    //         if (!user.defaultWorkspaceId) {
+    //             defaultWorkspace = await inst.findOne({ clientId });
+    //         } else {
+    //             defaultWorkspace = await inst.findOne({ id: user.defaultWorkspaceId, clientId });
+    //         }
+    //         if (!defaultWorkspace) {
+    //             return Promise.reject(new errors.NotFound("User don't have a workspace."));
+    //         }
+    //         return defaultWorkspace;
+    //     } catch (err) {
+    //         return this.handleError(err);
+    //     }
+    // }
 
     async updateUser({ user_id, clientId }, updateValues) {
         try {
