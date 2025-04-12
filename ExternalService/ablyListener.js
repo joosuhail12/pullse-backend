@@ -81,7 +81,7 @@ async function handleWidgetContactEvent(sessionId, clientId, workspaceId) {
         .from('widgetsessions')
         .select('*')
         .eq('id', sessionId);
-        
+
       if (sessionError) throw sessionError;
       const customerId = sessionData[0].contactId;
       //also get the welcomeMessage from the widgettheme table
@@ -124,8 +124,8 @@ async function handleWidgetContactEvent(sessionId, clientId, workspaceId) {
       if (error) throw error;
       console.log('✅ Message saved to conversations table', data);
       //publish this message to the customer queue event rabbit
-      const publisher = new ConversationEventPublisher();
-      await publisher.created(text, updatedTicket, true);
+      // const publisher = new ConversationEventPublisher();
+      // await publisher.created(text, updatedTicket, true);
       // get a teamId from the teamChannels table in which using the channelId to map to channel name that is chat
       const { data: channelData, error: channelError } = await supabase
         .from('channels')
