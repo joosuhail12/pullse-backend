@@ -211,16 +211,18 @@ class WidgetService extends BaseService {
                 throw new errors.BadRequest("Domain not allowed");
             }
 
+            
             if (authUser) {
                 // Create a token here! JWT
                 // Expiry time is 10 hours
                 const token = this.authService.generateJWTToken({ widgetId: data.widgetId, ipAddress: publicIpAddress, timezone, workspaceId, clientId: widgetData.clientId, domain, sessionId: authUser.sessionId, exp: Date.now() + (10 * 60 * 60 * 1000) });
-
+                
                 const { data: updatedSessionData, error: updateSessionError } = await this.supabase.from("widgetsessions").update({ token: token }).eq("id", authUser.sessionId).select().single();
                 if (updateSessionError) {
                     throw new errors.Internal(updateSessionError.message);
                 }
-
+                
+                handleWidgetContactEvent(updatedSessionData.id, widgetData.clientId, widgetData.workspaceId)
                 if (updatedSessionData && updatedSessionData.contactId) {
                     const { data: contactData, error: contactError } = await this.supabase.from("customers").select("*").eq("id", updatedSessionData.contactId).is("deletedAt", null).single();
                     return {
@@ -258,13 +260,14 @@ class WidgetService extends BaseService {
                 if (updateSessionError) {
                     throw new errors.Internal(updateSessionError.message);
                 }
+
+                handleWidgetContactEvent(sessionData.id, widgetData.clientId, widgetData.workspaceId)
                 return {
                     ...widgetData,
                     accessToken: updatedSessionData.token,
                     sessionId: sessionData.id
                 };
             }
-            handleWidgetContactEvent(sessionData.id, widgetData.clientId, widgetData.workspaceId)
 
         } catch (error) {
             console.error(error);
@@ -438,7 +441,7 @@ class WidgetService extends BaseService {
                 throw new errors.Internal(ticketsError.message);
             }
 
-
+            handleWidgetConversationEvent(tickets[0].id, widgetData.clientId, widgetData.workspaceId)
             // tickets.forEach(async (ticket) => {
             //     const { data: lastMessage, error: lastMessageError } = await this.supabase.from("conversations").select("*").eq("ticketId", ticket.id).order("createdAt", { ascending: false }).limit(1).single();
             //     if (lastMessageError) {

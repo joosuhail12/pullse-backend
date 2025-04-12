@@ -56,7 +56,13 @@ async function setAblyTicketChatListener(ticketId, clientId, workspaceId) {
   ticketChannel.subscribe('message', (msg) => handleMessage(msg, 'ticket'));
 }
 
-// create a function to handle the message from the widget:contactevent:sessionId
+async function handlePublishTicketConversationEvent(ticketId, clientId, workspaceId, msg) { 
+  console.log('✅ Handling publish ticket conversation event', ticketId, clientId, workspaceId);
+  const ticketConversationChannel = ably.channels.get(`ticket:${ticketId}`)
+  ticketConversationChannel.publish('message_reply', msg);
+  
+}
+
 async function handleWidgetContactEvent(sessionId, clientId, workspaceId) { 
   console.log('✅ Handling widget contact event', sessionId, clientId, workspaceId);
   const contactEventChannel = ably.channels.get(`widget:contactevent:${sessionId}`);
@@ -148,6 +154,57 @@ async function handleWidgetContactEvent(sessionId, clientId, workspaceId) {
     contactEventChannel.publish('new_ticket_reply', {
       ticketId: newTicket[0].id,
     });
+  }
+}
+
+// add a customer object to check the already subscribed channels
+const customerSubscribedChannels = new Set();
+async function handleWidgetConversationEvent(ticketId, clientId, workspaceId) {
+  if (customerSubscribedChannels.has(ticketId)) return; // already subscribed
+  customerSubscribedChannels.add(ticketId);
+  console.log('✅ Handling widget conversation event', ticketId, clientId, workspaceId);
+  //widget:conversation:ticket-<ticketId>
+  const conversationEventChannel = ably.channels.get(`widget:conversation:ticket-${ticketId}`);
+  conversationEventChannel.subscribe('message', (msg) => handleMessage(msg, 'conversation'));
+  handleMessage = async (msg) => {
+    /*
+    Message Body: {
+  text: 'Mynameisdev',
+  sessionId: 'f09c12e1-6965-4bec-b773-66dd53844ed3',
+  ticketId: '28e414e9-11db-446c-93c1-9df968a1dfb2'
+} */
+    const msgData = typeof msg.data === 'string' ? JSON.parse(msg.data) : msg.data;
+    const {
+      text,
+      sessionId,
+      ticketId,
+    } = msgData;
+    //save this msg to conversations table
+    const { data, error } = await supabase
+      .from('conversations')
+      .insert({
+        message: text,
+        createdBy: customerId || null,
+        type: 'chat',
+        ticketId: ticketId,
+        userType: 'customer',
+        clientId: clientId,
+        workspaceId: workspaceId,
+        createdAt: new Date().toISOString(),  
+      });
+    if (error) throw error;
+    console.log('✅ Message saved to conversations table', data);
+    //publish this message to the customer queue event rabbit
+    const publisher = new ConversationEventPublisher();
+    await publisher.created(text, updatedTicket, false);
+    //uppdate the ticket with the lastMessage, lastMessageAt, updatedAt
+    const { data: updatedTicket, error: updatedTicketError } = await supabase
+      .from('tickets')
+      .update({ lastMessage: text, lastMessageAt: new Date().toISOString(), updatedAt: new Date().toISOString() })
+      .eq('id', ticketId);
+    if (updatedTicketError) throw updatedTicketError;
+    console.log('✅ Ticket updated with lastMessage, lastMessageAt, updatedAt', updatedTicket);
+    // send this message to the 
   }
 }
 
