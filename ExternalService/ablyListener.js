@@ -115,8 +115,29 @@ async function handleWidgetContactEvent(sessionId, msg) {
     console.log('✅ Message saved to conversations table', data);
     //publish this message to the customer queue event rabbit
     const publisher = new ConversationEventPublisher();
-    await publisher.created(text, updatedTicket, false);
+    await publisher.created(text, updatedTicket, true);
+    // get a teamId from the channel table usign the channel name which is chat
+    const { data: teamData, error: teamError } = await supabase
+      .from('channels')
+      .select('teamId')
+      .eq('name', 'chat');
+    if (teamError) throw teamError;
+    const teamId = teamData[0].teamId;
+    //     // craete a new ticket in the database
+    const { data: newTicket, error: newTicketError } = await supabase
+      .from('tickets')
+      .insert({
+        customerId: customerId,
+        clientId: sessionData[0].clientId,
+        workspaceId: sessionData[0].workspaceId,
+        lastMessage: text,
+        teamId: teamId,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
 
+      });
+    if (newTicketError) throw newTicketError;
+    console.log('✅ New ticket created', newTicket);
   }
 }
 
