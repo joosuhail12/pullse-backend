@@ -187,19 +187,79 @@ async function activate(app) {
       return handler.assignTicket(req, reply);
     }
   });
+
+  // Get tickets assigned to a specific user
   app.route({
-    url: base_url + "/:ticket_sno/conversation",
+    url: base_url + "/user/:user_id/assigned",
     method: 'GET',
-    name: "GetConversationByTicketId",
+    name: "GetAssignedTickets",
     preHandler: authMiddlewares.checkToken(AuthType.user),
     schema: {
       tags: ['Ticket'],
-      summary: 'Get Conversation by Ticket ID',
-      description: 'API to get conversation by ticket ID.',
-      required: ['ticket_sno'],
+      summary: 'Get User Assigned Tickets',
+      description: 'API to fetch all tickets assigned to a specific user.',
+      params: {
+        type: 'object',
+        properties: {
+          user_id: {
+            type: 'string',
+            description: 'ID of the user whose assigned tickets you want to retrieve'
+          }
+        }
+      },
+      query: {
+        workspace_id: {
+          type: 'string',
+        },
+        status: {
+          type: 'string',
+        },
+        priority: {
+          type: 'number',
+        },
+        skip: {
+          type: 'number'
+        },
+        limit: {
+          type: 'number'
+        }
+      }
     },
     handler: async (req, reply) => {
-      return handler.getConversationByTicketId(req, reply);
+      return handler.getAssignedTickets(req, reply);
+    }
+  });
+
+  // Get unassigned tickets
+  app.route({
+    url: base_url + "/unassigned",
+    method: 'GET',
+    name: "GetUnassignedTickets",
+    preHandler: authMiddlewares.checkToken(AuthType.user),
+    schema: {
+      tags: ['Ticket'],
+      summary: 'Get Unassigned Tickets',
+      description: 'API to fetch all tickets that are not assigned to any user.',
+      query: {
+        workspace_id: {
+          type: 'string',
+        },
+        status: {
+          type: 'string',
+        },
+        priority: {
+          type: 'number',
+        },
+        skip: {
+          type: 'number'
+        },
+        limit: {
+          type: 'number'
+        }
+      }
+    },
+    handler: async (req, reply) => {
+      return handler.getUnassignedTickets(req, reply);
     }
   });
 }

@@ -232,7 +232,7 @@ class TicketService {
                     customerId: ticket.customerId,
                     customer: {
                         id: primaryCustomer?.id,
-                        name: `${primaryCustomer?.firstname || ''} ${primaryCustomer?.lastname || ''}`.trim() || primaryCustomer?.email,
+                        name: `${primaryCustomer?.firstname || ''} ${primaryCustomer?.lastname || ''}`.trim() || primaryCustomer?.email || 'Unknown',
                         email: primaryCustomer?.email,
                         phone: primaryCustomer?.phone,
                         type: primaryCustomer?.type,
@@ -747,7 +747,7 @@ class TicketService {
             let query = supabase
                 .from(this.entityName)
                 .select(`
-                    id, sno, title, description, status, priority, teamId,
+                    id, sno, title, description, status, priority, teamId, customerId,
                     assigneeId, lastMessage, lastMessageAt, createdAt, updatedAt,
                     teams!teamId(id, name),
                     users!assigneeId(id, name, email)
@@ -765,6 +765,30 @@ class TicketService {
                 .range(skip, skip + limit - 1);
 
             if (error) throw error;
+
+            // Extract customer IDs to fetch customer details
+            const customerIds = tickets
+                .map(ticket => ticket.customerId)
+                .filter(id => id);
+
+            // Fetch customer details
+            let customerMap = {};
+            if (customerIds.length > 0) {
+                const { data: customers, error: customersError } = await supabase
+                    .from('customers')
+                    .select('id, firstname, lastname, email, phone')
+                    .in('id', customerIds);
+
+                if (customersError) {
+                    console.error("Error in customers query:", customersError);
+                    throw customersError;
+                }
+
+                customerMap = customers.reduce((map, customer) => {
+                    map[customer.id] = customer;
+                    return map;
+                }, {});
+            }
 
             // Get team members for each team
             const teamMembersPromises = teamIds.map(teamId =>
@@ -790,15 +814,27 @@ class TicketService {
             });
 
             // Format ticket priorities and add team members
-            return tickets.map(ticket => ({
-                ...ticket,
-                priority: ticket.priority === 2 ? 'high' : ticket.priority === 1 ? 'medium' : 'low',
-                team: {
-                    ...ticket.teams,
-                    members: teamMembersMap[ticket.teamId] || []
-                },
-                assignee: ticket.users,
-            }));
+            return tickets.map(ticket => {
+                const priority = ticket.priority === 2 ? 'high' : ticket.priority === 1 ? 'medium' : 'low';
+                const customer = ticket.customerId ? customerMap[ticket.customerId] : null;
+
+                return {
+                    ...ticket,
+                    priority: priority,
+                    team: {
+                        ...ticket.teams,
+                        members: teamMembersMap[ticket.teamId] || []
+                    },
+                    assignee: ticket.users,
+                    customerId: ticket.customerId,
+                    customer: customer ? {
+                        id: customer.id,
+                        name: `${customer.firstname || ''} ${customer.lastname || ''}`.trim() || customer.email || 'Unknown',
+                        email: customer.email,
+                        phone: customer.phone
+                    } : {}
+                };
+            });
         } catch (error) {
             console.error('Error listing user team tickets:', error);
             return Promise.reject(this.handleError(error));
@@ -998,6 +1034,207 @@ class TicketService {
             return new errors.NotFound(`${this.entityName} not found.`);
         }
         return error;
+    }
+
+    async getAssignedTickets(userId, filters = {}) {
+        try {
+            const { status, workspaceId, clientId, priority, skip = 0, limit = 10 } = filters;
+            console.log(`Getting tickets assigned to user ${userId} with filters:`, filters);
+
+            // Get tickets assigned to the user
+            let query = supabase
+                .from(this.entityName)
+                .select('id, sno, title, description, status, priority, customerId, teamId, assigneeId, lastMessage, lastMessageAt, createdAt, updatedAt')
+                .eq('assigneeId', userId)
+                .eq('clientId', clientId)
+                .is('deletedAt', null);
+
+            if (workspaceId) query = query.eq('workspaceId', workspaceId);
+            if (status) query = query.eq('status', status);
+            if (priority !== undefined) query = query.eq('priority', priority);
+
+            const { data: tickets, error } = await query
+                .order('createdAt', { ascending: false })
+                .range(skip, skip + limit - 1);
+
+            if (error) {
+                console.error("Error fetching tickets:", error);
+                throw error;
+            }
+
+            console.log(`Found ${tickets ? tickets.length : 0} tickets assigned to user ${userId}`);
+
+            if (!tickets || tickets.length === 0) {
+                return [];
+            }
+
+            // Extract customer IDs to fetch customer details
+            const customerIds = tickets
+                .map(ticket => ticket.customerId)
+                .filter(id => id);
+
+            console.log(`Extracted ${customerIds.length} customer IDs:`, customerIds);
+
+            // Fetch customer details
+            let customerMap = {};
+            if (customerIds.length > 0) {
+                console.log(`Fetching customer details for ${customerIds.length} customers`);
+
+                const { data: customers, error: customersError } = await supabase
+                    .from('users')
+                    .select('*')
+                    .in('id', customerIds);
+
+                if (customersError) {
+                    console.error("Error in customers query:", customersError);
+                    throw customersError;
+                }
+
+                console.log(`Found ${customers ? customers.length : 0} customers:`, customers);
+
+                customerMap = customers.reduce((map, customer) => {
+                    map[customer.id] = customer;
+                    return map;
+                }, {});
+
+                console.log("Created customer map:", customerMap);
+            }
+
+            // Format ticket response
+            const result = tickets.map(ticket => {
+                const priority = ticket.priority === 2 ? 'high' : ticket.priority === 1 ? 'medium' : 'low';
+                const customer = ticket.customerId ? customerMap[ticket.customerId] : null;
+
+                console.log(`Processing ticket ${ticket.id} with customerId ${ticket.customerId}:`,
+                    customer ? `Found customer: ${customer.id}` : 'No customer found');
+
+                return {
+                    id: ticket.id,
+                    sno: ticket.sno,
+                    subject: ticket.title,
+                    description: ticket.description,
+                    status: ticket.status,
+                    priority: priority,
+                    // tags: ticket.tagIds || [],
+                    createdAt: ticket.createdAt,
+                    updatedAt: ticket.updatedAt,
+                    isUnread: false, // Default value since unread field is not fetched
+                    hasNotification: false,
+                    notificationType: null,
+                    customerId: ticket.customerId, // Include the customerId in the response
+                    customer: customer ? {
+                        id: customer.id,
+                        name: customer.name || `${customer.firstname || ''} ${customer.lastname || ''}`.trim() || customer.email || 'Unknown',
+                        email: customer.email,
+                        phone: customer.phone,
+                        type: customer.type
+                    } : {}
+                };
+            });
+
+            console.log(`Returning ${result.length} formatted tickets`);
+            return result;
+        } catch (error) {
+            console.error('Error listing assigned tickets:', error);
+            return Promise.reject(this.handleError(error));
+        }
+    }
+
+    async getUnassignedTickets(filters = {}) {
+        try {
+            const { status, workspaceId, clientId, priority, skip = 0, limit = 10 } = filters;
+            console.log(`Getting unassigned tickets with filters:`, filters);
+
+            // Get tickets with no assignee
+            let query = supabase
+                .from(this.entityName)
+                .select('id, sno, title, description, status, priority, customerId, teamId, assigneeId, lastMessage, lastMessageAt, createdAt, updatedAt')
+                .is('assigneeId', null)
+                .eq('clientId', clientId)
+                .is('deletedAt', null);
+
+            if (workspaceId) query = query.eq('workspaceId', workspaceId);
+            if (status) query = query.eq('status', status);
+            if (priority !== undefined) query = query.eq('priority', priority);
+
+            const { data: tickets, error } = await query
+                .order('createdAt', { ascending: false })
+                .range(skip, skip + limit - 1);
+
+            if (error) {
+                console.error("Error fetching unassigned tickets:", error);
+                throw error;
+            }
+
+            console.log(`Found ${tickets ? tickets.length : 0} unassigned tickets`);
+
+            if (!tickets || tickets.length === 0) {
+                return [];
+            }
+
+            // Extract customer IDs to fetch customer details
+            const customerIds = tickets
+                .map(ticket => ticket.customerId)
+                .filter(id => id);
+
+            console.log(`Extracted ${customerIds.length} customer IDs:`, customerIds);
+
+            // Fetch customer details
+            let customerMap = {};
+            if (customerIds.length > 0) {
+                console.log(`Fetching customer details for ${customerIds.length} customers`);
+
+                const { data: customers, error: customersError } = await supabase
+                    .from('customers')
+                    .select('id, firstname, lastname, email, phone')
+                    .in('id', customerIds);
+
+                if (customersError) {
+                    console.error("Error in customers query:", customersError);
+                    throw customersError;
+                }
+
+                console.log(`Found ${customers ? customers.length : 0} customers`);
+
+                customerMap = customers.reduce((map, customer) => {
+                    map[customer.id] = customer;
+                    return map;
+                }, {});
+            }
+
+            // Format ticket response
+            const result = tickets.map(ticket => {
+                const priority = ticket.priority === 2 ? 'high' : ticket.priority === 1 ? 'medium' : 'low';
+                const customer = ticket.customerId ? customerMap[ticket.customerId] : null;
+
+                return {
+                    id: ticket.id,
+                    sno: ticket.sno,
+                    subject: ticket.title,
+                    description: ticket.description,
+                    status: ticket.status,
+                    priority: priority,
+                    createdAt: ticket.createdAt,
+                    updatedAt: ticket.updatedAt,
+                    isUnread: false,
+                    hasNotification: false,
+                    notificationType: null,
+                    customerId: ticket.customerId,
+                    customer: customer ? {
+                        id: customer.id,
+                        name: `${customer.firstname || ''} ${customer.lastname || ''}`.trim() || customer.email || 'Unknown',
+                        email: customer.email,
+                        phone: customer.phone
+                    } : {}
+                };
+            });
+
+            console.log(`Returning ${result.length} formatted tickets`);
+            return result;
+        } catch (error) {
+            console.error('Error listing unassigned tickets:', error);
+            return Promise.reject(this.handleError(error));
+        }
     }
 }
 
