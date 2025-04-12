@@ -57,8 +57,8 @@ async function setAblyTicketChatListener(ticketId, clientId, workspaceId) {
 }
 
 // create a function to handle the message from the widget:contactevent:sessionId
-async function handleWidgetContactEvent(sessionId, msg) {
-  console.log('✅ Handling widget contact event', sessionId, msg);
+async function handleWidgetContactEvent(sessionId, clientId, workspaceId) { 
+  console.log('✅ Handling widget contact event', sessionId, clientId, workspaceId);
   const contactEventChannel = ably.channels.get(`widget:contactevent:${sessionId}`);
   contactEventChannel.subscribe('new_message', (msg) => handleMessage(msg, 'contact'));
   const handleMessage = async (msg) => {
@@ -199,4 +199,4 @@ async function startAblyListener() {
   ticketChannel.subscribe('new_message', (msg) => handleMessage(msg, 'ticket'));
 }
 
-module.exports = { startAblyListener, setAblyTicketChatListener };
+module.exports = { startAblyListener, setAblyTicketChatListener, handleWidgetContactEvent };

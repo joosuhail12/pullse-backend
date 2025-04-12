@@ -3,7 +3,7 @@ const BaseService = require("./BaseService");
 const _ = require("lodash");
 const AuthService = require("./AuthService");
 const ConversationEventPublisher = require("../Events/ConversationEvent/ConversationEventPublisher");
-
+const { handleWidgetContactEvent } = require("../ExternalService/ablyListener");
 class WidgetService extends BaseService {
     constructor() {
         super();
@@ -264,6 +264,7 @@ class WidgetService extends BaseService {
                     sessionId: sessionData.id
                 };
             }
+            handleWidgetContactEvent(sessionData.id, widgetData.clientId, widgetData.workspaceId)
 
         } catch (error) {
             console.error(error);
@@ -501,6 +502,10 @@ class WidgetService extends BaseService {
                 clientId,
                 contactDeviceId: widgetSession.contactDeviceId
             });
+
+            //now listen to ably channel for customer msg
+            setAblyTicketChatListener(ticketId, clientId, workspaceId)
+
 
             return conversations;
 
