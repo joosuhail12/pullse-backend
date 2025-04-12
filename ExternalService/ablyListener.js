@@ -47,9 +47,9 @@ async function setAblyTicketChatListener(ticketId, clientId, workspaceId) {
       });
     if (error) throw error;
     console.log('✅ Message saved to conversations table', data);
+    const publisher = new ConversationEventPublisher();
+    await publisher.created(text, updatedTicket, false);
   }
-  const publisher = new ConversationEventPublisher();
-  await publisher.created(text, updatedTicket, false);
 
 
 
@@ -116,11 +116,17 @@ async function handleWidgetContactEvent(sessionId, msg) {
     //publish this message to the customer queue event rabbit
     const publisher = new ConversationEventPublisher();
     await publisher.created(text, updatedTicket, true);
-    // get a teamId from the channel table usign the channel name which is chat
-    const { data: teamData, error: teamError } = await supabase
+    // get a teamId from the teamChannels table in which using the channelId to map to channel name that is chat
+    const { data: channelData, error: channelError } = await supabase
       .from('channels')
-      .select('teamId')
+      .select('id')
       .eq('name', 'chat');
+    if (channelError) throw channelError;
+    const channelId = channelData[0].id;  
+    const { data: teamData, error: teamError } = await supabase
+      .from('teamChannels')
+      .select('teamId')
+      .eq('channelId', channelId);
     if (teamError) throw teamError;
     const teamId = teamData[0].teamId;
     //     // craete a new ticket in the database
@@ -138,6 +144,10 @@ async function handleWidgetContactEvent(sessionId, msg) {
       });
     if (newTicketError) throw newTicketError;
     console.log('✅ New ticket created', newTicket);
+    // now end ticket id to the same channel with new_ticket_reply event
+    contactEventChannel.publish('new_ticket_reply', {
+      ticketId: newTicket[0].id,
+    });
   }
 }
 
