@@ -63,7 +63,6 @@ async function handleWidgetContactEvent(sessionId, clientId, workspaceId) {
   try {
     console.log('✅ Handling widget contact event', sessionId, clientId, workspaceId);
     const contactEventChannel = ably.channels.get(`widget:contactevent:${sessionId}`);
-    contactEventChannel.subscribe('new_ticket', (msg) => handleMessage(msg, 'contact'));
     const handleMessage = async (msg) => {
       const msgData = typeof msg.data === 'string' ? JSON.parse(msg.data) : msg.data;
       const {
@@ -124,8 +123,8 @@ async function handleWidgetContactEvent(sessionId, clientId, workspaceId) {
       if (error) throw error;
       console.log('✅ Message saved to conversations table', data);
       //publish this message to the customer queue event rabbit
-      // const publisher = new ConversationEventPublisher();
-      // await publisher.created(text, updatedTicket, true);
+      const publisher = new ConversationEventPublisher();
+      await publisher.created(text, updatedTicket, true);
       // get a teamId from the teamChannels table in which using the channelId to map to channel name that is chat
       const { data: channelData, error: channelError } = await supabase
         .from('channels')
@@ -159,6 +158,8 @@ async function handleWidgetContactEvent(sessionId, clientId, workspaceId) {
         ticketId: newTicket[0].id,
       });
     }
+    contactEventChannel.subscribe('new_ticket', (msg) => handleMessage(msg, 'contact'));
+
   } catch (error) {
     console.error('❌ Error handling widget contact event', error);
   }
