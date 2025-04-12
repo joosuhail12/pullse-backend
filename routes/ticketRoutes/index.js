@@ -119,6 +119,7 @@ async function activate(app) {
         language: { type: 'string' },
         teamId: { type: 'string' },
         assigneeId: { type: 'string' },
+        assignedTo: { type: 'string' },
         typeId: { type: 'string' },
         summary: { type: 'string' },
       }
@@ -163,6 +164,35 @@ async function activate(app) {
     }
   });
 
+  // Add a new route to update ticket by ID
+  app.route({
+    url: base_url + "/id/:ticket_id",
+    method: 'PUT',
+    name: "UpdateTicketById",
+    preHandler: authMiddlewares.checkToken(AuthType.user),
+    schema: {
+      tags: ['Ticket'],
+      summary: 'Update Ticket by ID',
+      description: 'API to update a Ticket using its UUID instead of serial number.',
+      body: {
+        subject: { type: 'string' },
+        description: { type: 'string' },
+        status: { type: 'string' },
+        externalId: { type: 'string' },
+        priority: { type: 'string' },
+        language: { type: 'string' },
+        teamId: { type: 'string' },
+        assigneeId: { type: 'string' },
+        assignedTo: { type: 'string' },
+        typeId: { type: 'string' },
+        summary: { type: 'string' },
+      }
+    },
+    handler: async (req, reply) => {
+      return handler.updateTicket(req, reply);
+    }
+  });
+
   // Dedicated API for assigning tickets
   app.route({
     url: base_url + "/:ticket_sno/assign",
@@ -179,6 +209,38 @@ async function activate(app) {
           userId: {
             type: 'string',
             description: 'ID of the user to assign the ticket to'
+          }
+        }
+      }
+    },
+    handler: async (req, reply) => {
+      return handler.assignTicket(req, reply);
+    }
+  });
+
+  // Dedicated API for assigning tickets by ID
+  app.route({
+    url: base_url + "/id/:ticket_id/assign",
+    method: 'POST',
+    name: "AssignTicketById",
+    preHandler: authMiddlewares.checkToken(AuthType.user),
+    schema: {
+      tags: ['Ticket'],
+      summary: 'Assign Ticket to User by ID',
+      description: 'API to assign a ticket to a user using the ticket UUID instead of serial number.',
+      body: {
+        properties: {
+          userId: {
+            type: 'string',
+            description: 'ID of the user to assign the ticket to'
+          },
+          assignTo: {
+            type: 'string',
+            description: 'Alternative field for the ID of the user to assign the ticket to'
+          },
+          assignedTo: {
+            type: 'string',
+            description: 'Alternative field for the ID of the user to assign the ticket to'
           }
         }
       }

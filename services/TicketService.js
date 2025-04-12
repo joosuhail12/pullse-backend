@@ -161,16 +161,12 @@ class TicketService {
                     .from('ticketCustomers')
                     .select(`
                         customerId, 
-                        users(
+                        customers(
                             id, 
                             email, 
                             firstname, 
                             lastname, 
-                            phone,
-                            type,
-                            title,
-                            department,
-                            company(id, name)
+                            phone
                         )
                     `)
                     .eq('ticketId', ticket.id);
@@ -195,6 +191,34 @@ class TicketService {
                     .select('id, name, color')
                     .in('id', ticket.tagIds || []);
 
+                // Fetch assignedTo user details if assignedTo exists
+                let assignedToUser = null;
+                if (ticket.assignedTo) {
+                    const { data: user } = await supabase
+                        .from('users')
+                        .select('id, name, email')
+                        .eq('id', ticket.assignedTo)
+                        .single();
+
+                    if (user) {
+                        assignedToUser = user;
+                    }
+                }
+
+                // Fetch team details if teamId exists
+                let teamData = null;
+                if (ticket.teamId) {
+                    const { data: team } = await supabase
+                        .from('teams')
+                        .select('id, name')
+                        .eq('id', ticket.teamId)
+                        .single();
+
+                    if (team) {
+                        teamData = team;
+                    }
+                }
+
                 // Fetch ticket type data if typeId exists
                 const ticketTypePromise = ticket.typeId
                     ? supabase.from('ticketTypes').select('id, name, type').eq('id', ticket.typeId)
@@ -207,7 +231,7 @@ class TicketService {
                     .select('*', { count: 'exact', head: true })
                     .match({ ticket_id: ticket.id });
 
-                const primaryCustomer = customers?.[0]?.users;
+                const primaryCustomer = customers?.[0]?.customers;
                 const primaryCompany = companies?.[0]?.companies ||
                     (primaryCustomer?.company ? primaryCustomer.company : null);
                 const recipientEmails = mentions?.map(m => m.users?.email).filter(Boolean) || [];
@@ -233,10 +257,7 @@ class TicketService {
                         id: primaryCustomer?.id,
                         name: `${primaryCustomer?.firstname || ''} ${primaryCustomer?.lastname || ''}`.trim() || primaryCustomer?.email || 'Unknown',
                         email: primaryCustomer?.email,
-                        phone: primaryCustomer?.phone,
-                        type: primaryCustomer?.type,
-                        title: primaryCustomer?.title,
-                        department: primaryCustomer?.department
+                        phone: primaryCustomer?.phone
                     },
 
                     companyId: ticket.companyId,
@@ -255,7 +276,18 @@ class TicketService {
                     } : null,
                     assigneeStatus: assignees?.[0]?.users ? 'Assigned' : 'Unassigned',
 
+                    assignedTo: ticket.assignedTo,
+                    assignedToUser: assignedToUser ? {
+                        id: assignedToUser.id,
+                        name: assignedToUser.name,
+                        email: assignedToUser.email
+                    } : null,
+
                     teamId: ticket.teamId,
+                    team: teamData ? {
+                        id: teamData.id,
+                        name: teamData.name
+                    } : null,
 
                     lastMessage: ticket.lastMessage,
                     lastMessageAt: ticket.lastMessageAt,
@@ -310,8 +342,9 @@ class TicketService {
 
     async updateTicket(ticketIdentifier, updateData) {
         try {
-            const { sno, workspaceId, clientId } = ticketIdentifier;
-            const { message, recipients, assignee, lastMessageBy, ...ticketUpdateData } = updateData;
+            const { id, sno, workspaceId, clientId } = ticketIdentifier;
+            const { message, recipients, assignee, lastMessageBy, assigneeId, assignedTo, ...ticketUpdateData } = updateData;
+
             // Format priority
             if (typeof ticketUpdateData.priority === 'string') {
                 const priorityMap = { high: 2, medium: 1, low: 0 };
@@ -328,8 +361,13 @@ class TicketService {
 
             // Fetch ticket
             let query = supabase.from(this.entityName).select('*');
-            if (sno) query = query.eq('sno', sno);
-            else throw new errors.ValidationFailed("Either id or sno is required to update a ticket");
+            if (id) {
+                query = query.eq('id', id);
+            } else if (sno) {
+                query = query.eq('sno', sno);
+            } else {
+                throw new errors.ValidationFailed("Either id or sno is required to update a ticket");
+            }
             query = query.eq('workspaceId', workspaceId).eq('clientId', clientId);
 
             const { data: existingTicket, error: fetchError } = await query.single();
@@ -355,9 +393,57 @@ class TicketService {
                 ticketUpdateData.lastMessageAt = new Date().toISOString();
                 if (lastMessageBy) ticketUpdateData.lastMessageBy = lastMessageBy;
             }
+
+            // Handle assignee
             if (assignee) {
                 ticketUpdateData.assigneeId = assignee.id;
             }
+
+            // Handle direct assignedTo field
+            if (assignedTo) {
+                ticketUpdateData.assignedTo = assignedTo;
+            }
+
+            // Handle direct assigneeId field for ticketAssignees table 
+            let assigneeDetails = null;
+            let ticketAssigneeEntry = null;
+
+            if (assigneeId) {
+                try {
+                    // First fetch the assignee details for the response
+                    const { data: userDetails, error: userError } = await supabase
+                        .from('users')
+                        .select('id, name, email')
+                        .eq('id', assigneeId)
+                        .maybeSingle();
+
+                    if (!userError && userDetails) {
+                        assigneeDetails = userDetails;
+                    }
+
+                    // Then update the ticketAssignees table
+                    const { data: assigneeEntry, error: assigneeError } = await supabase
+                        .from('ticketAssignees')
+                        .upsert({
+                            ticketId: existingTicket.id,
+                            userId: assigneeId
+                        }, {
+                            onConflict: 'ticketId'
+                        })
+                        .select()
+                        .single();
+
+                    if (!assigneeError) {
+                        ticketAssigneeEntry = assigneeEntry;
+                    }
+
+                    console.log(`Updated ticketAssignees for ticket ${existingTicket.id} with assigneeId ${assigneeId}`);
+                } catch (err) {
+                    console.log(`Warning: Error updating ticketAssignees: ${err.message}`);
+                }
+            }
+
+            console.log("Updating ticket with data:", JSON.stringify(ticketUpdateData));
 
             // Update ticket
             const { data: updatedTicket, error: updateError } = await supabase
@@ -373,8 +459,8 @@ class TicketService {
             this._updateRecipientsAndAssignee(existingTicket.id, recipients, assignee);
             this._publishTicketEvent(updatedTicket, ticketUpdateData, previousAssigneeId);
 
-            // Build simplified response
-            return {
+            // Build enhanced response with assignee details if available
+            let response = {
                 id: updatedTicket.id,
                 sno: updatedTicket.sno,
                 subject: updatedTicket.title,
@@ -386,6 +472,40 @@ class TicketService {
                 language: updatedTicket.language || 'en',
                 type: updatedTicket.type || 'general'
             };
+
+            // If this was an assignment update, include assignment details
+            if (assignedTo || assigneeId) {
+                // If we don't have assignee details yet, try to get them
+                if (!assigneeDetails && (assignedTo || assigneeId)) {
+                    const userId = assignedTo || assigneeId;
+                    const { data: userDetails } = await supabase
+                        .from('users')
+                        .select('id, name, email')
+                        .eq('id', userId)
+                        .maybeSingle();
+
+                    if (userDetails) {
+                        assigneeDetails = userDetails;
+                    }
+                }
+
+                response = {
+                    success: true,
+                    ticket: {
+                        id: updatedTicket.id,
+                        sno: updatedTicket.sno,
+                        assignedTo: assignedTo || (assigneeDetails ? assigneeDetails.id : null)
+                    },
+                    assignee: assigneeDetails || {
+                        id: assignedTo || assigneeId,
+                        name: "Unknown User",
+                        email: null
+                    },
+                    assigneeStatus: 'Assigned'
+                };
+            }
+
+            return response;
         } catch (err) {
             console.error("updateTicket error:", err);
             throw err;
@@ -483,6 +603,7 @@ class TicketService {
                 customerId: ticket.customerId,
                 companyId: ticket.companyId,
                 teamId: ticket.teamId,
+                assignedTo: ticket.assignedTo,
                 lastMessage: ticket.lastMessage,
                 lastMessageAt: ticket.lastMessageAt,
                 lastMessageBy: ticket.lastMessageBy,
@@ -535,16 +656,12 @@ class TicketService {
                         supabase.from('ticketCustomers')
                             .select(`
                                 customerId, 
-                                users(
+                                customers(
                                     id, 
                                     email, 
                                     firstname, 
                                     lastname, 
-                                    phone,
-                                    type,
-                                    title,
-                                    department,
-                                    company(id, name)
+                                    phone
                                 )
                             `)
                             .eq('ticketId', ticket.id)
@@ -567,6 +684,26 @@ class TicketService {
                             .select('companyId, companies(id, name, domain)')
                             .eq('ticketId', ticket.id)
                     );
+
+                    // Fetch assignedTo user details if it exists
+                    const assignedToUserPromise = ticket.assignedTo
+                        ? fetchWithErrorHandling(
+                            supabase.from('users')
+                                .select('id, name, email')
+                                .eq('id', ticket.assignedTo)
+                                .single()
+                        )
+                        : Promise.resolve({ data: null });
+
+                    // Fetch team details if teamId exists
+                    const teamPromise = ticket.teamId
+                        ? fetchWithErrorHandling(
+                            supabase.from('teams')
+                                .select('id, name')
+                                .eq('id', ticket.teamId)
+                                .single()
+                        )
+                        : Promise.resolve({ data: null });
 
                     // Fetch tags if the ticket has tagIds
                     const tagsPromise = ticket.tagIds && ticket.tagIds.length > 0
@@ -593,20 +730,24 @@ class TicketService {
                         { data: mentions },
                         { data: companies },
                         { data: tagData },
-                        { count: messageCount }
+                        { count: messageCount },
+                        { data: assignedToUser },
+                        { data: team }
                     ] = await Promise.all([
                         customersPromise,
                         assigneesPromise,
                         mentionsPromise,
                         companiesPromise,
                         tagsPromise,
-                        messageCountPromise
+                        messageCountPromise,
+                        assignedToUserPromise,
+                        teamPromise
                     ]);
 
                     console.log(`getDetails: All queries completed for ticket ${ticket.id}`);
 
                     // Process the results
-                    const primaryCustomer = customers?.[0]?.users;
+                    const primaryCustomer = customers?.[0]?.customers;
                     const primaryCompany = companies?.[0]?.companies ||
                         (primaryCustomer?.company ? primaryCustomer.company : null);
                     const recipientEmails = mentions?.map(m => m.users?.email).filter(Boolean) || [];
@@ -624,9 +765,9 @@ class TicketService {
                             name: `${primaryCustomer?.firstname || ''} ${primaryCustomer?.lastname || ''}`.trim() || primaryCustomer?.email || 'Unknown',
                             email: primaryCustomer?.email,
                             phone: primaryCustomer?.phone,
-                            type: primaryCustomer?.type,
-                            title: primaryCustomer?.title,
-                            department: primaryCustomer?.department
+                            // type: primaryCustomer?.type,
+                            // title: primaryCustomer?.title,
+                            // department: primaryCustomer?.department
                         },
                         company: primaryCompany ? {
                             id: primaryCompany.id,
@@ -640,6 +781,15 @@ class TicketService {
                             role: assignees[0].users.role
                         } : null,
                         assigneeStatus: assignees?.[0]?.users ? 'Assigned' : 'Unassigned',
+                        assignedToUser: assignedToUser ? {
+                            id: assignedToUser.id,
+                            name: assignedToUser.name,
+                            email: assignedToUser.email
+                        } : null,
+                        team: team ? {
+                            id: team.id,
+                            name: team.name
+                        } : null,
                         tags: formattedTags,
                         recipients: recipientEmails,
                         messageCount: messageCount || 0,
@@ -874,22 +1024,28 @@ class TicketService {
     /**
      * Assign a ticket to a user
      */
-    async assignTicketToUser(sno, userId, workspaceId, clientId) {
+    async assignTicketToUser(id, sno, userId, workspaceId, clientId) {
         try {
-            console.log(`Assigning ticket ${sno} to user ${userId}`);
+            console.log(`Assigning ticket ${id ? `with ID ${id}` : `with SNO ${sno}`} to user ${userId}`);
 
             if (!userId) {
                 throw new errors.ValidationFailed("User ID is required");
             }
 
+            if (!id && !sno) {
+                throw new errors.ValidationFailed("Either ticket ID or SNO is required");
+            }
+
             // Get the ticket
-            const { data: ticket, error: ticketError } = await supabase
-                .from(this.entityName)
-                .select('id')
-                .eq('sno', sno)
-                .eq('workspaceId', workspaceId)
-                .eq('clientId', clientId)
-                .single();
+            let query = supabase.from(this.entityName).select('id');
+            if (id) {
+                query = query.eq('id', id);
+            } else {
+                query = query.eq('sno', sno);
+            }
+            query = query.eq('workspaceId', workspaceId).eq('clientId', clientId);
+
+            const { data: ticket, error: ticketError } = await query.single();
 
             if (ticketError) {
                 console.error("Error fetching ticket:", ticketError);
@@ -897,57 +1053,44 @@ class TicketService {
             }
 
             if (!ticket || !ticket.id) {
-                throw new errors.NotFound(`Ticket with SNO ${sno} not found`);
+                throw new errors.NotFound(`Ticket ${id ? `with ID ${id}` : `with SNO ${sno}`} not found`);
             }
 
             console.log(`Found ticket with ID ${ticket.id}, now checking if user exists`);
 
-            // First verify the user exists
+            // Verify the user exists
             const { data: userExists, error: userCheckError } = await supabase
                 .from('users')
-                .select('id')
+                .select('id, name, email')
                 .eq('id', userId)
-                .single();
+                .maybeSingle();  // Use maybeSingle instead of single
 
             if (userCheckError) {
                 console.error("Error verifying user:", userCheckError);
-                throw new errors.NotFound(`User with ID ${userId} not found`);
+                throw new errors.NotFound(`Error verifying user: ${userCheckError.message}`);
             }
 
-            console.log(`User exists, deleting existing assignments for ticket ${ticket.id}`);
+            if (!userExists) {
+                console.log(`No user found with ID ${userId}, trying direct RPC call`);
 
-            // Delete any existing assignments
-            const { error: deleteError } = await supabase
-                .from('ticketAssignees')
-                .delete()
-                .eq('ticketId', ticket.id);
+                // Try a direct query as fallback to check if user exists
+                const { data: directUser, error: directUserError } = await supabase.rpc('get_user_by_id', {
+                    user_id: userId
+                });
 
-            if (deleteError) {
-                console.error("Error deleting existing assignments:", deleteError);
-                throw deleteError;
+                if (directUserError || !directUser) {
+                    console.error("Error or no results in direct user query:", directUserError);
+                    throw new errors.NotFound(`User with ID ${userId} not found`);
+                }
+
+                console.log(`Found user via direct query: ${directUser.id}`);
             }
 
-            console.log(`Creating new assignment for ticket ${ticket.id} to user ${userId}`);
-
-            // Create new assignment
-            const { data: assigneeEntry, error: assigneeError } = await supabase
-                .from('ticketAssignees')
-                .insert({ ticketId: ticket.id, userId })
-                .select()
-                .single();
-
-            if (assigneeError) {
-                console.error("Error creating assignment:", assigneeError);
-                throw assigneeError;
-            }
-
-            console.log(`Assignment created with ID ${assigneeEntry.id}, updating ticket with assigneeId`);
-
-            // Update ticket with assigneeId and updated_at timestamp
+            // Update ticket with assignedTo field
             const { data: updatedTicket, error: updateError } = await supabase
                 .from(this.entityName)
                 .update({
-                    assigneeId: assigneeEntry.id, // Set assigneeId to the ID of the new ticketAssignees entry
+                    assignedTo: userId,
                     updatedAt: new Date().toISOString()
                 })
                 .eq('id', ticket.id)
@@ -955,32 +1098,36 @@ class TicketService {
                 .single();
 
             if (updateError) {
-                console.error("Error updating ticket with assigneeId:", updateError);
+                console.error("Error updating ticket with assignedTo:", updateError);
                 throw updateError;
             }
 
-            console.log(`Ticket updated with assigneeId ${assigneeEntry.id}, fetching user details for response`);
-
-            // Return user details with the assignment
-            const { data: userDetails, error: userError } = await supabase
-                .from('users')
-                .select('id, name, email, role')
-                .eq('id', userId)
+            // Also update ticketAssignees for consistency and backward compatibility
+            const { data: assigneeEntry, error: assigneeError } = await supabase
+                .from('ticketAssignees')
+                .upsert({
+                    ticketId: ticket.id,
+                    userId: userId
+                }, {
+                    onConflict: 'ticketId'
+                })
+                .select()
                 .single();
 
-            if (userError) {
-                console.error("Error fetching user details:", userError);
-                // Don't throw here - we'll just return the assignment info without user details
+            if (assigneeError) {
+                console.log(`Warning: Could not create ticketAssignees entry: ${assigneeError.message}`);
+                // Don't fail the whole operation if just the join table update fails
             }
 
+            // Return enhanced response
             return {
                 success: true,
                 ticket: {
                     id: ticket.id,
-                    sno: sno,
-                    assigneeId: assigneeEntry.id // Include this in the response
+                    sno: updatedTicket.sno,
+                    assignedTo: userId
                 },
-                assignee: userDetails || { id: userId, name: "Unknown User" },
+                assignee: userExists || { id: userId, name: "Unknown User" },
                 assigneeStatus: 'Assigned'
             };
         } catch (error) {
@@ -1040,11 +1187,15 @@ class TicketService {
             const { status, workspaceId, clientId, priority, skip = 0, limit = 10 } = filters;
             console.log(`Getting tickets assigned to user ${userId} with filters:`, filters);
 
-            // Get tickets assigned to the user
+            // Get tickets assigned to the user using assignedTo field
             let query = supabase
                 .from(this.entityName)
-                .select('id, sno, title, description, status, priority, customerId, teamId, assigneeId, lastMessage, lastMessageAt, createdAt, updatedAt')
-                .eq('assigneeId', userId)
+                .select(`
+                    id, sno, title, description, status, priority, customerId,
+                    teamId, teams:teamId(id, name),
+                    assignedTo, lastMessage, lastMessageAt, createdAt, updatedAt
+                `)
+                .eq('assignedTo', userId)
                 .eq('clientId', clientId)
                 .is('deletedAt', null);
 
@@ -1080,7 +1231,7 @@ class TicketService {
                 console.log(`Fetching customer details for ${customerIds.length} customers`);
 
                 const { data: customers, error: customersError } = await supabase
-                    .from('users')
+                    .from('customers')
                     .select('*')
                     .in('id', customerIds);
 
@@ -1089,23 +1240,46 @@ class TicketService {
                     throw customersError;
                 }
 
-                console.log(`Found ${customers ? customers.length : 0} customers:`, customers);
+                console.log(`Found ${customers ? customers.length : 0} customers`);
 
                 customerMap = customers.reduce((map, customer) => {
                     map[customer.id] = customer;
                     return map;
                 }, {});
+            }
 
-                console.log("Created customer map:", customerMap);
+            // Get assignee details (the user these tickets are assigned to)
+            const { data: assigneeUser } = await supabase
+                .from('users')
+                .select('id, name, email')
+                .eq('id', userId)
+                .single();
+
+            // Fetch team details for tickets with teamId
+            const teamIds = tickets
+                .map(ticket => ticket.teamId)
+                .filter(id => id);
+
+            let teamMap = {};
+            if (teamIds.length > 0) {
+                const { data: teams, error: teamsError } = await supabase
+                    .from('teams')
+                    .select('id, name')
+                    .in('id', teamIds);
+
+                if (!teamsError && teams) {
+                    teamMap = teams.reduce((map, team) => {
+                        map[team.id] = team;
+                        return map;
+                    }, {});
+                }
             }
 
             // Format ticket response
             const result = tickets.map(ticket => {
                 const priority = ticket.priority === 2 ? 'high' : ticket.priority === 1 ? 'medium' : 'low';
                 const customer = ticket.customerId ? customerMap[ticket.customerId] : null;
-
-                console.log(`Processing ticket ${ticket.id} with customerId ${ticket.customerId}:`,
-                    customer ? `Found customer: ${customer.id}` : 'No customer found');
+                const teamData = ticket.teamId ? teamMap[ticket.teamId] : ticket.teams;
 
                 return {
                     id: ticket.id,
@@ -1114,13 +1288,26 @@ class TicketService {
                     description: ticket.description,
                     status: ticket.status,
                     priority: priority,
-                    // tags: ticket.tagIds || [],
                     createdAt: ticket.createdAt,
                     updatedAt: ticket.updatedAt,
                     isUnread: false, // Default value since unread field is not fetched
                     hasNotification: false,
                     notificationType: null,
-                    customerId: ticket.customerId, // Include the customerId in the response
+                    customerId: ticket.customerId,
+                    teamId: ticket.teamId,
+                    team: teamData ? {
+                        id: teamData.id,
+                        name: teamData.name
+                    } : (ticket.teams ? {
+                        id: ticket.teams.id,
+                        name: ticket.teams.name
+                    } : null),
+                    assignedTo: ticket.assignedTo,
+                    assignedToUser: assigneeUser ? {
+                        id: assigneeUser.id,
+                        name: assigneeUser.name,
+                        email: assigneeUser.email
+                    } : null,
                     customer: customer ? {
                         id: customer.id,
                         name: customer.name || `${customer.firstname || ''} ${customer.lastname || ''}`.trim() || customer.email || 'Unknown',
@@ -1144,11 +1331,15 @@ class TicketService {
             const { status, workspaceId, clientId, priority, skip = 0, limit = 10 } = filters;
             console.log(`Getting unassigned tickets with filters:`, filters);
 
-            // Get tickets with no assignee
+            // Get tickets with no assignedTo value
             let query = supabase
                 .from(this.entityName)
-                .select('id, sno, title, description, status, priority, customerId, teamId, assigneeId, lastMessage, lastMessageAt, createdAt, updatedAt')
-                .is('assigneeId', null)
+                .select(`
+                    id, sno, title, description, status, priority, customerId, 
+                    teamId, teams:teamId(id, name),
+                    assignedTo, lastMessage, lastMessageAt, createdAt, updatedAt
+                `)
+                .is('assignedTo', null)
                 .eq('clientId', clientId)
                 .is('deletedAt', null);
 
@@ -1201,10 +1392,31 @@ class TicketService {
                 }, {});
             }
 
+            // Fetch team details for tickets with teamId
+            const teamIds = tickets
+                .map(ticket => ticket.teamId)
+                .filter(id => id);
+
+            let teamMap = {};
+            if (teamIds.length > 0) {
+                const { data: teams, error: teamsError } = await supabase
+                    .from('teams')
+                    .select('id, name')
+                    .in('id', teamIds);
+
+                if (!teamsError && teams) {
+                    teamMap = teams.reduce((map, team) => {
+                        map[team.id] = team;
+                        return map;
+                    }, {});
+                }
+            }
+
             // Format ticket response
             const result = tickets.map(ticket => {
                 const priority = ticket.priority === 2 ? 'high' : ticket.priority === 1 ? 'medium' : 'low';
                 const customer = ticket.customerId ? customerMap[ticket.customerId] : null;
+                const teamData = ticket.teamId ? teamMap[ticket.teamId] : ticket.teams;
 
                 return {
                     id: ticket.id,
@@ -1219,6 +1431,15 @@ class TicketService {
                     hasNotification: false,
                     notificationType: null,
                     customerId: ticket.customerId,
+                    teamId: ticket.teamId,
+                    assignedTo: null,
+                    team: teamData ? {
+                        id: teamData.id,
+                        name: teamData.name
+                    } : (ticket.teams ? {
+                        id: ticket.teams.id,
+                        name: ticket.teams.name
+                    } : null),
                     customer: customer ? {
                         id: customer.id,
                         name: `${customer.firstname || ''} ${customer.lastname || ''}`.trim() || customer.email || 'Unknown',
