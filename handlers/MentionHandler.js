@@ -18,6 +18,7 @@ class MentionHandler extends BaseHandler {
             ticketId: req.query.ticket_id,
             userId: targetUserId,
             clientId: req.authUser.clientId,
+            workspaceId: req.query.workspace_id,
             status: req.query.status,
             isRead: req.query.is_read === 'true',
             skip: parseInt(req.query.skip || 0),

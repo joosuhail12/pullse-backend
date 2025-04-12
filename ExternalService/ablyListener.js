@@ -56,18 +56,13 @@ async function setAblyTicketChatListener(ticketId, clientId, workspaceId) {
   ticketChannel.subscribe('message', (msg) => handleMessage(msg, 'ticket'));
 }
 
-async function handlePublishTicketConversationEvent(ticketId, clientId, workspaceId, msg) { 
-  console.log('✅ Handling publish ticket conversation event', ticketId, clientId, workspaceId);
-  const ticketConversationChannel = ably.channels.get(`ticket:${ticketId}`)
-  ticketConversationChannel.publish('message_reply', msg);
-  
-}
-
-async function handleWidgetContactEvent(sessionId, clientId, workspaceId) { 
-  console.log('✅ Handling widget contact event', sessionId, clientId, workspaceId);
-  const contactEventChannel = ably.channels.get(`widget:contactevent:${sessionId}`);
-  contactEventChannel.subscribe('new_message', (msg) => handleMessage(msg, 'contact'));
-  const handleMessage = async (msg) => {
+// create a function to handle the message from the widget:contactevent:sessionId
+async function handleWidgetContactEvent(sessionId, clientId, workspaceId) {
+  try {
+    console.log('✅ Handling widget contact event', sessionId, clientId, workspaceId);
+    const contactEventChannel = ably.channels.get(`widget:contactevent:${sessionId}`);
+    contactEventChannel.subscribe('new_ticket', (msg) => handleMessage(msg, 'contact'));
+    const handleMessage = async (msg) => {
     const msgData = typeof msg.data === 'string' ? JSON.parse(msg.data) : msg.data;
     const {
       text,
@@ -128,7 +123,7 @@ async function handleWidgetContactEvent(sessionId, clientId, workspaceId) {
       .select('id')
       .eq('name', 'chat');
     if (channelError) throw channelError;
-    const channelId = channelData[0].id;  
+    const channelId = channelData[0].id;
     const { data: teamData, error: teamError } = await supabase
       .from('teamChannels')
       .select('teamId')
@@ -154,7 +149,9 @@ async function handleWidgetContactEvent(sessionId, clientId, workspaceId) {
     contactEventChannel.publish('new_ticket_reply', {
       ticketId: newTicket[0].id,
     });
-  }
+  } catch (error) {
+    console.error('❌ Error handling widget contact event', error);
+  } 
 }
 
 // add a customer object to check the already subscribed channels

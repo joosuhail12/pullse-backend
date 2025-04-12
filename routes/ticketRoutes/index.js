@@ -339,6 +339,58 @@ async function activate(app) {
       return handler.getConversationByTicketId(req, reply);
     }
   });
+
+  // Add routes for assigning tickets to teams
+
+  // Route for assigning by SNO
+  app.route({
+    url: base_url + "/:ticket_sno/assign-team",
+    method: 'PUT',
+    name: "AssignTicketToTeam",
+    preHandler: authMiddlewares.checkToken(AuthType.user),
+    schema: {
+      tags: ['Ticket'],
+      summary: 'Assign Ticket to Team',
+      description: 'API to assign a ticket to a team without updating other ticket fields.',
+      body: {
+        required: ['teamId'],
+        properties: {
+          teamId: {
+            type: 'string',
+            description: 'ID of the team to assign the ticket to'
+          }
+        }
+      }
+    },
+    handler: async (req, reply) => {
+      return handler.assignTeam(req, reply);
+    }
+  });
+
+  // Route for assigning by ID
+  app.route({
+    url: base_url + "/id/:ticket_id/assign-team",
+    method: 'PUT',
+    name: "AssignTicketToTeamById",
+    preHandler: authMiddlewares.checkToken(AuthType.user),
+    schema: {
+      tags: ['Ticket'],
+      summary: 'Assign Ticket to Team by ID',
+      description: 'API to assign a ticket to a team using the ticket UUID instead of serial number.',
+      body: {
+        required: ['teamId'],
+        properties: {
+          teamId: {
+            type: 'string',
+            description: 'ID of the team to assign the ticket to'
+          }
+        }
+      }
+    },
+    handler: async (req, reply) => {
+      return handler.assignTeam(req, reply);
+    }
+  });
 }
 
 // get conversation by ticket id

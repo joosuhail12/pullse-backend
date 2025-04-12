@@ -33,9 +33,9 @@ class MentionService {
 
     async getUserMentions(filters = {}) {
         try {
-            const { ticketId, userId, clientId, status, isRead, skip = 0, limit = 10 } = filters;
+            const { ticketId, userId, clientId, status, isRead, skip = 0, limit = 10, workspaceId } = filters;
 
-            console.log("Filtering with params:", { ticketId, userId, clientId, status, isRead });
+            console.log("Filtering with params:", { ticketId, userId, clientId, status, isRead, workspaceId });
 
             // Build the query to get mentions
             let query = supabase
@@ -80,7 +80,7 @@ class MentionService {
             // Fetch tickets with filtering
             let ticketQuery = supabase
                 .from('tickets')
-                .select('id, title, status, priority, customerId, clientId, sno, createdAt, updatedAt')
+                .select('id, title, status, priority, customerId, clientId, sno, createdAt, updatedAt, assignedTo, teamId')
                 .in('id', ticketIds);
 
             // Apply filters on tickets
@@ -90,6 +90,10 @@ class MentionService {
 
             if (clientId) {
                 ticketQuery = ticketQuery.eq('clientId', clientId);
+            }
+
+            if (workspaceId) {
+                ticketQuery = ticketQuery.eq('workspaceId', workspaceId);
             }
 
             const { data: tickets, error: ticketsError } = await ticketQuery;
@@ -125,11 +129,61 @@ class MentionService {
                 }, {});
             }
 
+            // Extract assignedTo user IDs to fetch assignedTo user details
+            const assignedToUserIds = tickets
+                .map(ticket => ticket.assignedTo)
+                .filter(id => id);
+
+            // Fetch assignedTo user details
+            let assignedToUserMap = {};
+            if (assignedToUserIds.length > 0) {
+                const { data: assignedToUsers, error: assignedToUsersError } = await supabase
+                    .from('users')
+                    .select('id, name, email')
+                    .in('id', assignedToUserIds);
+
+                if (assignedToUsersError) {
+                    console.error("Error in assignedToUsers query:", assignedToUsersError);
+                    throw assignedToUsersError;
+                }
+
+                assignedToUserMap = assignedToUsers.reduce((map, user) => {
+                    map[user.id] = user;
+                    return map;
+                }, {});
+            }
+
+            // Extract team IDs to fetch team details
+            const teamIds = tickets
+                .map(ticket => ticket.teamId)
+                .filter(id => id);
+
+            // Fetch team details
+            let teamMap = {};
+            if (teamIds.length > 0) {
+                const { data: teams, error: teamsError } = await supabase
+                    .from('teams')
+                    .select('id, name')
+                    .in('id', teamIds);
+
+                if (teamsError) {
+                    console.error("Error in teams query:", teamsError);
+                    throw teamsError;
+                }
+
+                teamMap = teams.reduce((map, team) => {
+                    map[team.id] = team;
+                    return map;
+                }, {});
+            }
+
             // Create a lookup map for ticket data
             const ticketMap = {};
             tickets.forEach(ticket => {
                 const priority = ticket.priority === 2 ? 'high' : ticket.priority === 1 ? 'medium' : 'low';
                 const customer = ticket.customerId ? customerMap[ticket.customerId] : null;
+                const assignedToUser = ticket.assignedTo ? assignedToUserMap[ticket.assignedTo] : null;
+                const team = ticket.teamId ? teamMap[ticket.teamId] : null;
 
                 ticketMap[ticket.id] = {
                     id: ticket.id,
@@ -144,11 +198,22 @@ class MentionService {
                     hasNotification: false, // Default value, update if needed
                     notificationType: null, // Default value, update if needed
                     customerId: ticket.customerId,
+                    teamId: ticket.teamId,
+                    assignedTo: ticket.assignedTo,
                     customer: customer ? {
                         id: customer.id,
-                        name: `${customer.firstname} ${customer.lastname}`.trim() || customer.email,
+                        name: `${customer.firstname || ''} ${customer.lastname || ''}`.trim() || customer.email || 'Unknown',
                         email: customer.email,
                         phone: customer.phone,
+                    } : null,
+                    assignedToUser: assignedToUser ? {
+                        id: assignedToUser.id,
+                        name: assignedToUser.name,
+                        email: assignedToUser.email
+                    } : null,
+                    team: team ? {
+                        id: team.id,
+                        name: team.name
                     } : null
                 };
             });

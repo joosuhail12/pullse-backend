@@ -225,6 +225,7 @@ class WidgetService extends BaseService {
                 handleWidgetContactEvent(updatedSessionData.id, widgetData.clientId, widgetData.workspaceId)
                 if (updatedSessionData && updatedSessionData.contactId) {
                     const { data: contactData, error: contactError } = await this.supabase.from("customers").select("*").eq("id", updatedSessionData.contactId).is("deletedAt", null).single();
+                    handleWidgetContactEvent(updatedSessionData.id, widgetData.clientId, widgetData.workspaceId);
                     return {
                         ...widgetData,
                         accessToken: updatedSessionData.token,
@@ -232,6 +233,7 @@ class WidgetService extends BaseService {
                         sessionId: updatedSessionData.id
                     };
                 } else {
+                    handleWidgetContactEvent(updatedSessionData.id, widgetData.clientId, widgetData.workspaceId);
                     return {
                         ...widgetData,
                         accessToken: updatedSessionData.token,
@@ -268,6 +270,7 @@ class WidgetService extends BaseService {
                     sessionId: sessionData.id
                 };
             }
+            handleWidgetContactEvent(sessionData.id, widgetData.clientId, widgetData.workspaceId);
 
         } catch (error) {
             console.error(error);
