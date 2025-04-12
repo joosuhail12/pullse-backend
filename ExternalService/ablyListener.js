@@ -65,26 +65,41 @@ const handleMessage = async (msg, ticketId = null) => {
     const msgData = typeof msg.data === 'string' ? JSON.parse(msg.data) : msg.data;
     const { text, sender, sessionId } = msgData;
 
+    console.log('📨 Incoming message:', msgData);
+
+    // Get session info
     const { data: sessionData, error: sessionError } = await supabase
       .from('widgetsessions')
       .select('*')
       .eq('id', sessionId);
 
     if (sessionError) throw sessionError;
-    const customerId = sessionData[0].contactId;
+    if (!sessionData || !sessionData[0]) throw new Error('No session data found');
 
+    const session = sessionData[0];
+    const customerId = safeUUID(session.contactId);
+    const clientId = safeUUID(session.clientId);
+    const workspaceId = safeUUID(session.workspaceId);
+
+    console.log('👤 Session:', session.id, 'Customer:', customerId);
+
+    // Get welcome message
     const { data: widgetThemeData, error: widgetThemeError } = await supabase
       .from('widgetthemes')
-      .eq('widgetId', sessionData[0].widgetId);
+      .eq('widgetId', session.widgetId);
 
     if (widgetThemeError) throw widgetThemeError;
-    const welcomeMessage = widgetThemeData[0].labels.welcomeMessage;
+    if (!widgetThemeData || !widgetThemeData[0]) throw new Error('No widget theme found');
+
+    const welcomeMessage = widgetThemeData[0].labels?.welcomeMessage || 'Hello!';
+
+    // Get channel -> team
     const { data: channelData, error: channelError } = await supabase
       .from('channels')
       .select('id')
       .eq('name', 'chat');
-
     if (channelError) throw channelError;
+    if (!channelData?.[0]?.id) throw new Error('Channel ID not found');
 
     const channelId = channelData[0].id;
 
@@ -92,66 +107,75 @@ const handleMessage = async (msg, ticketId = null) => {
       .from('teamChannels')
       .select('teamId')
       .eq('channelId', channelId);
-
     if (teamError) throw teamError;
+    if (!teamData?.[0]?.teamId) throw new Error('Team ID not found');
 
-    const teamId = teamData[0].teamId;
+    const teamId = safeUUID(teamData[0].teamId);
 
+    // Create new ticket
     const { data: newTicket, error: newTicketError } = await supabase
       .from('tickets')
       .insert({
-        customerId: safeUUID(customerId),
-        clientId: sessionData[0].clientId,
-        workspaceId: sessionData[0].workspaceId,
+        customerId,
+        clientId,
+        workspaceId,
         lastMessage: text,
-        teamId: teamId,
+        teamId,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
-      });
+      })
+      .select();
 
-    const { data: welcomeMessageData, error: welcomeMessageError } = await supabase
+    if (newTicketError) throw newTicketError;
+    if (!newTicket?.[0]?.id) throw new Error('Ticket insert failed');
+
+    const newTicketId = newTicket[0].id;
+    console.log('🎟 New ticket created:', newTicketId);
+
+    // Save welcome message
+    const { error: welcomeMessageError } = await supabase
       .from('conversations')
       .insert({
         message: welcomeMessage,
-        createdBy: safeUUID(customerId) || null,
+        createdBy: customerId,
         type: 'chat',
-        ticketId: newTicket[0].id,
+        ticketId: newTicketId,
         userType: 'agent',
-        clientId: sessionData[0].clientId,
-        workspaceId: sessionData[0].workspaceId,
+        clientId,
+        workspaceId,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       });
-
     if (welcomeMessageError) throw welcomeMessageError;
 
-    const { data: insertedMsgData, error: msgInsertError } = await supabase
+    // Save user message
+    const { error: msgInsertError } = await supabase
       .from('conversations')
       .insert({
         message: text,
-        createdBy: safeUUID(customerId) || null,
+        createdBy: customerId,
         type: 'chat',
-        ticketId: newTicket[0].id,
+        ticketId: newTicketId,
         userType: 'customer',
-        clientId: sessionData[0].clientId,
-        workspaceId: sessionData[0].workspaceId,
+        clientId,
+        workspaceId,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       });
-
     if (msgInsertError) throw msgInsertError;
 
-
-
-    if (newTicketError) throw newTicketError;
-
+    // SAFELY get contactEventChannel again based on sessionId
+    const contactEventChannel = ably.channels.get(`widget:contactevent:${sessionId}`);
     await contactEventChannel.publish('new_ticket_reply', {
-      ticketId: newTicket[0].id,
+      ticketId: newTicketId,
     });
+
+    console.log('✅ Contact event reply sent for ticket:', newTicketId);
   } catch (err) {
     console.error('❌ Error inside handleMessage:', err);
   }
 };
+
 
 // create a function to handle the message from the widget:contactevent:sessionId
 async function handleWidgetContactEvent(sessionId, clientId, workspaceId) {
