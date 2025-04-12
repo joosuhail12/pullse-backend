@@ -177,6 +177,36 @@ class TicketHandler extends BaseHandler {
     let inst = this.ticketServiceInst;
     return this.responder(req, reply, inst.getAssignedTickets(userId, filters));
   }
+
+  async assignTicketToTeam(req, reply) {
+    const workspaceId = req.query.workspace_id;
+    const clientId = req.authUser.clientId;
+
+    // Check for ticket identifiers in different possible parameters
+    const id = req.params.ticket_id;
+    const sno = req.params.ticket_sno;
+
+    if (!id && !sno) {
+      return this.responder(req, reply, Promise.reject(new Error('Ticket ID or SNO is required')));
+    }
+
+    // Check for teamId in request body
+    const teamId = req.body.teamId;
+
+    if (!teamId) {
+      return this.responder(req, reply, Promise.reject(new Error('Team ID is required')));
+    }
+
+    console.log(`Assigning ticket ${id ? `with ID ${id}` : `with SNO ${sno}`} to team ${teamId}`);
+
+    let inst = this.ticketServiceInst;
+    return this.responder(req, reply, inst.assignTicketToTeam(id, sno, teamId, workspaceId, clientId));
+  }
+
+  // New dedicated method for team assignment routes
+  async assignTeam(req, reply) {
+    return this.assignTicketToTeam(req, reply);
+  }
 }
 
 module.exports = TicketHandler;

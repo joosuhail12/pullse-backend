@@ -374,6 +374,7 @@ class TicketService {
             if (fetchError || !existingTicket) throw new errors.NotFound("Ticket not found");
 
             const previousAssigneeId = existingTicket.assigneeId;
+            const previousTeamId = existingTicket.teamId;
 
             // Handle status transitions
             if (ticketUpdateData.status === 'closed' && existingTicket.status !== 'closed') {
@@ -399,47 +400,22 @@ class TicketService {
                 ticketUpdateData.assigneeId = assignee.id;
             }
 
-            // Handle direct assignedTo field
+            // Handle assignedTo if it was passed directly
             if (assignedTo) {
                 ticketUpdateData.assignedTo = assignedTo;
             }
 
-            // Handle direct assigneeId field for ticketAssignees table 
-            let assigneeDetails = null;
-            let ticketAssigneeEntry = null;
+            // Get team details if teamId is changing
+            let teamData = null;
+            if (ticketUpdateData.teamId && ticketUpdateData.teamId !== previousTeamId) {
+                const { data: team, error: teamError } = await supabase
+                    .from('teams')
+                    .select('id, name')
+                    .eq('id', ticketUpdateData.teamId)
+                    .single();
 
-            if (assigneeId) {
-                try {
-                    // First fetch the assignee details for the response
-                    const { data: userDetails, error: userError } = await supabase
-                        .from('users')
-                        .select('id, name, email')
-                        .eq('id', assigneeId)
-                        .maybeSingle();
-
-                    if (!userError && userDetails) {
-                        assigneeDetails = userDetails;
-                    }
-
-                    // Then update the ticketAssignees table
-                    const { data: assigneeEntry, error: assigneeError } = await supabase
-                        .from('ticketAssignees')
-                        .upsert({
-                            ticketId: existingTicket.id,
-                            userId: assigneeId
-                        }, {
-                            onConflict: 'ticketId'
-                        })
-                        .select()
-                        .single();
-
-                    if (!assigneeError) {
-                        ticketAssigneeEntry = assigneeEntry;
-                    }
-
-                    console.log(`Updated ticketAssignees for ticket ${existingTicket.id} with assigneeId ${assigneeId}`);
-                } catch (err) {
-                    console.log(`Warning: Error updating ticketAssignees: ${err.message}`);
+                if (!teamError && team) {
+                    teamData = team;
                 }
             }
 
@@ -459,7 +435,18 @@ class TicketService {
             this._updateRecipientsAndAssignee(existingTicket.id, recipients, assignee);
             this._publishTicketEvent(updatedTicket, ticketUpdateData, previousAssigneeId);
 
-            // Build enhanced response with assignee details if available
+            // For team assignments, publish team assignment event
+            if (ticketUpdateData.teamId && ticketUpdateData.teamId !== previousTeamId) {
+                try {
+                    const inst = new TicketEventPublisher();
+                    await inst.teamAssigned(updatedTicket, ticketUpdateData.teamId);
+                } catch (eventError) {
+                    console.error("Error publishing team assignment event:", eventError);
+                    // Don't fail if just the event publishing fails
+                }
+            }
+
+            // Build appropriate response based on what was updated
             let response = {
                 id: updatedTicket.id,
                 sno: updatedTicket.sno,
@@ -473,7 +460,36 @@ class TicketService {
                 type: updatedTicket.type || 'general'
             };
 
-            // If this was an assignment update, include assignment details
+            // If teamId was updated, include team info in the response
+            if (ticketUpdateData.teamId) {
+                response = {
+                    ...response,
+                    teamId: ticketUpdateData.teamId,
+                    team: teamData ? {
+                        id: teamData.id,
+                        name: teamData.name
+                    } : null
+                };
+
+                // If it was called just for team assignment, provide a more focused response
+                if (Object.keys(ticketUpdateData).length === 2 && ticketUpdateData.teamId && ticketUpdateData.updatedAt) {
+                    response = {
+                        success: true,
+                        ticket: {
+                            id: updatedTicket.id,
+                            sno: updatedTicket.sno,
+                            subject: updatedTicket.title,
+                            teamId: ticketUpdateData.teamId
+                        },
+                        team: teamData ? {
+                            id: teamData.id,
+                            name: teamData.name
+                        } : null
+                    };
+                }
+            }
+
+            // If assignedTo was specified, get user details and include in response
             if (assignedTo || assigneeId) {
                 // If we don't have assignee details yet, try to get them
                 if (!assigneeDetails && (assignedTo || assigneeId)) {
@@ -993,28 +1009,97 @@ class TicketService {
     /**
      * Assign a ticket to a team
      */
-    async assignTicketToTeam(ticketId, teamId, workspaceId, clientId) {
+    async assignTicketToTeam(id, sno, teamId, workspaceId, clientId) {
         try {
-            // Update ticket with new team
-            const { data: updatedTicket, error } = await supabase
+            console.log(`Assigning ticket ${id ? `with ID ${id}` : `with SNO ${sno}`} to team ${teamId}`);
+
+            if (!teamId) {
+                throw new errors.ValidationFailed("Team ID is required");
+            }
+
+            if (!id && !sno) {
+                throw new errors.ValidationFailed("Either ticket ID or SNO is required");
+            }
+
+            // Verify team exists
+            const { data: team, error: teamError } = await supabase
+                .from('teams')
+                .select('id, name')
+                .eq('id', teamId)
+                .eq('workspaceId', workspaceId)
+                .eq('clientId', clientId)
+                .maybeSingle();
+
+            if (teamError) {
+                console.error("Error verifying team:", teamError);
+                throw teamError;
+            }
+
+            if (!team) {
+                throw new errors.NotFound(`Team with ID ${teamId} not found`);
+            }
+
+            // Get the ticket
+            let query = supabase.from(this.entityName).select('id, sno, title');
+            if (id) {
+                query = query.eq('id', id);
+            } else {
+                query = query.eq('sno', sno);
+            }
+            query = query.eq('workspaceId', workspaceId).eq('clientId', clientId);
+
+            const { data: ticket, error: ticketError } = await query.single();
+
+            if (ticketError) {
+                console.error("Error fetching ticket:", ticketError);
+                throw ticketError;
+            }
+
+            if (!ticket || !ticket.id) {
+                throw new errors.NotFound(`Ticket ${id ? `with ID ${id}` : `with SNO ${sno}`} not found`);
+            }
+
+            console.log(`Found ticket with ID ${ticket.id}, assigning to team ${teamId} (${team.name})`);
+
+            // Update ticket with teamId
+            const { data: updatedTicket, error: updateError } = await supabase
                 .from(this.entityName)
                 .update({
-                    teamId,
-                    updated_at: new Date()
+                    teamId: teamId,
+                    updatedAt: new Date().toISOString()
                 })
-                .eq('id', ticketId)
-                .eq('clientId', clientId)
-                .eq('workspaceId', workspaceId)
+                .eq('id', ticket.id)
                 .select()
                 .single();
 
-            if (error) throw error;
+            if (updateError) {
+                console.error("Error updating ticket with teamId:", updateError);
+                throw updateError;
+            }
 
             // Publish team assignment event
-            const inst = new TicketEventPublisher();
-            await inst.teamAssigned(updatedTicket, teamId);
+            // try {
+            //     const inst = new TicketEventPublisher();
+            //     await inst.teamAssigned(updatedTicket, teamId);
+            // } catch (eventError) {
+            //     console.error("Error publishing team assignment event:", eventError);
+            //     // Don't fail if just the event publishing fails
+            // }
 
-            return updatedTicket;
+            // Return enhanced response
+            return {
+                success: true,
+                ticket: {
+                    id: ticket.id,
+                    sno: ticket.sno,
+                    subject: ticket.title,
+                    teamId: teamId
+                },
+                team: {
+                    id: team.id,
+                    name: team.name
+                }
+            };
         } catch (error) {
             console.error('Error assigning ticket to team:', error);
             return Promise.reject(this.handleError(error));
