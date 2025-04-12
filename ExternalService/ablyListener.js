@@ -57,10 +57,10 @@ async function setAblyTicketChatListener(ticketId, clientId, workspaceId) {
 }
 
 // create a function to handle the message from the widget:contactevent:sessionId
-async function handleWidgetContactEvent(sessionId, clientId, workspaceId) { 
+async function handleWidgetContactEvent(sessionId, clientId, workspaceId) {
   console.log('✅ Handling widget contact event', sessionId, clientId, workspaceId);
   const contactEventChannel = ably.channels.get(`widget:contactevent:${sessionId}`);
-  contactEventChannel.subscribe('new_message', (msg) => handleMessage(msg, 'contact'));
+  contactEventChannel.subscribe('new_ticket', (msg) => handleMessage(msg, 'contact'));
   const handleMessage = async (msg) => {
     const msgData = typeof msg.data === 'string' ? JSON.parse(msg.data) : msg.data;
     const {
@@ -122,7 +122,7 @@ async function handleWidgetContactEvent(sessionId, clientId, workspaceId) {
       .select('id')
       .eq('name', 'chat');
     if (channelError) throw channelError;
-    const channelId = channelData[0].id;  
+    const channelId = channelData[0].id;
     const { data: teamData, error: teamError } = await supabase
       .from('teamChannels')
       .select('teamId')
