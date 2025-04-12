@@ -47,9 +47,9 @@ async function setAblyTicketChatListener(ticketId, clientId, workspaceId) {
       });
     if (error) throw error;
     console.log('✅ Message saved to conversations table', data);
+    const publisher = new ConversationEventPublisher();
+    await publisher.created(text, updatedTicket, false);
   }
-  const publisher = new ConversationEventPublisher();
-  await publisher.created(text, updatedTicket, false);
 
 
 
