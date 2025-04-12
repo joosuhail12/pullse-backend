@@ -491,8 +491,11 @@ class TicketService {
 
             // If assignedTo was specified, get user details and include in response
             if (assignedTo || assigneeId) {
+                // Initialize assigneeDetails variable
+                let assigneeDetails = null;
+
                 // If we don't have assignee details yet, try to get them
-                if (!assigneeDetails && (assignedTo || assigneeId)) {
+                if (assignedTo || assigneeId) {
                     const userId = assignedTo || assigneeId;
                     const { data: userDetails } = await supabase
                         .from('users')
@@ -855,7 +858,7 @@ class TicketService {
                 .from(this.entityName)
                 .select(`
                     id, sno, title, description, status, priority, teamId,
-                    assigneeId, lastMessage, lastMessageAt, created_at, updated_at,
+                    assigneeId, assignedTo, lastMessage, lastMessageAt, created_at, updated_at,
                     teams!teamId(id, name),
                     users!assigneeId(id, name, email)
                 `)
@@ -873,12 +876,37 @@ class TicketService {
 
             if (error) throw error;
 
+            // Get assignedTo user details
+            const assignedToUserIds = tickets
+                .filter(ticket => ticket.assignedTo)
+                .map(ticket => ticket.assignedTo);
+
+            let assignedToUsersMap = {};
+            if (assignedToUserIds.length > 0) {
+                const { data: assignedToUsers } = await supabase
+                    .from('users')
+                    .select('id, name, email')
+                    .in('id', assignedToUserIds);
+
+                if (assignedToUsers) {
+                    assignedToUsersMap = assignedToUsers.reduce((map, user) => {
+                        map[user.id] = user;
+                        return map;
+                    }, {});
+                }
+            }
+
             // Format ticket priorities
             return tickets.map(ticket => ({
                 ...ticket,
                 priority: ticket.priority === 2 ? 'high' : ticket.priority === 1 ? 'medium' : 'low',
                 team: ticket.teams,
                 assignee: ticket.users,
+                assignedToUser: ticket.assignedTo ? assignedToUsersMap[ticket.assignedTo] || {
+                    id: ticket.assignedTo,
+                    name: "Unknown User",
+                    email: null
+                } : null
             }));
         } catch (error) {
             console.error('Error listing team tickets:', error);
@@ -913,7 +941,7 @@ class TicketService {
                 .from(this.entityName)
                 .select(`
                     id, sno, title, description, status, priority, teamId, customerId,
-                    assigneeId, lastMessage, lastMessageAt, createdAt, updatedAt,
+                    assigneeId, assignedTo, lastMessage, lastMessageAt, createdAt, updatedAt,
                     teams!teamId(id, name),
                     users!assigneeId(id, name, email)
                 `)
@@ -955,6 +983,26 @@ class TicketService {
                 }, {});
             }
 
+            // Get assignedTo user details
+            const assignedToUserIds = tickets
+                .filter(ticket => ticket.assignedTo)
+                .map(ticket => ticket.assignedTo);
+
+            let assignedToUsersMap = {};
+            if (assignedToUserIds.length > 0) {
+                const { data: assignedToUsers } = await supabase
+                    .from('users')
+                    .select('id, name, email')
+                    .in('id', assignedToUserIds);
+
+                if (assignedToUsers) {
+                    assignedToUsersMap = assignedToUsers.reduce((map, user) => {
+                        map[user.id] = user;
+                        return map;
+                    }, {});
+                }
+            }
+
             // Get team members for each team
             const teamMembersPromises = teamIds.map(teamId =>
                 supabase
@@ -991,6 +1039,11 @@ class TicketService {
                         members: teamMembersMap[ticket.teamId] || []
                     },
                     assignee: ticket.users,
+                    assignedToUser: ticket.assignedTo ? assignedToUsersMap[ticket.assignedTo] || {
+                        id: ticket.assignedTo,
+                        name: "Unknown User",
+                        email: null
+                    } : null,
                     customerId: ticket.customerId,
                     customer: customer ? {
                         id: customer.id,
@@ -1518,6 +1571,7 @@ class TicketService {
                     customerId: ticket.customerId,
                     teamId: ticket.teamId,
                     assignedTo: null,
+                    assignedToUser: null,
                     team: teamData ? {
                         id: teamData.id,
                         name: teamData.name
