@@ -72,9 +72,16 @@ async function handleWidgetContactEvent(sessionId, clientId, workspaceId) {
         sessionId,
       } = msgData;
       //get customerId from sessionId
+      /* This code snippet is using Supabase to query the 'widgetsessions' table and filter the results
+      based on the 'id' column matching the provided `sessionId`. */
+      // const { data: sessionData, error: sessionError } = await supabase
+      //   .from('widgetsessions')
+      //   .eq('id', sessionId);
       const { data: sessionData, error: sessionError } = await supabase
         .from('widgetsessions')
+        .select('*')
         .eq('id', sessionId);
+        
       if (sessionError) throw sessionError;
       const customerId = sessionData[0].contactId;
       //also get the welcomeMessage from the widgettheme table
