@@ -57,9 +57,10 @@ async function setAblyTicketChatListener(ticketId, clientId, workspaceId) {
 
   ticketChannel.subscribe('message', (msg) => handleMessage(msg, 'ticket'));
 }
+const safeUUID = (val) => typeof val === 'string' && /^[0-9a-f-]{36}$/i.test(val) ? val : null;
 
 
-const handleMessage = async (msg) => {
+const handleMessage = async (msg, ticketId = null) => {
   try {
     const msgData = typeof msg.data === 'string' ? JSON.parse(msg.data) : msg.data;
     const { text, sender, sessionId } = msgData;
@@ -78,39 +79,6 @@ const handleMessage = async (msg) => {
 
     if (widgetThemeError) throw widgetThemeError;
     const welcomeMessage = widgetThemeData[0].labels.welcomeMessage;
-
-    const { data: welcomeMessageData, error: welcomeMessageError } = await supabase
-      .from('conversations')
-      .insert({
-        message: welcomeMessage,
-        createdBy: customerId || null,
-        type: 'chat',
-        ticketId: null,
-        userType: 'agent',
-        clientId: sessionData[0].clientId,
-        workspaceId: sessionData[0].workspaceId,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      });
-
-    if (welcomeMessageError) throw welcomeMessageError;
-
-    const { data: insertedMsgData, error: msgInsertError } = await supabase
-      .from('conversations')
-      .insert({
-        message: text,
-        createdBy: customerId || null,
-        type: 'chat',
-        ticketId: null,
-        userType: 'customer',
-        clientId: sessionData[0].clientId,
-        workspaceId: sessionData[0].workspaceId,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      });
-
-    if (msgInsertError) throw msgInsertError;
-
     const { data: channelData, error: channelError } = await supabase
       .from('channels')
       .select('id')
@@ -132,7 +100,7 @@ const handleMessage = async (msg) => {
     const { data: newTicket, error: newTicketError } = await supabase
       .from('tickets')
       .insert({
-        customerId: customerId,
+        customerId: safeUUID(customerId),
         clientId: sessionData[0].clientId,
         workspaceId: sessionData[0].workspaceId,
         lastMessage: text,
@@ -140,6 +108,40 @@ const handleMessage = async (msg) => {
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       });
+
+    const { data: welcomeMessageData, error: welcomeMessageError } = await supabase
+      .from('conversations')
+      .insert({
+        message: welcomeMessage,
+        createdBy: safeUUID(customerId) || null,
+        type: 'chat',
+        ticketId: newTicket[0].id,
+        userType: 'agent',
+        clientId: sessionData[0].clientId,
+        workspaceId: sessionData[0].workspaceId,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      });
+
+    if (welcomeMessageError) throw welcomeMessageError;
+
+    const { data: insertedMsgData, error: msgInsertError } = await supabase
+      .from('conversations')
+      .insert({
+        message: text,
+        createdBy: safeUUID(customerId) || null,
+        type: 'chat',
+        ticketId: newTicket[0].id,
+        userType: 'customer',
+        clientId: sessionData[0].clientId,
+        workspaceId: sessionData[0].workspaceId,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      });
+
+    if (msgInsertError) throw msgInsertError;
+
+
 
     if (newTicketError) throw newTicketError;
 
