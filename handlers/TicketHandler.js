@@ -71,11 +71,20 @@ class TicketHandler extends BaseHandler {
   async updateTicket(req, reply) {
     let workspaceId = req.query.workspace_id;
     let clientId = req.authUser.clientId;
+
+    // Check for ticket identifiers in different possible parameters
+    let id = req.params.ticket_id;
     let sno = req.params.ticket_sno;
+
+    if (!id && !sno) {
+      return this.responder(req, reply, Promise.reject(new Error('Ticket ID or SNO is required')));
+    }
+
+    console.log(`Updating ticket ${id ? `with ID ${id}` : `with SNO ${sno}`}`);
 
     let toUpdate = req.body;
     let inst = this.ticketServiceInst;
-    return this.responder(req, reply, inst.updateTicket({ sno, workspaceId, clientId }, toUpdate));
+    return this.responder(req, reply, inst.updateTicket({ id, sno, workspaceId, clientId }, toUpdate));
   }
 
   async updateTag(req, reply) {
@@ -104,11 +113,26 @@ class TicketHandler extends BaseHandler {
   async assignTicket(req, reply) {
     const workspaceId = req.query.workspace_id;
     const clientId = req.authUser.clientId;
+
+    // Check for ticket identifiers in different possible parameters
+    const id = req.params.ticket_id;
     const sno = req.params.ticket_sno;
-    const userId = req.body.userId;
+
+    if (!id && !sno) {
+      return this.responder(req, reply, Promise.reject(new Error('Ticket ID or SNO is required')));
+    }
+
+    // Check for userId in multiple possible fields
+    const userId = req.body.userId || req.body.assignTo || req.body.assignedTo;
+
+    if (!userId) {
+      return this.responder(req, reply, Promise.reject(new Error('User ID is required. Please provide userId, assignTo, or assignedTo.')));
+    }
+
+    console.log(`Assigning ticket ${id ? `with ID ${id}` : `with SNO ${sno}`} to user ${userId}`);
 
     let inst = this.ticketServiceInst;
-    return this.responder(req, reply, inst.assignTicketToUser(sno, userId, workspaceId, clientId));
+    return this.responder(req, reply, inst.assignTicketToUser(id, sno, userId, workspaceId, clientId));
   }
   // get conversation by ticket id
   async getConversationByTicketId(req, reply) {
@@ -132,6 +156,26 @@ class TicketHandler extends BaseHandler {
 
     let inst = this.ticketServiceInst;
     return this.responder(req, reply, inst.getUnassignedTickets(filters));
+  }
+
+  async getAssignedTickets(req, reply) {
+    const userId = req.params.user_id;
+
+    if (!userId) {
+      return this.responder(req, reply, Promise.reject(new Error('User ID is required')));
+    }
+
+    let filters = {
+      status: req.query.status,
+      priority: req.query.priority,
+      workspaceId: req.query.workspace_id,
+      skip: parseInt(req.query.skip) || 0,
+      limit: parseInt(req.query.limit) || 10,
+      clientId: req.authUser.clientId
+    };
+
+    let inst = this.ticketServiceInst;
+    return this.responder(req, reply, inst.getAssignedTickets(userId, filters));
   }
 }
 
