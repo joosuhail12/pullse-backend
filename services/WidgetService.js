@@ -74,37 +74,83 @@ class WidgetService extends BaseService {
         }
     }
 
-    async updateWidget({ widgetId, clientId, workspaceId }, data) {
+    async updateWidget({ clientId, workspaceId }, data) {
         try {
-            let {
-                name,
-                themeName,
-                colors,
-                position,
-                labels,
-                persona,
-                isCompact,
-            } = data;
+            // Get the widget
+            const { data: widgetData, error: widgetDataError } = await this.supabase.from(this.entityName).select("*").eq("clientId", clientId).eq("workspaceId", workspaceId).is("deletedAt", null).single();
 
-            // update widget theme
-            let { data: widgetThemeData, error: widgetThemeError } = await this.supabase.from("widgettheme").update({ name: themeName, colors, position, labels, persona, isCompact, updatedAt: `now()` }).eq("widgetId", widgetId).select();
+            if (widgetDataError) {
+                throw new errors.InternalServerError(widgetDataError.message);
+            }
+
+            if (!widgetData) {
+                throw new errors.NotFound("Widget not found");
+            }
+
+            // Just update new values in the json do not override existing values
+            const { data: widgetTheme, error: widgetThemeError } = await this.supabase.from("widgettheme").select("*").eq("widgetId", widgetData.id).single();
 
             if (widgetThemeError) {
                 throw new errors.InternalServerError(widgetThemeError.message);
             }
 
-            // update widget
-            let { data: widgetData, error: widgetError } = await this.supabase.from(this.entityName).update({ name, updatedAt: `now()` }).eq("id", widgetId).eq("clientId", clientId).eq("workspaceId", workspaceId).select();
-
-
-            if (widgetError) {
-                throw new errors.InternalServerError(widgetError.message);
+            if (!widgetTheme) {
+                throw new errors.NotFound("Widget theme not found");
             }
 
-            return {
-                widget: widgetData[0],
-                widgetTheme: widgetThemeData[0]
+
+            widgetTheme.name = data.widgetTheme.name;
+
+            // Update colors
+            widgetTheme.colors = {
+                ...widgetTheme.colors,
+                ...data.widgetTheme.colors
             };
+
+            // Update widget theme
+            widgetTheme.widgetSettings = {
+                ...widgetTheme.widgetSettings,
+                ...data.widgetTheme.widgetSettings
+            };
+
+            widgetTheme.interfaceSettings = {
+                ...widgetTheme.interfaceSettings,
+                ...data.widgetTheme.interfaceSettings
+            };
+
+            widgetTheme.layout = {
+                ...widgetTheme.layout,
+                ...data.widgetTheme.layout
+            };
+
+            widgetTheme.brandAssets = {
+                ...widgetTheme.brandAssets,
+                ...data.widgetTheme.brandAssets
+            };
+
+            widgetTheme.widgetSettings = {
+                ...widgetTheme.widgetSettings,
+                ...data.widgetTheme.widgetSettings
+            };
+
+            widgetTheme.interfaceSettings = {
+                ...widgetTheme.interfaceSettings,
+                ...data.widgetTheme.interfaceSettings
+            };
+
+            widgetTheme.labels = {
+                ...widgetTheme.labels,
+                ...data.widgetTheme.labels
+            };
+
+            // Update widget theme
+            let { data: updatedWidgetTheme, error: updatedWidgetThemeError } = await this.supabase.from("widgettheme").update(widgetTheme).eq("id", widgetTheme.id).select().single();
+
+            if (updatedWidgetThemeError) {
+                throw new errors.InternalServerError(updatedWidgetThemeError.message);
+            }
+
+            return updatedWidgetTheme;
         } catch (error) {
             console.error(error);
             throw new errors.InternalServerError(error.message);
