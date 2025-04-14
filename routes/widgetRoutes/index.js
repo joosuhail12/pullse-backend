@@ -11,7 +11,7 @@ async function activate(app) {
     app.route({
         url: base_url,
         method: "GET",
-        name: "GetWidgets",
+        name: "GetWidget",
         preHandler: authMiddlewares.checkToken(AuthType.user),
         schema: {
             tags: ["Widgets"],
