@@ -79,54 +79,98 @@ async function activate(app) {
             },
     });
 
+
     app.route({
-        url: base_url + "/:widget_id",
+        url: base_url,
         method: "PATCH",
         name: "UpdateWidget",
         preHandler: authMiddlewares.checkToken(AuthType.user),
         schema: {
             tags: ["Widgets"],
             summary: "Update Widget",
-            params: {
-                type: "object",
-                required: ["widget_id"],
-                properties: {
-                    widget_id: { type: "string" },
-                },
+            query: {
+                workspace_id: { type: "string" },
             },
             body: {
                 type: "object",
                 minProperties: 1,
                 additionalProperties: false,
                 properties: {
-                    name: { type: "string", minLength: 1 },
-                    themeName: { type: "string" },
-                    colors: {
+                    widgetTheme: {
                         type: "object",
+                        minProperties: 1,
+                        additionalProperties: false,
                         properties: {
-                            primary: { type: "string", pattern: "^#[0-9A-Fa-f]{6}$" },
-                            primaryForeground: { type: "string", pattern: "^#[0-9A-Fa-f]{6}$" },
-                            background: { type: "string", pattern: "^#[0-9A-Fa-f]{6}$" },
-                            foreground: { type: "string", pattern: "^#[0-9A-Fa-f]{6}$" },
-                            border: { type: "string", pattern: "^#[0-9A-Fa-f]{6}$" },
-                            userMessage: { type: "string", pattern: "^#[0-9A-Fa-f]{6}$" },
-                            userMessageText: { type: "string", pattern: "^#[0-9A-Fa-f]{6}$" },
-                            agentMessage: { type: "string", pattern: "^#[0-9A-Fa-f]{6}$" },
-                            agentMessageText: { type: "string", pattern: "^#[0-9A-Fa-f]{6}$" },
-                            inputBackground: { type: "string", pattern: "^#[0-9A-Fa-f]{6}$" }
-                        }
+                            name: {
+                                type: "string",
+                            },
+                            colors: {
+                                type: "object",
+                                minProperties: 1,
+                                additionalProperties: false,
+                                properties: {
+                                    textColor: { type: "string" },
+                                    primaryColor: { type: "string" },
+                                    backgroundColor: { type: "string" },
+                                    userMessageBackgroundColor: { type: "string" },
+                                    agentMessageBackgroundColor: { type: "string" },
+                                },
+                            },
+                            labels: {
+                                type: "object",
+                                minProperties: 1,
+                                additionalProperties: false,
+                                properties: {
+                                    welcomeTitle: { type: "string" },
+                                    welcomeMessage: { type: "string" },
+                                    welcomeSubtitle: { type: "string" },
+                                },
+                            },
+                            layout: {
+                                type: "object",
+                                minProperties: 1,
+                                additionalProperties: false,
+                                properties: {
+                                    offsetX: { type: "number" },
+                                    offsetY: { type: "number" },
+                                    isCompact: { type: "boolean" },
+                                    placement: { type: "string" },
+                                },
+                            },
+                            brandAssets: {
+                                type: "object",
+                                minProperties: 1,
+                                additionalProperties: false,
+                                properties: {
+                                    headerLogo: { type: "string" },
+                                    launcherIcon: { type: "string" },
+                                },
+                            },
+                            widgetSettings: {
+                                type: "object",
+                                minProperties: 1,
+                                additionalProperties: false,
+                                properties: {
+                                    allowedDomains: { type: "array", items: { type: "string" } },
+                                },
+                            },
+                            interfaceSettings: {
+                                type: "object",
+                                minProperties: 1,
+                                additionalProperties: false,
+                                properties: {
+                                    showBrandingBar: { type: "boolean" },
+                                    showOfficeHours: { type: "boolean" },
+                                    showAgentPresence: { type: "boolean" },
+                                    showAgentChatStatus: { type: "boolean" },
+                                    showTicketStatusBar: { type: "boolean" },
+                                    enableMessageReaction: { type: "boolean" },
+                                    allowVisitorsToEndChat: { type: "boolean" },
+                                    enableConversationRating: { type: "boolean" },
+                                },
+                            },
+                        },
                     },
-                    position: { type: "string" },
-                    labels: {
-                        type: "object",
-                        properties: {
-                            welcomeTitle: { type: "string", minLength: 1 },
-                            welcomeSubtitle: { type: "string", minLength: 1 }
-                        }
-                    },
-                    persona: { type: "string" },
-                    isCompact: { type: "boolean" },
-                    widgetThemeId: { type: "string" }
                 },
             },
         },
