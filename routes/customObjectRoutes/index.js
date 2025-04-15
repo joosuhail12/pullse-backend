@@ -29,7 +29,6 @@ async function activate(app) {
                 type: "object",
                 required: [
                     "name",
-                    "slug",
                     "showInCustomerContext",
                     "showInCustomerDetail",
                     "showInCompanyDetail",
@@ -40,9 +39,6 @@ async function activate(app) {
                         minLength: 2,
                     },
                     description: {
-                        type: "string",
-                    },
-                    slug: {
                         type: "string",
                     },
                     showInCustomerContext: {
