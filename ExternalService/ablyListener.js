@@ -82,6 +82,7 @@ const handleMessage = async (msg, sessionId = null) => {
     const customerId = safeUUID(session.contactId);
     const clientId = safeUUID(session.clientId);
     const workspaceId = safeUUID(session.workspaceId);
+    const deviceId = safeUUID(session.deviceId);
 
     // Get welcome message
     const { data: widgetThemeData, error: widgetThemeError } = await supabase
@@ -146,6 +147,7 @@ const handleMessage = async (msg, sessionId = null) => {
         userType: 'agent',
         clientId,
         workspaceId,
+        deviceId,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       });
