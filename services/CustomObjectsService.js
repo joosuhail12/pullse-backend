@@ -206,7 +206,7 @@ class CustomObjectService extends BaseService {
 
             if (error) throw error;
 
-            return { success: true, data: newField };
+            return newField;
         } catch (err) {
             return this.handleError(err);
         }
