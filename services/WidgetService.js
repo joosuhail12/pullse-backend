@@ -3,7 +3,7 @@ const BaseService = require("./BaseService");
 const _ = require("lodash");
 const AuthService = require("./AuthService");
 const ConversationEventPublisher = require("../Events/ConversationEvent/ConversationEventPublisher");
-const { handleWidgetContactEvent } = require("../ExternalService/ablyListener");
+const { handleWidgetContactEvent, handleWidgetConversationEvent } = require("../ExternalService/ablyListener");
 class WidgetService extends BaseService {
     constructor() {
         super();
@@ -257,17 +257,17 @@ class WidgetService extends BaseService {
                 throw new errors.BadRequest("Domain not allowed");
             }
 
-            
+
             if (authUser) {
                 // Create a token here! JWT
                 // Expiry time is 10 hours
                 const token = this.authService.generateJWTToken({ widgetId: data.widgetId, ipAddress: publicIpAddress, timezone, workspaceId, clientId: widgetData.clientId, domain, sessionId: authUser.sessionId, exp: Date.now() + (10 * 60 * 60 * 1000) });
-                
+
                 const { data: updatedSessionData, error: updateSessionError } = await this.supabase.from("widgetsessions").update({ token: token }).eq("id", authUser.sessionId).select().single();
                 if (updateSessionError) {
                     throw new errors.Internal(updateSessionError.message);
                 }
-                
+
                 handleWidgetContactEvent(updatedSessionData.id, widgetData.clientId, widgetData.workspaceId)
                 if (updatedSessionData && updatedSessionData.contactId) {
                     const { data: contactData, error: contactError } = await this.supabase.from("customers").select("*").eq("id", updatedSessionData.contactId).is("deletedAt", null).single();

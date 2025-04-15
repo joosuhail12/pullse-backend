@@ -297,4 +297,4 @@ async function startAblyListener() {
   ticketChannel.subscribe('new_message', (msg) => handleMessage(msg, 'ticket'));
 }
 
-module.exports = { startAblyListener, setAblyTicketChatListener, handleWidgetContactEvent };
+module.exports = { startAblyListener, setAblyTicketChatListener, handleWidgetContactEvent, handleWidgetConversationEvent };
