@@ -60,11 +60,11 @@ async function setAblyTicketChatListener(ticketId, clientId, workspaceId) {
 const safeUUID = (val) => typeof val === 'string' && /^[0-9a-f-]{36}$/i.test(val) ? val : null;
 
 
-const handleMessage = async (msg, ticketId = null) => {
+const handleMessage = async (msg, sessionId = null) => {
   try {
     console.log('👤 Handling message', msg);
     const msgData = typeof msg.data === 'string' ? JSON.parse(msg.data) : msg.data;
-    const { text, sender, sessionId } = msgData;
+    const { text, sender } = msgData;
 
 
     // Get session info
@@ -191,7 +191,7 @@ async function handleWidgetContactEvent(sessionId, clientId, workspaceId) {
 
 
     contactEventChannel.subscribe('new_ticket', (msg) => {
-      handleMessage(msg).catch(err => {
+      handleMessage(msg, sessionId).catch(err => {
         console.error('❌ Unhandled async error in new_ticket subscription:', err);
       });
     });
