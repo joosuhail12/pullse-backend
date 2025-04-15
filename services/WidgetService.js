@@ -489,8 +489,6 @@ class WidgetService extends BaseService {
             if (ticketsError) {
                 throw new errors.Internal(ticketsError.message);
             }
-
-            handleWidgetConversationEvent(tickets[0].id, widgetData.clientId, widgetData.workspaceId)
             // tickets.forEach(async (ticket) => {
             //     const { data: lastMessage, error: lastMessageError } = await this.supabase.from("conversations").select("*").eq("ticketId", ticket.id).order("createdAt", { ascending: false }).limit(1).single();
             //     if (lastMessageError) {
