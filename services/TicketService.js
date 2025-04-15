@@ -359,6 +359,14 @@ class TicketService {
 
             ticketUpdateData.updatedAt = new Date().toISOString();
 
+            // Handle assignee fields
+            if (assigneeId) {
+                ticketUpdateData.assigneeId = assigneeId;
+            }
+            if (assignedTo) {
+                ticketUpdateData.assignedTo = assignedTo;
+            }
+
             // Fetch ticket
             let query = supabase.from(this.entityName).select('*');
             if (id) {
@@ -395,16 +403,6 @@ class TicketService {
                 if (lastMessageBy) ticketUpdateData.lastMessageBy = lastMessageBy;
             }
 
-            // Handle assignee
-            if (assignee) {
-                ticketUpdateData.assigneeId = assignee.id;
-            }
-
-            // Handle assignedTo if it was passed directly
-            if (assignedTo) {
-                ticketUpdateData.assignedTo = assignedTo;
-            }
-
             // Get team details if teamId is changing
             let teamData = null;
             if (ticketUpdateData.teamId && ticketUpdateData.teamId !== previousTeamId) {
@@ -432,7 +430,9 @@ class TicketService {
             if (updateError) throw new errors.DBError(updateError.message);
 
             // Fire-and-forget async updates
-            this._updateRecipientsAndAssignee(existingTicket.id, recipients, assignee);
+            if (assigneeId) {
+                await this._updateRecipientsAndAssignee(existingTicket.id, recipients, { id: assigneeId });
+            }
             this._publishTicketEvent(updatedTicket, ticketUpdateData, previousAssigneeId);
 
             // For team assignments, publish team assignment event
@@ -446,8 +446,30 @@ class TicketService {
                 }
             }
 
-            // Build appropriate response based on what was updated
-            let response = {
+            // If assignedTo or assigneeId was specified, get user details and include in response
+            if (assignedTo || assigneeId) {
+                const userId = assignedTo || assigneeId;
+                const { data: userDetails } = await supabase
+                    .from('users')
+                    .select('id, name, email')
+                    .eq('id', userId)
+                    .single();
+
+                return {
+                    success: true,
+                    ticket: {
+                        id: updatedTicket.id,
+                        sno: updatedTicket.sno,
+                        assigneeId: updatedTicket.assigneeId,
+                        assignedTo: updatedTicket.assignedTo
+                    },
+                    assignedTo: userDetails || { id: userId, name: "Unknown User" },
+                    assigneeStatus: 'Assigned'
+                };
+            }
+
+            // Return default response if no special cases matched
+            return {
                 id: updatedTicket.id,
                 sno: updatedTicket.sno,
                 subject: updatedTicket.title,
@@ -459,72 +481,6 @@ class TicketService {
                 language: updatedTicket.language || 'en',
                 type: updatedTicket.type || 'general'
             };
-
-            // If teamId was updated, include team info in the response
-            if (ticketUpdateData.teamId) {
-                response = {
-                    ...response,
-                    teamId: ticketUpdateData.teamId,
-                    team: teamData ? {
-                        id: teamData.id,
-                        name: teamData.name
-                    } : null
-                };
-
-                // If it was called just for team assignment, provide a more focused response
-                if (Object.keys(ticketUpdateData).length === 2 && ticketUpdateData.teamId && ticketUpdateData.updatedAt) {
-                    response = {
-                        success: true,
-                        ticket: {
-                            id: updatedTicket.id,
-                            sno: updatedTicket.sno,
-                            subject: updatedTicket.title,
-                            teamId: ticketUpdateData.teamId
-                        },
-                        team: teamData ? {
-                            id: teamData.id,
-                            name: teamData.name
-                        } : null
-                    };
-                }
-            }
-
-            // If assignedTo was specified, get user details and include in response
-            if (assignedTo || assigneeId) {
-                // Initialize assigneeDetails variable
-                let assigneeDetails = null;
-
-                // If we don't have assignee details yet, try to get them
-                if (assignedTo || assigneeId) {
-                    const userId = assignedTo || assigneeId;
-                    const { data: userDetails } = await supabase
-                        .from('users')
-                        .select('id, name, email')
-                        .eq('id', userId)
-                        .maybeSingle();
-
-                    if (userDetails) {
-                        assigneeDetails = userDetails;
-                    }
-                }
-
-                response = {
-                    success: true,
-                    ticket: {
-                        id: updatedTicket.id,
-                        sno: updatedTicket.sno,
-                        assignedTo: assignedTo || (assigneeDetails ? assigneeDetails.id : null)
-                    },
-                    assignee: assigneeDetails || {
-                        id: assignedTo || assigneeId,
-                        name: "Unknown User",
-                        email: null
-                    },
-                    assigneeStatus: 'Assigned'
-                };
-            }
-
-            return response;
         } catch (err) {
             console.error("updateTicket error:", err);
             throw err;
@@ -1162,12 +1118,12 @@ class TicketService {
     /**
      * Assign a ticket to a user
      */
-    async assignTicketToUser(id, sno, userId, workspaceId, clientId) {
+    async assignTicketToUser(id, sno, assigneeId, assignedTo, workspaceId, clientId) {
         try {
-            console.log(`Assigning ticket ${id ? `with ID ${id}` : `with SNO ${sno}`} to user ${userId}`);
+            console.log(`Assigning ticket ${id ? `with ID ${id}` : `with SNO ${sno}`} to assignee ${assigneeId} and assignedTo ${assignedTo}`);
 
-            if (!userId) {
-                throw new errors.ValidationFailed("User ID is required");
+            if (!assigneeId && !assignedTo) {
+                throw new errors.ValidationFailed("Either assigneeId or assignedTo is required");
             }
 
             if (!id && !sno) {
@@ -1175,15 +1131,15 @@ class TicketService {
             }
 
             // Get the ticket
-            let query = supabase.from(this.entityName).select('id');
+            let ticketQuery = supabase.from(this.entityName).select('id, assigneeId, assignedTo');
             if (id) {
-                query = query.eq('id', id);
+                ticketQuery = ticketQuery.eq('id', id);
             } else {
-                query = query.eq('sno', sno);
+                ticketQuery = ticketQuery.eq('sno', sno);
             }
-            query = query.eq('workspaceId', workspaceId).eq('clientId', clientId);
+            ticketQuery = ticketQuery.eq('workspaceId', workspaceId).eq('clientId', clientId);
 
-            const { data: ticket, error: ticketError } = await query.single();
+            const { data: ticket, error: ticketError } = await ticketQuery.single();
 
             if (ticketError) {
                 console.error("Error fetching ticket:", ticketError);
@@ -1194,68 +1150,94 @@ class TicketService {
                 throw new errors.NotFound(`Ticket ${id ? `with ID ${id}` : `with SNO ${sno}`} not found`);
             }
 
-            console.log(`Found ticket with ID ${ticket.id}, now checking if user exists`);
+            console.log(`Found ticket with ID ${ticket.id}, now checking if users exist`);
 
-            // Verify the user exists
-            const { data: userExists, error: userCheckError } = await supabase
-                .from('users')
-                .select('id, name, email')
-                .eq('id', userId)
-                .maybeSingle();  // Use maybeSingle instead of single
+            // Verify the users exist if provided
+            const userIds = [assigneeId, assignedTo].filter(Boolean);
+            if (userIds.length > 0) {
+                const { data: usersExist, error: userCheckError } = await supabase
+                    .from('users')
+                    .select('id, name, email')
+                    .in('id', userIds);
 
-            if (userCheckError) {
-                console.error("Error verifying user:", userCheckError);
-                throw new errors.NotFound(`Error verifying user: ${userCheckError.message}`);
-            }
-
-            if (!userExists) {
-                console.log(`No user found with ID ${userId}, trying direct RPC call`);
-
-                // Try a direct query as fallback to check if user exists
-                const { data: directUser, error: directUserError } = await supabase.rpc('get_user_by_id', {
-                    user_id: userId
-                });
-
-                if (directUserError || !directUser) {
-                    console.error("Error or no results in direct user query:", directUserError);
-                    throw new errors.NotFound(`User with ID ${userId} not found`);
+                if (userCheckError) {
+                    console.error("Error verifying users:", userCheckError);
+                    throw new errors.NotFound(`Error verifying users: ${userCheckError.message}`);
                 }
 
-                console.log(`Found user via direct query: ${directUser.id}`);
+                if (!usersExist || usersExist.length === 0) {
+                    console.log(`No users found with IDs ${userIds.join(', ')}, trying direct RPC call`);
+
+                    // Try a direct query as fallback to check if users exist
+                    const { data: directUsers, error: directUserError } = await supabase.rpc('get_users_by_ids', {
+                        user_ids: userIds
+                    });
+
+                    if (directUserError || !directUsers || directUsers.length === 0) {
+                        console.error("Error or no results in direct user query:", directUserError);
+                        throw new errors.NotFound(`Users with IDs ${userIds.join(', ')} not found`);
+                    }
+
+                    console.log(`Found users via direct query: ${directUsers.map(u => u.id).join(', ')}`);
+                }
             }
 
-            // Update ticket with assignedTo field
+            // Prepare update object with only provided fields
+            const updateData = {
+                updatedAt: new Date().toISOString()
+            };
+
+            // Set both fields if provided
+            if (assigneeId) updateData.assigneeId = assigneeId;
+            if (assignedTo) updateData.assignedTo = assignedTo;
+
+            // If assignedTo is provided but not assigneeId, also set assigneeId to the same value
+            if (assignedTo && !assigneeId) {
+                updateData.assigneeId = assignedTo;
+                console.log('Setting assigneeId to match assignedTo:', assignedTo);
+            }
+
+            console.log('Updating ticket with data:', updateData);
+
+            // Update ticket with assigneeId and/or assignedTo fields
             const { data: updatedTicket, error: updateError } = await supabase
                 .from(this.entityName)
-                .update({
-                    assignedTo: userId,
-                    updatedAt: new Date().toISOString()
-                })
+                .update(updateData)
                 .eq('id', ticket.id)
                 .select()
                 .single();
 
             if (updateError) {
-                console.error("Error updating ticket with assignedTo:", updateError);
+                console.error("Error updating ticket:", updateError);
                 throw updateError;
             }
 
-            // Also update ticketAssignees for consistency and backward compatibility
-            const { data: assigneeEntry, error: assigneeError } = await supabase
-                .from('ticketAssignees')
-                .upsert({
-                    ticketId: ticket.id,
-                    userId: userId
-                }, {
-                    onConflict: 'ticketId'
-                })
-                .select()
-                .single();
+            // Also update ticketAssignees for consistency and backward compatibility if assigneeId is provided
+            if (assigneeId) {
+                const { data: assigneeEntry, error: assigneeError } = await supabase
+                    .from('ticketAssignees')
+                    .upsert({
+                        ticketId: ticket.id,
+                        userId: assigneeId
+                    }, {
+                        onConflict: 'ticketId'
+                    })
+                    .select()
+                    .single();
 
-            if (assigneeError) {
-                console.log(`Warning: Could not create ticketAssignees entry: ${assigneeError.message}`);
-                // Don't fail the whole operation if just the join table update fails
+                if (assigneeError) {
+                    console.log(`Warning: Could not create ticketAssignees entry: ${assigneeError.message}`);
+                    // Don't fail the whole operation if just the join table update fails
+                }
             }
+
+            // Get user details for response
+            const userId = assigneeId || assignedTo;
+            const { data: userDetails } = await supabase
+                .from('users')
+                .select('id, name, email')
+                .eq('id', userId)
+                .single();
 
             // Return enhanced response
             return {
@@ -1263,9 +1245,10 @@ class TicketService {
                 ticket: {
                     id: ticket.id,
                     sno: updatedTicket.sno,
-                    assignedTo: userId
+                    assigneeId: updatedTicket.assigneeId,
+                    assignedTo: updatedTicket.assignedTo
                 },
-                assignee: userExists || { id: userId, name: "Unknown User" },
+                assignee: userDetails || { id: userId, name: "Unknown User" },
                 assigneeStatus: 'Assigned'
             };
         } catch (error) {
