@@ -121,14 +121,16 @@ class CustomObjectService extends BaseService {
         try {
             let customField = await this.getDetails(id, workspaceId, clientId);
 
-            let { error } = await this.supabase
+            let { data: updatedCustomObject, error } = await this.supabase
                 .from("customobjects")
                 .update({ ...updateValues, updatedAt: `now()` })
-                .eq("id", customField.id);
+                .eq("id", customField.id)
+                .select()
+                .single();
 
             if (error) throw error;
 
-            return { success: true };
+            return updatedCustomObject;
         } catch (err) {
             return this.handleError(err);
         }
@@ -226,7 +228,7 @@ class CustomObjectService extends BaseService {
 
             let { name, description, fieldType, placeholder, defaultValue, options, isRequired } = toUpdate;
 
-            let { error } = await this.supabase
+            let { data: updatedCustomObject, error } = await this.supabase
                 .from("customobjectfields")
                 .update({
                     name,
@@ -234,11 +236,13 @@ class CustomObjectService extends BaseService {
                     isRequired,
                     updatedAt: `now()`
                 })
-                .eq("id", toUpdate.fieldId);
+                .eq("id", toUpdate.fieldId)
+                .select()
+                .single();
 
             if (error) throw error;
 
-            return { success: true };
+            return updatedCustomObject;
         } catch (err) {
             console.error(err);
             return this.handleError(err);
