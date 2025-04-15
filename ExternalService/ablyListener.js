@@ -62,6 +62,7 @@ const safeUUID = (val) => typeof val === 'string' && /^[0-9a-f-]{36}$/i.test(val
 
 const handleMessage = async (msg, ticketId = null) => {
   try {
+    console.log('👤 Handling message', msg);
     const msgData = typeof msg.data === 'string' ? JSON.parse(msg.data) : msg.data;
     const { text, sender, sessionId } = msgData;
 
