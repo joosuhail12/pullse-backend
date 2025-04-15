@@ -181,8 +181,11 @@ const handleMessage = async (msg, sessionId = null) => {
 
 
 // create a function to handle the message from the widget:contactevent:sessionId
+const widgetEventSubscribedChannels = new Set();
 async function handleWidgetContactEvent(sessionId, clientId, workspaceId) {
   try {
+    if (widgetEventSubscribedChannels.has(sessionId)) return; // already subscribed
+    widgetEventSubscribedChannels.add(sessionId);
     console.log('✅ Handling widget contact event', sessionId, clientId, workspaceId);
 
     const contactEventChannel = ably.channels.get(`widget:contactevent:${sessionId}`);
