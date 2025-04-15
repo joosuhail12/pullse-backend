@@ -169,6 +169,7 @@ const handleMessage = async (msg, sessionId = null) => {
       });
     if (msgInsertError) throw msgInsertError;
     console.log('👤 User message saved:', text);
+    
     // SAFELY get contactEventChannel again based on sessionId
     const contactEventChannel = ably.channels.get(`widget:contactevent:${sessionId}`);
     await contactEventChannel.publish('new_ticket_reply', {
