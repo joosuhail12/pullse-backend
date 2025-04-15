@@ -67,11 +67,13 @@ const handleMessage = async (msg, ticketId = null) => {
 
 
     // Get session info
+
+    console.log('👤 Session:', sessionId);
     const { data: sessionData, error: sessionError } = await supabase
       .from('widgetsessions')
       .select('*')
       .eq('id', sessionId);
-
+    console.log('👤 Session data:', sessionData);
     if (sessionError) throw sessionError;
     if (!sessionData || !sessionData[0]) throw new Error('No session data found');
 
@@ -86,7 +88,7 @@ const handleMessage = async (msg, ticketId = null) => {
       .select('*')
       .eq('widgetId', session.widgetId)
       .single();
-
+    console.log('👤 Widget theme data:', widgetThemeData);
     if (widgetThemeError) throw widgetThemeError;
     if (!widgetThemeData) throw new Error('No widget theme found');
 
@@ -100,7 +102,7 @@ const handleMessage = async (msg, ticketId = null) => {
       .single();
     if (channelError) throw channelError;
     if (!channelData?.id) throw new Error('Channel ID not found');
-
+    console.log('👤 Channel data:', channelData);
     const channelId = channelData.id;
 
     const { data: teamData, error: teamError } = await supabase
@@ -109,7 +111,7 @@ const handleMessage = async (msg, ticketId = null) => {
       .eq('channelId', channelId);
     if (teamError) throw teamError;
     if (!teamData?.[0]?.teamId) throw new Error('Team ID not found');
-
+    console.log('👤 Team data:', teamData);
     const teamId = safeUUID(teamData[0].teamId);
 
     // Create new ticket
@@ -129,7 +131,7 @@ const handleMessage = async (msg, ticketId = null) => {
 
     if (newTicketError) throw newTicketError;
     if (!newTicket?.[0]?.id) throw new Error('Ticket insert failed');
-
+    console.log('🎟 New ticket created:', newTicket);
     const newTicketId = newTicket[0].id;
 
     // Save welcome message
@@ -147,7 +149,7 @@ const handleMessage = async (msg, ticketId = null) => {
         updatedAt: new Date().toISOString(),
       });
     if (welcomeMessageError) throw welcomeMessageError;
-
+    console.log('👤 Welcome message saved:', welcomeMessage);
     // Save user message
     const { error: msgInsertError } = await supabase
       .from('conversations')
@@ -163,7 +165,7 @@ const handleMessage = async (msg, ticketId = null) => {
         updatedAt: new Date().toISOString(),
       });
     if (msgInsertError) throw msgInsertError;
-
+    console.log('👤 User message saved:', text);
     // SAFELY get contactEventChannel again based on sessionId
     const contactEventChannel = ably.channels.get(`widget:contactevent:${sessionId}`);
     await contactEventChannel.publish('new_ticket_reply', {
