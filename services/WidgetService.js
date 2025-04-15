@@ -3,7 +3,7 @@ const BaseService = require("./BaseService");
 const _ = require("lodash");
 const AuthService = require("./AuthService");
 const ConversationEventPublisher = require("../Events/ConversationEvent/ConversationEventPublisher");
-const { handleWidgetContactEvent, handleWidgetConversationEvent } = require("../ExternalService/ablyListener");
+const { handleWidgetContactEvent, handleWidgetConversationEvent, setAblyTicketChatListener } = require("../ExternalService/ablyListener");
 class WidgetService extends BaseService {
     constructor() {
         super();
