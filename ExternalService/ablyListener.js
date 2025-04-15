@@ -82,7 +82,7 @@ const handleMessage = async (msg, sessionId = null) => {
     const customerId = safeUUID(session.contactId);
     const clientId = safeUUID(session.clientId);
     const workspaceId = safeUUID(session.workspaceId);
-    const deviceId = safeUUID(session.deviceId);
+    const deviceId = safeUUID(session.contactDeviceId);
 
     // Get welcome message
     const { data: widgetThemeData, error: widgetThemeError } = await supabase
