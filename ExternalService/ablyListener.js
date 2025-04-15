@@ -65,7 +65,6 @@ const handleMessage = async (msg, ticketId = null) => {
     const msgData = typeof msg.data === 'string' ? JSON.parse(msg.data) : msg.data;
     const { text, sender, sessionId } = msgData;
 
-    console.log('📨 Incoming message:', msgData);
 
     // Get session info
     const { data: sessionData, error: sessionError } = await supabase
@@ -81,27 +80,28 @@ const handleMessage = async (msg, ticketId = null) => {
     const clientId = safeUUID(session.clientId);
     const workspaceId = safeUUID(session.workspaceId);
 
-    console.log('👤 Session:', session.id, 'Customer:', customerId);
-
     // Get welcome message
     const { data: widgetThemeData, error: widgetThemeError } = await supabase
-      .from('widgetthemes')
-      .eq('widgetId', session.widgetId);
+      .from('widgettheme')
+      .select('*')
+      .eq('widgetId', session.widgetId)
+      .single();
 
     if (widgetThemeError) throw widgetThemeError;
-    if (!widgetThemeData || !widgetThemeData[0]) throw new Error('No widget theme found');
+    if (!widgetThemeData) throw new Error('No widget theme found');
 
-    const welcomeMessage = widgetThemeData[0].labels?.welcomeMessage || 'Hello!';
+    const welcomeMessage = widgetThemeData.labels?.welcomeMessage || 'Hello!';
 
     // Get channel -> team
     const { data: channelData, error: channelError } = await supabase
       .from('channels')
       .select('id')
-      .eq('name', 'chat');
+      .eq('name', 'chat')
+      .single();
     if (channelError) throw channelError;
-    if (!channelData?.[0]?.id) throw new Error('Channel ID not found');
+    if (!channelData?.id) throw new Error('Channel ID not found');
 
-    const channelId = channelData[0].id;
+    const channelId = channelData.id;
 
     const { data: teamData, error: teamError } = await supabase
       .from('teamChannels')
@@ -121,6 +121,7 @@ const handleMessage = async (msg, ticketId = null) => {
         workspaceId,
         lastMessage: text,
         teamId,
+        title: text,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       })
@@ -130,7 +131,6 @@ const handleMessage = async (msg, ticketId = null) => {
     if (!newTicket?.[0]?.id) throw new Error('Ticket insert failed');
 
     const newTicketId = newTicket[0].id;
-    console.log('🎟 New ticket created:', newTicketId);
 
     // Save welcome message
     const { error: welcomeMessageError } = await supabase
