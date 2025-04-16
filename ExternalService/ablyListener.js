@@ -51,7 +51,7 @@ async function handleMessageRouting(ticketId, msg, senderType) {
 
   let targetEvent = 'message';
   let channelName = `ticket:${ticketId}`;
-  console.log("ticketData", data, error, ticketInfo, ticketId);
+  console.log("ticketData", data[0], error, ticketInfo, ticketId);
   if (!receiver) {
     targetEvent = 'notification';
     console.log("senderType", senderType);
