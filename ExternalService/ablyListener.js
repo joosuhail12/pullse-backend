@@ -58,7 +58,7 @@ async function handleMessageRouting(ticketId, msg, senderType) {
     if (senderType === 'customer') {
       // Agent is not subscribed
       // Notify the agent tool
-      const channelName = `agent:notifications:${data.teamId}`;
+      const channelName = `agent:notifications:${data[0].teamId}`;
       const channel = ably.channels.get(channelName);
       await channel.publish('notification', {
         ticketId,
@@ -68,7 +68,7 @@ async function handleMessageRouting(ticketId, msg, senderType) {
         sessionId: sender.sessionId,
       });
 
-      console.log(`📨 Sent agent notification for agent:notifications:${data.teamId}`);
+      console.log(`📨 Sent agent notification for agent:notifications:${data[0].teamId}`);
 
     } else {
       // Customer is not subscribed
