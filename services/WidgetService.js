@@ -554,7 +554,6 @@ class WidgetService extends BaseService {
             // });
 
             //now listen to ably channel for customer msg
-            setAblyTicketChatListener(ticketId, clientId, workspaceId)
             handleWidgetConversationEvent(ticketId, clientId, workspaceId, sessionId)
 
             return conversations;
