@@ -39,14 +39,15 @@ async function handleMessageRouting(ticketId, msg, senderType) {
   });
 
   // Update ticket
-  await supabase
+  const { data: ticketData, error: ticketError } = await supabase
     .from('tickets')
     .update({
       lastMessage: text,
       lastMessageAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     })
-    .eq('id', ticketId);
+    .eq('id', ticketId)
+    .single();
 
   let targetEvent = 'message';
   let channelName = `ticket:${ticketId}`;
@@ -57,8 +58,9 @@ async function handleMessageRouting(ticketId, msg, senderType) {
     if (senderType === 'customer') {
       // Agent is not subscribed
       // Notify the agent tool
-      const agentNotificationChannel = ably.channels.get(`agent:notifications:${ticketId}`);
-      await agentNotificationChannel.publish('notification', {
+      const channelName = `agent:notifications:${ticketData.teamId}`;
+      const channel = ably.channels.get(channelName);
+      await channel.publish('notification', {
         ticketId,
         text,
         from: 'customer',
@@ -66,7 +68,7 @@ async function handleMessageRouting(ticketId, msg, senderType) {
         sessionId: sender.sessionId,
       });
 
-      console.log(`📨 Sent agent notification for ticket ${ticketId}`);
+      console.log(`📨 Sent agent notification for agent:notifications:${ticketData.teamId}`);
 
     } else {
       // Customer is not subscribed
