@@ -465,7 +465,7 @@ class WidgetService extends BaseService {
             if (!authUser && !authUser.sessionId) {
                 throw new errors.Unauthorized("Unauthorized");
             }
-
+            console.log("authUser", authUser);
             const { data: sessionData, error: sessionError } = await this.supabase.from("widgetsessions").select("*").eq("id", authUser.sessionId).is("deletedAt", null).single();
 
             if (sessionError) {
