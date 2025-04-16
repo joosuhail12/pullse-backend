@@ -82,7 +82,7 @@ async function handleMessageRouting(ticketId, msg, senderType) {
 
   if (receiverType === 'customer') {
     channelName = `widget:conversation:ticket-${ticketId}`;
-    targetEvent = 'new_message_reply';
+    targetEvent = 'message_reply';
     const channel = ably.channels.get(channelName);
     await channel.publish(targetEvent, {
       ticketId,
