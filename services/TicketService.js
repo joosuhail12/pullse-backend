@@ -1266,14 +1266,17 @@ class TicketService {
                 .eq('ticketId', sno)
                 .eq('workspaceId', workspaceId)
                 .eq('clientId', clientId)
-                .order('createdAt', { ascending: true })
+                .order('createdAt', { ascending: false })
                 .limit(10);
+
+            const sortedData = data ? data.reverse() : [];
+            
             if (error) throw error;
 
             // at this point i want to subscribe to an ably channel i.e ticket:sno
             // and return the response from the channel
             setAblyTicketChatListener(sno, clientId, workspaceId)
-            const response = data.map(item => ({
+            const response = sortedData.map(item => ({
                 id: item.id,
                 content: item.message,
                 sender: item.userType,
