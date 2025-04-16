@@ -1,7 +1,5 @@
-// ablyListener.js
 const Ably = require('ably');
 const ticketAssociationService = require('../services/ticketAssociationService');
-const ConversationEventConsumer = require('../Events/ConversationEvent/ConversationEventConsumer');
 const ConversationEventPublisher = require('../Events/ConversationEvent/ConversationEventPublisher');
 const { createClient } = require('@supabase/supabase-js');
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
@@ -9,74 +7,162 @@ const { ABLY_API_KEY } = process.env;
 
 const ably = new Ably.Realtime({ key: ABLY_API_KEY });
 
-/**
- * Starts Ably listeners for:
- * 1. Visitor channel
- * 2. Customer channel
- * 3. Specific ticket channel (agent-facing)
- */
+// Object to map ticketId -> { agent: {...}, customer: {...} }
+const ticketSubscriptions = {};
+const widgetEventSubscribedChannels = new Set();
 
-const subscribedChannels = new Set();
-// set ably ticket chat listener
-async function setAblyTicketChatListener(ticketId, clientId, workspaceId) {
-  if (subscribedChannels.has(ticketId)) return; // already subscribed
-  subscribedChannels.add(ticketId);
-  console.log('✅ Setting Ably ticket chat listener for ticket', ticketId);
-  const ticketChannel = ably.channels.get(`ticket:${ticketId}`);
-  const handleMessage = async (msg) => {
-    console.log(msg);
-    const msgData = typeof msg.data === 'string' ? JSON.parse(msg.data) : msg.data;
-
-    const {
-      text,
-      senderId,
-      type,
-    } = msgData;
-
-    //save this msg to conversations table
-    const { data, error } = await supabase
-      .from('conversations')
-      .insert({
-        message: text,
-        createdBy: senderId,
-        type: 'chat',
-        ticketId: ticketId,
-        userType: type === 'agent' ? 'agent' : 'internal-note',
-        clientId: clientId,
-        workspaceId: workspaceId,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      });
-    if (error) throw error;
-    console.log('✅ Message saved to conversations table', data);
-    const publisher = new ConversationEventPublisher();
-    await publisher.created(text, updatedTicket, false);
-  }
-
-
-
-  ticketChannel.subscribe('message', (msg) => handleMessage(msg, 'ticket'));
-}
 const safeUUID = (val) => typeof val === 'string' && /^[0-9a-f-]{36}$/i.test(val) ? val : null;
 
+// 🔄 Handles routing logic
+async function handleMessageRouting(ticketId, msg, senderType) {
+  const msgData = typeof msg.data === 'string' ? JSON.parse(msg.data) : msg.data;
+  const { text } = msgData;
 
-const handleMessage = async (msg, sessionId = null) => {
+  const ticketInfo = ticketSubscriptions[ticketId];
+  if (!ticketInfo || !ticketInfo[senderType]) return;
+
+  const sender = ticketInfo[senderType];
+  const receiverType = senderType === 'agent' ? 'customer' : 'agent';
+  const receiver = ticketInfo[receiverType];
+
+  // Save to conversations
+  await supabase.from('conversations').insert({
+    message: text,
+    createdBy: sender.clientId,
+    type: 'chat',
+    ticketId,
+    userType: senderType,
+    clientId: sender.clientId,
+    workspaceId: sender.workspaceId,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  });
+
+  // Update ticket
+  await supabase
+    .from('tickets')
+    .update({
+      lastMessage: text,
+      lastMessageAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    })
+    .eq('id', ticketId);
+
+  let targetEvent = 'message';
+  let channelName = `ticket:${ticketId}`;
+
+  if (!receiver) {
+    targetEvent = 'notification';
+
+    if (senderType === 'customer') {
+      // Agent is not subscribed
+      // Notify the agent tool
+      const agentNotificationChannel = ably.channels.get(`agent:notifications:${ticketInfo.teamId}`);
+      await agentNotificationChannel.publish('notification', {
+        ticketId,
+        text,
+        from: 'customer',
+        to: 'agent',
+        sessionId: sender.sessionId,
+      });
+
+      console.log(`📨 Sent agent notification for ticket ${ticketId}`);
+
+    } else {
+      // Customer is not subscribed
+      const customerSessionId = ticketInfo.customer?.sessionId;
+      if (!customerSessionId) {
+        console.warn(`⚠️ No customer session found to send notification`);
+        return;
+      }
+
+      channelName = `widget:notifications:${customerSessionId}`;
+    }
+  }
+
+  if (receiverType === 'customer') {
+    channelName = `widget:conversation:ticket-${ticketId}`;
+    targetEvent = 'new_message_reply';
+    const channel = ably.channels.get(channelName);
+    await channel.publish(targetEvent, {
+      ticketId,
+      text,
+      from: senderType,
+      to: receiverType,
+      sessionId: sender.sessionId,
+    });
+  }
+  const channel = ably.channels.get(channelName);
+  await channel.publish(targetEvent, {
+    ticketId,
+    text,
+    extras: {
+      sender: "Customer",
+      type: targetEvent,
+      isCustomer: senderType === 'customer'
+    },
+    to: receiverType,
+    sessionId: sender.sessionId,
+  });
+
+  console.log(`📨 Sent ${targetEvent} to ${channelName}`);
+}
+
+// ✅ AGENT-SIDE: Ticket chat listener
+async function setAblyTicketChatListener(ticketId, clientId, workspaceId, sessionId) {
+  if (!ticketSubscriptions[ticketId]) ticketSubscriptions[ticketId] = {};
+  if (ticketSubscriptions[ticketId].agent) return;
+
+  ticketSubscriptions[ticketId].agent = { sessionId, clientId, workspaceId };
+  console.log('✅ Agent subscribed for ticket', ticketId);
+
+  const ticketChannel = ably.channels.get(`ticket:${ticketId}`);
+  ticketChannel.subscribe('message', async (msg) => {
+    await handleMessageRouting(ticketId, msg, 'agent');
+  });
+}
+
+// ✅ CUSTOMER-SIDE: Widget conversation listener
+async function handleWidgetConversationEvent(ticketId, clientId, workspaceId, sessionId) {
+  if (!ticketSubscriptions[ticketId]) ticketSubscriptions[ticketId] = {};
+  if (ticketSubscriptions[ticketId].customer) return;
+
+  ticketSubscriptions[ticketId].customer = { sessionId, clientId, workspaceId };
+  console.log('✅ Customer subscribed for ticket', ticketId);
+
+  const channel = ably.channels.get(`widget:conversation:ticket-${ticketId}`);
+  channel.subscribe('message', async (msg) => {
+    await handleMessageRouting(ticketId, msg, 'customer');
+  });
+}
+
+// ✅ CUSTOMER-SIDE: Widget contact event listener
+async function handleWidgetContactEvent(sessionId, clientId, workspaceId) {
+  if (widgetEventSubscribedChannels.has(sessionId)) return;
+  widgetEventSubscribedChannels.add(sessionId);
+
+  console.log('✅ Handling widget contact event', sessionId, clientId, workspaceId);
+  const contactEventChannel = ably.channels.get(`widget:contactevent:${sessionId}`);
+
+  contactEventChannel.subscribe('new_ticket', (msg) => {
+    handleNewTicket(msg, sessionId).catch(err => {
+      console.error('❌ Error in new_ticket:', err);
+    });
+  });
+}
+
+// 🛠️ Ticket creation handler
+async function handleNewTicket(msg, sessionId) {
   try {
-    console.log('👤 Handling message', msg);
     const msgData = typeof msg.data === 'string' ? JSON.parse(msg.data) : msg.data;
     const { text, sender } = msgData;
 
-
-    // Get session info
-
-    console.log('👤 Session:', sessionId);
     const { data: sessionData, error: sessionError } = await supabase
       .from('widgetsessions')
       .select('*')
       .eq('id', sessionId);
-    console.log('👤 Session data:', sessionData);
-    if (sessionError) throw sessionError;
-    if (!sessionData || !sessionData[0]) throw new Error('No session data found');
+
+    if (sessionError || !sessionData[0]) throw sessionError || new Error('No session found');
 
     const session = sessionData[0];
     const customerId = safeUUID(session.contactId);
@@ -84,40 +170,20 @@ const handleMessage = async (msg, sessionId = null) => {
     const workspaceId = safeUUID(session.workspaceId);
     const deviceId = safeUUID(session.contactDeviceId);
 
-    // Get welcome message
-    const { data: widgetThemeData, error: widgetThemeError } = await supabase
-      .from('widgettheme')
-      .select('*')
-      .eq('widgetId', session.widgetId)
-      .single();
-    console.log('👤 Widget theme data:', widgetThemeData);
-    if (widgetThemeError) throw widgetThemeError;
-    if (!widgetThemeData) throw new Error('No widget theme found');
-
-    const welcomeMessage = widgetThemeData.labels?.welcomeMessage || 'Hello!';
-
-    // Get channel -> team
-    const { data: channelData, error: channelError } = await supabase
+    const { data: channelData } = await supabase
       .from('channels')
       .select('id')
       .eq('name', 'chat')
       .single();
-    if (channelError) throw channelError;
-    if (!channelData?.id) throw new Error('Channel ID not found');
-    console.log('👤 Channel data:', channelData);
-    const channelId = channelData.id;
 
-    const { data: teamData, error: teamError } = await supabase
+    const { data: teamData } = await supabase
       .from('teamChannels')
       .select('teamId')
-      .eq('channelId', channelId);
-    if (teamError) throw teamError;
-    if (!teamData?.[0]?.teamId) throw new Error('Team ID not found');
-    console.log('👤 Team data:', teamData);
-    const teamId = safeUUID(teamData[0].teamId);
+      .eq('channelId', channelData.id);
 
-    // Create new ticket
-    const { data: newTicket, error: newTicketError } = await supabase
+    const teamId = safeUUID(teamData?.[0]?.teamId);
+
+    const { data: ticketResult } = await supabase
       .from('tickets')
       .insert({
         customerId,
@@ -132,15 +198,19 @@ const handleMessage = async (msg, sessionId = null) => {
       })
       .select();
 
-    if (newTicketError) throw newTicketError;
-    if (!newTicket?.[0]?.id) throw new Error('Ticket insert failed');
-    console.log('🎟 New ticket created:', newTicket);
-    const newTicketId = newTicket[0].id;
+    const newTicketId = ticketResult?.[0]?.id;
+    if (!newTicketId) throw new Error('Ticket creation failed');
 
-    // Save welcome message
-    const { error: welcomeMessageError } = await supabase
-      .from('conversations')
-      .insert({
+    const { data: widgetTheme } = await supabase
+      .from('widgettheme')
+      .select('*')
+      .eq('widgetId', session.widgetId)
+      .single();
+
+    const welcomeMessage = widgetTheme.labels?.welcomeMessage || 'Hello!';
+
+    await supabase.from('conversations').insert([
+      {
         message: welcomeMessage,
         createdBy: customerId,
         type: 'chat',
@@ -150,13 +220,8 @@ const handleMessage = async (msg, sessionId = null) => {
         workspaceId,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
-      });
-    if (welcomeMessageError) throw welcomeMessageError;
-    console.log('👤 Welcome message saved:', welcomeMessage);
-    // Save user message
-    const { error: msgInsertError } = await supabase
-      .from('conversations')
-      .insert({
+      },
+      {
         message: text,
         createdBy: customerId,
         type: 'chat',
@@ -166,144 +231,59 @@ const handleMessage = async (msg, sessionId = null) => {
         workspaceId,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
-      });
-    if (msgInsertError) throw msgInsertError;
-    console.log('👤 User message saved:', text);
+      }
+    ]);
 
-    // SAFELY get contactEventChannel again based on sessionId
-    const contactEventChannel = ably.channels.get(`widget:contactevent:${sessionId}`);
-    await contactEventChannel.publish('new_ticket_reply', {
-      ticketId: newTicketId,
-    });
+    const channel = ably.channels.get(`widget:contactevent:${sessionId}`);
+    await channel.publish('new_ticket_reply', { ticketId: newTicketId });
 
-    console.log('✅ Contact event reply sent for ticket:', newTicketId);
+    console.log('✅ New ticket created and messages published:', newTicketId);
   } catch (err) {
-    console.error('❌ Error inside handleMessage:', err);
-  }
-};
-
-
-// create a function to handle the message from the widget:contactevent:sessionId
-const widgetEventSubscribedChannels = new Set();
-async function handleWidgetContactEvent(sessionId, clientId, workspaceId) {
-  try {
-    if (widgetEventSubscribedChannels.has(sessionId)) return; // already subscribed
-    widgetEventSubscribedChannels.add(sessionId);
-    console.log('✅ Handling widget contact event', sessionId, clientId, workspaceId);
-
-    const contactEventChannel = ably.channels.get(`widget:contactevent:${sessionId}`);
-
-    // Move handleMessage here so it's defined BEFORE usage
-
-
-    contactEventChannel.subscribe('new_ticket', (msg) => {
-      handleMessage(msg, sessionId).catch(err => {
-        console.error('❌ Unhandled async error in new_ticket subscription:', err);
-      });
-    });
-  } catch (error) {
-    console.error('❌ Error handling widget contact event', error);
+    console.error('❌ Error inside handleNewTicket:', err);
   }
 }
 
-
-// add a customer object to check the already subscribed channels
-const customerSubscribedChannels = new Set();
-async function handleWidgetConversationEvent(ticketId, clientId, workspaceId) {
-  if (customerSubscribedChannels.has(ticketId)) return; // already subscribed
-  customerSubscribedChannels.add(ticketId);
-  console.log('✅ Handling widget conversation event', ticketId, clientId, workspaceId);
-  //widget:conversation:ticket-<ticketId>
-  const conversationEventChannel = ably.channels.get(`widget:conversation:ticket-${ticketId}`);
-  conversationEventChannel.subscribe('message', (msg) => handleMessage(msg, 'conversation'));
-  handleMessage = async (msg) => {
-    /*
-    Message Body: {
-  text: 'Mynameisdev',
-  sessionId: 'f09c12e1-6965-4bec-b773-66dd53844ed3',
-  ticketId: '28e414e9-11db-446c-93c1-9df968a1dfb2'
-} */
-    const msgData = typeof msg.data === 'string' ? JSON.parse(msg.data) : msg.data;
-    const {
-      text,
-      sessionId,
-      ticketId,
-    } = msgData;
-    //save this msg to conversations table
-    const { data, error } = await supabase
-      .from('conversations')
-      .insert({
-        message: text,
-        createdBy: customerId || null,
-        type: 'chat',
-        ticketId: ticketId,
-        userType: 'customer',
-        clientId: clientId,
-        workspaceId: workspaceId,
-        createdAt: new Date().toISOString(),
-      });
-    if (error) throw error;
-    console.log('✅ Message saved to conversations table', data);
-    //publish this message to the customer queue event rabbit
-    const publisher = new ConversationEventPublisher();
-    await publisher.created(text, updatedTicket, false);
-    //uppdate the ticket with the lastMessage, lastMessageAt, updatedAt
-    const { data: updatedTicket, error: updatedTicketError } = await supabase
-      .from('tickets')
-      .update({ lastMessage: text, lastMessageAt: new Date().toISOString(), updatedAt: new Date().toISOString() })
-      .eq('id', ticketId);
-    if (updatedTicketError) throw updatedTicketError;
-    console.log('✅ Ticket updated with lastMessage, lastMessageAt, updatedAt', updatedTicket);
-    // send this message to the 
-  }
-}
-
+// ✅ Optional: test listener for demo/dev
 async function startAblyListener() {
-  console.log('✅ Ably listener started for chat widget + ticket channel');
+  console.log('🟢 Ably listener started');
 
-  const sessionId = 'session_abc123'; // replace with actual session tracking
-  const ticketId = 'da74508d-1e54-4e15-87fa-5808b5596894'; // test ticket ID
+  const sessionId = 'test_session';
+  const ticketId = 'test_ticket_id';
 
   const visitorChannel = ably.channels.get(`visitor:${sessionId}`);
   const customerChannel = ably.channels.get(`customer:${sessionId}`);
   const ticketChannel = ably.channels.get(`ticket:${ticketId}`);
 
-  const handleMessage = async (msg, channelType = 'visitor') => {
-    try {
-      const msgData = typeof msg.data === 'string' ? JSON.parse(msg.data) : msg.data;
+  const logHandler = async (msg, type = 'visitor') => {
+    const msgData = typeof msg.data === 'string' ? JSON.parse(msg.data) : msg.data;
+    const {
+      sessionId: msgSessionId,
+      customerId,
+      ticketId,
+      text,
+      source = type === 'ticket' ? 'agent' : type
+    } = msgData;
 
-      const {
-        sessionId: msgSessionId,
-        customerId,
-        ticketId,
-        text,
-        source = channelType === 'ticket' ? 'agent' : channelType
-      } = msgData;
-      console.log('✅ Handling incoming chat message', msgSessionId, customerId, text, source, ticketId);
-      const result = await ticketAssociationService.handleIncomingChatMessage({
-        sessionId: msgSessionId,
-        customerId,
-        text,
-        source,
-        ticketId,
-        widgetKey: 'chat',
-      });
+    const result = await ticketAssociationService.handleIncomingChatMessage({
+      sessionId: msgSessionId,
+      customerId,
+      text,
+      source,
+      ticketId,
+      widgetKey: 'chat',
+    });
 
-
-      console.log(`✅ Message handled for ticket ${result.ticketId}`);
-    } catch (err) {
-      console.error('❌ Error handling Ably message:', err);
-    }
+    console.log(`✅ Message handled for ticket ${result.ticketId}`);
   };
 
-  // Subscribe to visitor messages
-  visitorChannel.subscribe('new_message', (msg) => handleMessage(msg, 'visitor'));
-
-  // Subscribe to customer messages
-  customerChannel.subscribe('new_message', (msg) => handleMessage(msg, 'customer'));
-
-  // Subscribe to ticket messages (agent panel)
-  ticketChannel.subscribe('new_message', (msg) => handleMessage(msg, 'ticket'));
+  visitorChannel.subscribe('new_message', (msg) => logHandler(msg, 'visitor'));
+  customerChannel.subscribe('new_message', (msg) => logHandler(msg, 'customer'));
+  ticketChannel.subscribe('new_message', (msg) => logHandler(msg, 'ticket'));
 }
 
-module.exports = { startAblyListener, setAblyTicketChatListener, handleWidgetContactEvent, handleWidgetConversationEvent };
+module.exports = {
+  startAblyListener,
+  setAblyTicketChatListener,
+  handleWidgetContactEvent,
+  handleWidgetConversationEvent,
+};
