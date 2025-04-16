@@ -47,7 +47,7 @@ async function handleMessageRouting(ticketId, msg, senderType) {
       updatedAt: new Date().toISOString(),
     })
     .eq('id', ticketId)
-    .single();
+    .select();
 
   let targetEvent = 'message';
   let channelName = `ticket:${ticketId}`;
