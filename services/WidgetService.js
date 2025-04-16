@@ -543,15 +543,15 @@ class WidgetService extends BaseService {
             }
 
             // Step: Fire new_convo event if first access
-            const eventPublisher = new ConversationEventPublisher();
+            // const eventPublisher = new ConversationEventPublisher();
 
-            await eventPublisher.started({
-                ticketId: ticket.id,
-                sessionId: widgetSession.id,
-                workspaceId,
-                clientId,
-                contactDeviceId: widgetSession.contactDeviceId
-            });
+            // await eventPublisher.started({
+            //     ticketId: ticket.id,
+            //     sessionId: widgetSession.id,
+            //     workspaceId,
+            //     clientId,
+            //     contactDeviceId: widgetSession.contactDeviceId
+            // });
 
             //now listen to ably channel for customer msg
             setAblyTicketChatListener(ticketId, clientId, workspaceId)
