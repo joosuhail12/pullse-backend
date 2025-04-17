@@ -238,13 +238,22 @@ async function handleNewTicket(msg, sessionId) {
 
     const channel = ably.channels.get(`widget:contactevent:${sessionId}`);
     await channel.publish('new_ticket_reply', { ticketId: newTicketId });
-
+    sendNewTicketNotification(newTicketId, teamId);
     console.log('✅ New ticket created and messages published:', newTicketId);
   } catch (err) {
     console.error('❌ Error inside handleNewTicket:', err);
   }
 }
-
+// 🛠️ Send new ticket notification to agent 
+async function sendNewTicketNotification(ticketId, teamId) {
+  try {
+    const channel = ably.channels.get(`agent:notifications:${teamId}`);
+    await channel.publish('new_ticket', { ticketId: newTicketId });
+    console.log('✅ New ticket notification sent to agent:', ticketId);
+  } catch (err) {
+    console.error('❌ Error inside sendNewTicketNotification:', err);
+  }
+}
 // ✅ Optional: test listener for demo/dev
 async function startAblyListener() {
   console.log('🟢 Ably listener started');
