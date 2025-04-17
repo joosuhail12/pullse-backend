@@ -248,7 +248,7 @@ async function handleNewTicket(msg, sessionId) {
 async function sendNewTicketNotification(ticketId, teamId) {
   try {
     const channel = ably.channels.get(`agent:notifications:${teamId}`);
-    await channel.publish('new_ticket', { ticketId: newTicketId });
+    await channel.publish('new_ticket', { ticketId: ticketId });
     console.log('✅ New ticket notification sent to agent:', ticketId);
   } catch (err) {
     console.error('❌ Error inside sendNewTicketNotification:', err);
