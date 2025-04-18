@@ -19,6 +19,7 @@ const swagger = require('./middlewares/swagger');
 const routes = require('./routes');
 const caslPlugin = require('./ability/casl');
 const supabase = require('./db/supabaseClient');
+// const { handleWidgetContactEvent, handleWidgetConversationEvent } = require('./ExternalService/ablyListener');
 let app;
 const start = async () => {
   try {
@@ -63,6 +64,9 @@ const start = async () => {
       },
       // limitHandler: (req, res, next) => { next(); }
     });
+
+    // handleWidgetContactEvent("3e742e62-1041-4a2b-a85a-8e6a17d60565", "e63d6f79-3966-4716-9231-f4a312e247e1", "6c22b22f-7bdf-43db-b7c1-9c5884125c63");
+    // handleWidgetConversationEvent("805d4503-94ce-45d9-bcba-7e4c89bc7120", "e63d6f79-3966-4716-9231-f4a312e247e1", "6c22b22f-7bdf-43db-b7c1-9c5884125c63")
 
     // name
     await routes.activate(app);

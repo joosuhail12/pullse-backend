@@ -3,9 +3,10 @@ const BaseService = require("./BaseService");
 const _ = require("lodash");
 const AuthService = require("./AuthService");
 const ConversationEventPublisher = require("../Events/ConversationEvent/ConversationEventPublisher");
-const { handleWidgetContactEvent, handleWidgetConversationEvent } = require("../ExternalService/ablyListener");
+const { handleWidgetContactEvent, handleWidgetConversationEvent, setAblyTicketChatListener } = require("../ExternalService/ablyListener");
 const { S3Client, PutObjectCommand } = require("@aws-sdk/client-s3");
 const fs = require('fs').promises;
+
 class WidgetService extends BaseService {
     constructor() {
         super();
@@ -341,7 +342,7 @@ class WidgetService extends BaseService {
             if ((!device && !operatingSystem) || !publicIpAddress) {
                 throw new errors.BadRequest("Device, operatingSystem and publicIpAddress are required");
             }
-
+            console.log("requestBody", device, operatingSystem, publicIpAddress, apiKey, name, authUser, contact, company, customData);
             // Check widget api key
             let { data: widgetApiKeyData, error: widgetApiKeyError } = await this.supabase.from("widgetapikeyrelation").select("*").eq("apiKey", apiKey).is("deletedAt", null).single();
             if (widgetApiKeyError || !widgetApiKeyData) {
@@ -476,7 +477,7 @@ class WidgetService extends BaseService {
             if (!authUser && !authUser.sessionId) {
                 throw new errors.Unauthorized("Unauthorized");
             }
-
+            console.log("authUser", authUser);
             const { data: sessionData, error: sessionError } = await this.supabase.from("widgetsessions").select("*").eq("id", authUser.sessionId).is("deletedAt", null).single();
 
             if (sessionError) {
@@ -554,19 +555,18 @@ class WidgetService extends BaseService {
             }
 
             // Step: Fire new_convo event if first access
-            const eventPublisher = new ConversationEventPublisher();
+            // const eventPublisher = new ConversationEventPublisher();
 
-            await eventPublisher.started({
-                ticketId: ticket.id,
-                sessionId: widgetSession.id,
-                workspaceId,
-                clientId,
-                contactDeviceId: widgetSession.contactDeviceId
-            });
+            // await eventPublisher.started({
+            //     ticketId: ticket.id,
+            //     sessionId: widgetSession.id,
+            //     workspaceId,
+            //     clientId,
+            //     contactDeviceId: widgetSession.contactDeviceId
+            // });
 
             //now listen to ably channel for customer msg
-            setAblyTicketChatListener(ticketId, clientId, workspaceId)
-
+            handleWidgetConversationEvent(ticketId, clientId, workspaceId, sessionId)
 
             return conversations;
 
