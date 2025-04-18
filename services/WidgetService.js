@@ -4,11 +4,23 @@ const _ = require("lodash");
 const AuthService = require("./AuthService");
 const ConversationEventPublisher = require("../Events/ConversationEvent/ConversationEventPublisher");
 const { handleWidgetContactEvent, handleWidgetConversationEvent, setAblyTicketChatListener } = require("../ExternalService/ablyListener");
+const { S3Client, PutObjectCommand } = require("@aws-sdk/client-s3");
+const fs = require('fs').promises;
+
 class WidgetService extends BaseService {
     constructor() {
         super();
         this.entityName = "widget";
         this.authService = new AuthService();
+
+        this.s3Client = new S3Client({
+            region: 'auto',
+            endpoint: process.env.CLOUDFLARE_R2_ENDPOINT,
+            credentials: {
+                accessKeyId: process.env.CLOUDFLARE_R2_ACCESS_KEY,
+                secretAccessKey: process.env.CLOUDFLARE_R2_SECRET_KEY,
+            },
+        });
     }
 
     async getWidgets({ workspaceId, clientId }) {
@@ -564,6 +576,39 @@ class WidgetService extends BaseService {
         }
     }
 
+    async uploadWidgetAsset(workspaceId, file) {
+        try {
+            const bucketName = "pullse";
+
+            // Generate unique key for the file
+            const key = `widgets-${workspaceId}-${Date.now()}`;
+
+            const fileBuffer = await fs.readFile(file.tempFilePath);
+
+            // Upload to R2 using PutObjectCommand
+            await this.s3Client.send(
+                new PutObjectCommand({
+                    Bucket: bucketName,
+                    Key: key,
+                    Body: fileBuffer,
+                    ContentType: file.mimetype,
+                    ContentLength: file.size
+                })
+            );
+
+            // Generate and return the file URL
+            // Public url https://pub-1db3dea75deb4e36a362d30e3f67bb76.r2.dev
+            // Private url https://98d50eb9172903f66dfd5573801dc8b6.r2.cloudflarestorage.com
+            const fileUrl = `${process.env.CLOUDFLARE_R2_PUBLIC_URL}/${process.env.CLOUDFLARE_R2_BUCKET}/${key}`;
+
+            return {
+                fileUrl
+            };
+        } catch (error) {
+            console.error('Error uploading file to Cloudflare R2:', error);
+            throw new errors.Internal(error.message);
+        }
+    }
 }
 
 module.exports = WidgetService; 
