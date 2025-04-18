@@ -94,18 +94,20 @@ async function handleMessageRouting(ticketId, msg, senderType) {
       sessionId: sender.sessionId,
     });
   }
-  const channel = ably.channels.get(channelName);
-  await channel.publish(targetEvent, {
-    ticketId,
-    text,
-    extras: {
-      sender: "Customer",
-      type: targetEvent,
-      isCustomer: senderType === 'customer'
-    },
-    to: receiverType,
-    sessionId: sender.sessionId,
-  });
+  else {
+    const channel = ably.channels.get(channelName);
+    await channel.publish(targetEvent, {
+      ticketId,
+      text,
+      extras: {
+        sender: "Customer",
+        type: targetEvent,
+        isCustomer: senderType === 'customer'
+      },
+      to: receiverType,
+      sessionId: sender.sessionId,
+    });
+  }
 
   console.log(`📨 Sent ${targetEvent} to ${channelName}`);
 }
