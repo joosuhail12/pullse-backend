@@ -26,12 +26,42 @@ async function handleMessageRouting(ticketId, msg, senderType) {
   const receiver = ticketInfo[receiverType];
 
   // Save to conversations
+  // await supabase.from('conversations').insert({
+  //   message: text,
+  //   createdBy: sender.clientId,
+  //   type: 'chat',
+  //   ticketId,
+  //   userType: senderType,
+  //   clientId: sender.clientId,
+  //   workspaceId: sender.workspaceId,
+  //   createdAt: new Date().toISOString(),
+  //   updatedAt: new Date().toISOString(),
+  // });
+
+  // Get proper sender name from msgData if available
+  const senderName = msgData.senderName || sender.clientId;
+
+  // Save to conversations with senderName
   await supabase.from('conversations').insert({
     message: text,
     createdBy: sender.clientId,
     type: 'chat',
     ticketId,
     userType: senderType,
+    senderName: senderName, // Add this!
+    clientId: sender.clientId,
+    workspaceId: sender.workspaceId,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  });
+
+  console.log("🔄 Saved conversation:", {
+    message: text,
+    createdBy: sender.clientId,
+    type: 'chat',
+    ticketId,
+    userType: senderType,
+    senderName: senderName,
     clientId: sender.clientId,
     workspaceId: sender.workspaceId,
     createdAt: new Date().toISOString(),
@@ -97,10 +127,19 @@ async function handleMessageRouting(ticketId, msg, senderType) {
   else {
     const channel = ably.channels.get(channelName);
     await channel.publish(targetEvent, {
+      // ticketId,
+      // text,
+      // extras: {
+      //   sender: "Customer",
+      //   type: targetEvent,
+      //   isCustomer: senderType === 'customer'
+      // },
+      // new changes for introducing senderName
       ticketId,
       text,
       extras: {
-        sender: "Customer",
+        sender: senderType === 'customer' ? "Customer" : sender.clientId,
+        senderName: msgData.senderName || sender.clientId, // Add actual name
         type: targetEvent,
         isCustomer: senderType === 'customer'
       },
