@@ -34,7 +34,16 @@ class EmailDomainService extends BaseService {
     async createEmailDomain(emailDomainData) {
         try {
             let { domain, clientId } = emailDomainData;
-            let emailDomain = await this.findOne({ domain, clientId, archiveAt: null });
+            let {
+                data: emailDomain,
+                error
+            } = await this.supabase.from(this.entityName).select("*").eq('domain', domain).eq('clientId', clientId).is('archiveAt', null).single();
+
+            if (error && error.code !== "PGRST116") throw error;
+
+            if (emailDomain) {
+                return Promise.reject(new errors.AlreadyExist(this.entityName + " already exist."));
+            }
 
             const mailgun = new Mailgun(formData);
             let mg = mailgun.client({
