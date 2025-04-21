@@ -25,7 +25,6 @@ class WidgetService extends BaseService {
 
     async getWidgets({ workspaceId, clientId }) {
         try {
-            // Also fetch widget fields
             const { data, error } = await this.supabase.from(this.entityName).select(`
                 *,
                 widgettheme!widgettheme_widgetId_fkey(id, name, colors, labels,widgetId, layout, brandAssets, widgetSettings, interfaceSettings),
@@ -35,6 +34,25 @@ class WidgetService extends BaseService {
             if (error) {
                 throw new errors.InternalServerError(error.message);
             }
+
+            // Fetch custom fields from the customfields table with ids in the widgetfield.customDataFields array
+            const { data: customFields, error: customFieldsError } = await this.supabase.from("customfields").select("*").in("id", data.widgetfield[0].customDataFields).is("deletedAt", null);
+            if (customFieldsError) {
+                throw new errors.InternalServerError(customFieldsError.message);
+            }
+
+            const customFieldsArray = customFields.map(field => ({
+                id: field.id,
+                label: field.name,
+                type: field.fieldType,
+                options: field.options,
+                placeholder: field.placeholder,
+                required: field.isRequired
+            }));
+            // Add custom fields to the data
+            data.widgetfield[0].customDataFields = customFieldsArray;
+
+
             return data;
         } catch (error) {
             console.error(error);
@@ -163,6 +181,23 @@ class WidgetService extends BaseService {
             if (updatedWidgetThemeError) {
                 throw new errors.InternalServerError(updatedWidgetThemeError.message);
             }
+
+            // Update widget fields
+            const contactFields = data.widgetFields.contactFields.entityFields;
+            const companyFields = data.widgetFields.companyFields.entityFields;
+            const customFields = [...data.widgetFields.contactFields.customFields, ...data.widgetFields.companyFields.customFields];
+            const customFieldsIds = customFields.map(field => field.id);
+
+            const { data: updatedWidgetFields, error: updatedWidgetFieldsError } = await this.supabase.from("widgetfield").update({
+                entityFields: [...contactFields, ...companyFields],
+                customDataFields: customFieldsIds
+            }).eq("widgetId", widgetData.id).is("deletedAt", null);
+
+            if (updatedWidgetFieldsError) {
+                throw new errors.InternalServerError(updatedWidgetFieldsError.message);
+            }
+
+            console.log(updatedWidgetFields);
 
             return updatedWidgetTheme;
         } catch (error) {
@@ -619,43 +654,50 @@ class WidgetService extends BaseService {
                     columnname: "firstname",
                     label: "First Name",
                     type: "text",
-                    options: []
+                    options: [],
+                    placeholder: "Enter first name"
                 },
                 {
                     columnname: "lastname",
                     label: "Last Name",
                     type: "text",
-                    options: []
+                    options: [],
+                    placeholder: "Enter last name"
                 },
                 {
                     columnname: "email",
                     label: "Email",
                     type: "text",
-                    options: []
+                    options: [],
+                    placeholder: "Enter email"
                 },
                 {
                     columnname: "phone",
                     label: "Phone",
                     type: "text",
-                    options: []
+                    options: [],
+                    placeholder: "Enter phone"
                 },
                 {
                     columnname: "twitter",
                     label: "Twitter",
                     type: "text",
-                    options: []
+                    options: [],
+                    placeholder: "Enter twitter"
                 },
                 {
                     columnname: "linkedin",
                     label: "LinkedIn",
                     type: "text",
-                    options: []
+                    options: [],
+                    placeholder: "Enter linkedin"
                 },
                 {
                     columnname: "address",
                     label: "Address",
                     type: "text",
-                    options: []
+                    options: [],
+                    placeholder: "Enter address"
                 }
                 ],
                 customFields: []
@@ -665,25 +707,29 @@ class WidgetService extends BaseService {
                     columnname: "name",
                     label: "Name",
                     type: "text",
-                    options: []
+                    options: [],
+                    placeholder: "Enter company name"
                 },
                 {
                     columnname: "description",
                     label: "Description",
                     type: "text",
-                    options: []
+                    options: [],
+                    placeholder: "Enter company description"
                 },
                 {
                     columnname: "phone",
                     label: "Phone",
                     type: "text",
-                    options: []
+                    options: [],
+                    placeholder: "Enter company phone"
                 },
                 {
                     columnname: "website",
                     label: "Website",
                     type: "text",
-                    options: []
+                    options: [],
+                    placeholder: "Enter company website"
                 }],
                 customFields: []
             };
@@ -701,7 +747,8 @@ class WidgetService extends BaseService {
                     id: field.id,
                     label: field.name,
                     type: field.fieldType,
-                    options: field.options
+                    options: field.options,
+                    placeholder: field.placeholder
                 });
             });
 
@@ -710,7 +757,8 @@ class WidgetService extends BaseService {
                     id: field.id,
                     label: field.name,
                     type: field.fieldType,
-                    options: field.options
+                    options: field.options,
+                    placeholder: field.placeholder
                 });
             });
 
