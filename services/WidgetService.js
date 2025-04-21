@@ -25,9 +25,11 @@ class WidgetService extends BaseService {
 
     async getWidgets({ workspaceId, clientId }) {
         try {
+            // Also fetch widget fields
             const { data, error } = await this.supabase.from(this.entityName).select(`
                 *,
-                widgettheme!widgettheme_widgetId_fkey(id, name, colors, labels,widgetId, layout, brandAssets, widgetSettings, interfaceSettings)
+                widgettheme!widgettheme_widgetId_fkey(id, name, colors, labels,widgetId, layout, brandAssets, widgetSettings, interfaceSettings),
+                widgetfield!widgetfield_widgetId_fkey(*)
             `).eq("workspaceId", workspaceId).eq("clientId", clientId).is("deletedAt", null).single();
             console.log(data, error);
             if (error) {
@@ -607,6 +609,118 @@ class WidgetService extends BaseService {
         } catch (error) {
             console.error('Error uploading file to Cloudflare R2:', error);
             throw new errors.Internal(error.message);
+        }
+    }
+
+    async getWidgetFieldOptions(workspaceId, clientId) {
+        try {
+            const contactFields = {
+                entityFields: [{
+                    columnname: "firstname",
+                    label: "First Name",
+                    type: "text",
+                    options: []
+                },
+                {
+                    columnname: "lastname",
+                    label: "Last Name",
+                    type: "text",
+                    options: []
+                },
+                {
+                    columnname: "email",
+                    label: "Email",
+                    type: "text",
+                    options: []
+                },
+                {
+                    columnname: "phone",
+                    label: "Phone",
+                    type: "text",
+                    options: []
+                },
+                {
+                    columnname: "twitter",
+                    label: "Twitter",
+                    type: "text",
+                    options: []
+                },
+                {
+                    columnname: "linkedin",
+                    label: "LinkedIn",
+                    type: "text",
+                    options: []
+                },
+                {
+                    columnname: "address",
+                    label: "Address",
+                    type: "text",
+                    options: []
+                }
+                ],
+                customFields: []
+            };
+            const companyFields = {
+                entityFields: [{
+                    columnname: "name",
+                    label: "Name",
+                    type: "text",
+                    options: []
+                },
+                {
+                    columnname: "description",
+                    label: "Description",
+                    type: "text",
+                    options: []
+                },
+                {
+                    columnname: "phone",
+                    label: "Phone",
+                    type: "text",
+                    options: []
+                },
+                {
+                    columnname: "website",
+                    label: "Website",
+                    type: "text",
+                    options: []
+                }],
+                customFields: []
+            };
+            // Fetch custom fields
+            const { data: customFields, error: customFieldsError } = await this.supabase.from("customfields").select("*").eq("workspaceId", workspaceId).eq("clientId", clientId).is("deletedAt", null);
+            if (customFieldsError) {
+                throw new errors.Internal(customFieldsError.message);
+            }
+
+            const customerCustomFields = customFields.filter(field => field.entityType === "customer");
+            const companyCustomFields = customFields.filter(field => field.entityType === "company");
+
+            customerCustomFields.forEach(field => {
+                contactFields.customFields.push({
+                    id: field.id,
+                    label: field.name,
+                    type: field.fieldType,
+                    options: field.options
+                });
+            });
+
+            companyCustomFields.forEach(field => {
+                companyFields.customFields.push({
+                    id: field.id,
+                    label: field.name,
+                    type: field.fieldType,
+                    options: field.options
+                });
+            });
+
+            return {
+                contactFields,
+                companyFields,
+            }
+        } catch (error) {
+            console.error(error);
+            throw error;
         }
     }
 }
