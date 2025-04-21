@@ -100,6 +100,13 @@ class WidgetHandler extends BaseHandler {
         const workspaceId = req.query.workspace_id;
         return this.responder(req, reply, inst.uploadWidgetAsset(workspaceId, req.body.file));
     }
+
+    async getWidgetFieldOptions(req, reply) {
+        let inst = new WidgetService();
+        const workspaceId = req.query.workspace_id;
+        const clientId = req.authUser.clientId;
+        return this.responder(req, reply, inst.getWidgetFieldOptions(workspaceId, clientId));
+    }
 }
 
 module.exports = WidgetHandler;

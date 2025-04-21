@@ -169,6 +169,31 @@ async function activate(app) {
                                     enableConversationRating: { type: "boolean" },
                                 },
                             },
+                            widgetFields: {
+                                type: "object",
+                                minProperties: 1,
+                                additionalProperties: false,
+                                properties: {
+                                    contactFields: {
+                                        type: "object",
+                                        minProperties: 1,
+                                        additionalProperties: false,
+                                        properties: {
+                                            entityFields: { type: "array", items: { type: "object", properties: { columnname: { type: "string" }, label: { type: "string" }, type: { type: "string" }, required: { type: "boolean" }, options: { type: "array", items: { type: "string" } } } } },
+                                            customFields: { type: "array", items: { type: "object", properties: { id: { type: "string" }, label: { type: "string" }, type: { type: "string" }, required: { type: "boolean" }, options: { type: "array", items: { type: "string" } } } } },
+                                        },
+                                    },
+                                    companyFields: {
+                                        type: "object",
+                                        minProperties: 1,
+                                        additionalProperties: false,
+                                        properties: {
+                                            entityFields: { type: "array", items: { type: "object", properties: { columnname: { type: "string" }, label: { type: "string" }, type: { type: "string" }, required: { type: "boolean" }, options: { type: "array", items: { type: "string" } } } } },
+                                            customFields: { type: "array", items: { type: "object", properties: { id: { type: "string" }, label: { type: "string" }, type: { type: "string" }, required: { type: "boolean" }, options: { type: "array", items: { type: "string" } } } } },
+                                        },
+                                    },
+                                },
+                            },
                         },
                     },
                 },
@@ -370,6 +395,23 @@ async function activate(app) {
 
             return handler.uploadWidgetAsset(req, reply);
         }
+    });
+
+    app.route({
+        url: base_url + "/getWidgetFieldOptions",
+        method: "GET",
+        name: "GetWidgetFieldOptions",
+        preHandler: authMiddlewares.checkToken(AuthType.user),
+        schema: {
+            tags: ["Widgets"],
+            summary: "Get Widget Field Options",
+            query: {
+                workspace_id: { type: "string" },
+            },
+        },
+        handler: async (req, reply) => {
+            return handler.getWidgetFieldOptions(req, reply);
+        },
     });
 }
 
