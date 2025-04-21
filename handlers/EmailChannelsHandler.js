@@ -38,6 +38,14 @@ class EmailChannelsHandler extends BaseHandler {
         let inst = new EmailChannelsService();
         return this.responder(req, res, inst.deleteEmailChannel(req.body));
     }
+
+    async getEmailChannelDetails(req, res) {
+        req.body.workspaceId = req.query.workspace_id;
+        req.body.clientId = req.authUser.clientId;
+        req.body.emailChannelId = req.params.email_channel_id;
+        let inst = new EmailChannelsService();
+        return this.responder(req, res, inst.getEmailChannelDetails(req.body));
+    }
 }
 
 module.exports = EmailChannelsHandler;

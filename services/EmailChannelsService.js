@@ -76,6 +76,19 @@ class EmailChannelsService extends BaseService {
             throw new errors.Internal(error.message);
         }
     }
+
+    async getEmailChannelDetails(data) {
+        try {
+            let { emailChannelId, workspaceId, clientId } = data;
+            let { data: emailChannelData, error: emailChannelError } = await this.supabase.from(this.entityName).select("*").eq("id", emailChannelId).eq("workspaceId", workspaceId).eq("clientId", clientId).is("deletedAt", null).single();
+            if (emailChannelError) {
+                throw new errors.Internal(emailChannelError.message);
+            }
+            return emailChannelData;
+        } catch (error) {
+            throw new errors.Internal(error.message);
+        }
+    }
 }
 
 module.exports = EmailChannelsService;

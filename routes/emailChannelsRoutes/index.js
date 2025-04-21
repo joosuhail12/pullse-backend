@@ -116,6 +116,34 @@ async function activate(app) {
                 return handler.deleteEmailChannel(req, reply);
             },
     });
+
+    app.route({
+        url: base_url + "/:email_channel_id",
+        method: "GET",
+        name: "GetEmailChannelDetails",
+        preHandler: authMiddlewares.checkToken(AuthType.user),
+        schema: {
+            tags: ["EmailChannels"],
+            summary: "Get Email Channel Details",
+            params: {
+                type: "object",
+                required: ["email_channel_id"],
+                properties: {
+                    email_channel_id: { type: "string" },
+                },
+            },
+            query: {
+                type: "object",
+                properties: {
+                    workspace_id: { type: "string" },
+                },
+            },
+        },
+        handler:
+            async (req, reply) => {
+                return handler.getEmailChannelDetails(req, reply);
+            },
+    });
 }
 
 module.exports = {
