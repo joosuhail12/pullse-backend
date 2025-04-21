@@ -179,8 +179,8 @@ async function activate(app) {
                                         minProperties: 1,
                                         additionalProperties: false,
                                         properties: {
-                                            entityFields: { type: "array", items: { type: "object", properties: { columnname: { type: "string" }, label: { type: "string" }, type: { type: "string" }, required: { type: "boolean" }, options: { type: "array", items: { type: "string" } } } } },
-                                            customFields: { type: "array", items: { type: "object", properties: { id: { type: "string" }, label: { type: "string" }, type: { type: "string" }, required: { type: "boolean" }, options: { type: "array", items: { type: "string" } } } } },
+                                            entityFields: { type: "array", items: { type: "object", properties: { columnname: { type: "string" }, label: { type: "string" }, type: { type: "string" }, required: { type: "boolean" }, options: { type: "array", items: { type: "string" } }, placeholder: { type: "string" } } } },
+                                            customFields: { type: "array", items: { type: "object", properties: { id: { type: "string" }, label: { type: "string" }, type: { type: "string" }, required: { type: "boolean" }, options: { type: "array", items: { type: "string" } }, placeholder: { type: "string" } } } },
                                         },
                                     },
                                     companyFields: {
@@ -188,8 +188,8 @@ async function activate(app) {
                                         minProperties: 1,
                                         additionalProperties: false,
                                         properties: {
-                                            entityFields: { type: "array", items: { type: "object", properties: { columnname: { type: "string" }, label: { type: "string" }, type: { type: "string" }, required: { type: "boolean" }, options: { type: "array", items: { type: "string" } } } } },
-                                            customFields: { type: "array", items: { type: "object", properties: { id: { type: "string" }, label: { type: "string" }, type: { type: "string" }, required: { type: "boolean" }, options: { type: "array", items: { type: "string" } } } } },
+                                            entityFields: { type: "array", items: { type: "object", properties: { columnname: { type: "string" }, label: { type: "string" }, type: { type: "string" }, required: { type: "boolean" }, options: { type: "array", items: { type: "string" } }, placeholder: { type: "string" } } } },
+                                            customFields: { type: "array", items: { type: "object", properties: { id: { type: "string" }, label: { type: "string" }, type: { type: "string" }, required: { type: "boolean" }, options: { type: "array", items: { type: "string" } }, placeholder: { type: "string" } } } },
                                         },
                                     },
                                 },
