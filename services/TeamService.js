@@ -92,7 +92,7 @@ class TeamService {
             let query = supabase
                 .from(this.entityName)
                 .select(`
-                    id, name, icon, description, workspaceId, clientId, createdBy, channels, routingStrategy,
+                    id, name, icon, description, workspaceId, clientId, createdBy, channels (email:emailAddress), routingStrategy,
                     maxTotalTickets, maxOpenTickets, maxActiveChats, officeHours, holidays, createdAt, updatedAt,
                     teamMembers (users (id, name, email))
                 `)
@@ -127,7 +127,9 @@ class TeamService {
             const { data: team, error } = await supabase
                 .from(this.entityName)
                 .select(`
-                    id, name, icon, description, workspaceId, clientId, createdBy, channels, routingStrategy,
+                    id, name, icon, description, workspaceId, clientId, createdBy,
+                    channels (email:emailAddress),
+                    routingStrategy,
                     maxTotalTickets, maxOpenTickets, maxActiveChats, officeHours, holidays, createdAt, updatedAt,
                     teamMembers (users (id, name, email))
                 `)
@@ -160,20 +162,22 @@ class TeamService {
             // Extract members from updateValues if present
             const { members, channels, ...teamUpdateValues } = updateValues;
 
-            // Clean up channels if present
-            // if (teamUpdateValues.channels && Array.isArray(teamUpdateValues.channels)) {
-            //     teamUpdateValues.channels = teamUpdateValues.channels.filter(
-            //         channel => channel === "email" || channel === "chat"
-            //     );
-
-            //     if (teamUpdateValues.channels.length === 0) {
-            //         delete teamUpdateValues.channels;
-            //     }
-            // }
-
-            // Ensure workspaceId and clientId are part of the update
+            
             teamUpdateValues.workspaceId = workspaceId;
             teamUpdateValues.clientId = clientId;
+
+            // update channels   
+            if (channels && channels.email && Object.keys(channels).length > 0) {
+                const { data: channelData, error: channelError } = await supabase
+                    .from("emailchannels")
+                    .select("id")
+                    .eq("emailAddress", channels.email[0])
+                    .single();
+                if (channelError) throw channelError;
+                teamUpdateValues.channels = channelData.id;
+            } else {
+                delete teamUpdateValues.channels;
+            }
 
             // Update the team data without members
             const { error: updateError } = await supabase
