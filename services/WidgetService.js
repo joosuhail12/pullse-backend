@@ -35,37 +35,80 @@ class WidgetService extends BaseService {
                 throw new errors.InternalServerError(error.message);
             }
 
+
+            const contactFields = data.widgetfield.filter(field => field.fieldSourceType === "contact");
+
+            const contactFieldsArray = contactFields.length > 0 ? contactFields.map(field => ({
+                entityname: "contact",
+                columnname: field.standardFieldName, // Use id incase of custom data
+                label: field.label,
+                type: field.fieldType,
+                placeholder: field.placeholder,
+                required: field.isRequired,
+                position: field.position
+            })) : [];
+
+            const companyFields = data.widgetfield.filter(field => field.fieldSourceType === "company");
+
+            const companyFieldsArray = companyFields.length > 0 ? companyFields.map(field => ({
+                entityname: "company",
+                columnname: field.standardFieldName, // Use id incase of custom data
+                label: field.label,
+                type: field.fieldType,
+                placeholder: field.placeholder,
+                required: field.isRequired,
+                position: field.position
+            })) : [];
+
             const customFields = data.widgetfield.filter(field => field.fieldSourceType === "custom_field");
+
+            const customFieldsData = await this.supabase.from("customfields").select("*").in("id", customFields.map(field => field.customFieldId)).is("deletedAt", null);
+
+            const customFieldsArray = customFields.length > 0 ? customFields.map(widgetField => {
+                // Find matching custom field data
+                const customFieldData = customFieldsData.data.find(cf => cf.id === widgetField.customFieldId);
+
+
+                return {
+                    entityname: "customfield",
+                    columnname: widgetField.customFieldId,
+                    label: customFieldData.name,
+                    type: customFieldData.fieldType,
+                    placeholder: customFieldData.placeholder,
+                    required: widgetField.isRequired,
+                    options: customFieldData.options,
+                    position: widgetField.position,
+                    entityType: customFieldData.entityType
+                };
+            }) : [];
+
 
             const customObjectFields = data.widgetfield.filter(field => field.fieldSourceType === "custom_object_field");
 
-            if (customFields.length > 0) {
-                // Fetch custom fields from the customfields table with ids in the widgetfield.customDataFields array
-                const { data: customFieldsData, error: customFieldsError } = await this.supabase.from("customfields").select("*").in("id", customFields.map(field => field.customFieldId)).is("deletedAt", null);
-                if (customFieldsError) {
-                    throw new errors.InternalServerError(customFieldsError.message);
-                }
+            const customObjectFieldsData = await this.supabase.from("customobjectfields").select("*").in("id", customObjectFields.map(field => field.customObjectFieldId)).is("deletedAt", null);
 
-                customFields.forEach(field => {
-                    const customFieldData = customFieldsData.find(cf => cf.id === field.customFieldId);
-                    field.options = customFieldData.options;
-                    field.entityType = customFieldData.entityType;
-                });
-            }
+            const customObjectFieldsArray = customObjectFields.length > 0 ? customObjectFields.map(widgetField => {
+                // Find matching custom field data
+                const customFieldData = customObjectFieldsData.data.find(cf => cf.id === widgetField.customObjectFieldId);
 
-            if (customObjectFields.length > 0) {
-                // Fetch custom object fields from the customobjectfields table with ids in the widgetfield.customDataFields array
-                const { data: customObjectFieldsData, error: customObjectFieldsError } = await this.supabase.from("customobjectfields").select("*").in("id", customObjectFields.map(field => field.customObjectFieldId)).is("deletedAt", null);
-                if (customObjectFieldsError) {
-                    throw new errors.InternalServerError(customObjectFieldsError.message);
-                }
+                return {
+                    entityname: "customobjectfield",
+                    columnname: widgetField.customFieldId,
+                    label: customFieldData.name,
+                    type: customFieldData.fieldType,
+                    placeholder: customFieldData.placeholder,
+                    required: widgetField.isRequired,
+                    options: customFieldData.options,
+                    position: widgetField.position,
+                    entityType: customFieldData.entityType
+                };
+            }) : [];
 
-                customObjectFields.forEach(field => {
-                    const customObjectFieldData = customObjectFieldsData.find(cf => cf.id === field.customObjectFieldId);
-                    field.options = customObjectFieldData.options;
-                    field.entityType = customObjectFieldData.entityType;
-                });
-            }
+            data.widgetfield = {
+                contactFields: [...contactFieldsArray, ...customFieldsArray.filter(field => field.entityType === "customer")],
+                companyFields: [...companyFieldsArray, ...customFieldsArray.filter(field => field.entityType === "company")],
+                customObjectFields: customObjectFieldsArray
+            };
 
             return data;
         } catch (error) {
@@ -342,7 +385,7 @@ class WidgetService extends BaseService {
 
             const customObjectFieldsArray = customObjectFields.length > 0 ? customObjectFields.map(widgetField => {
                 // Find matching custom field data
-                const customFieldData = customFieldsData.data.find(cf => cf.id === widgetField.customFieldId);
+                const customFieldData = customObjectFieldsData.data.find(cf => cf.id === widgetField.customObjectFieldId);
 
                 return {
                     entityname: "customobjectfield",
