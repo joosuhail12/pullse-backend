@@ -142,6 +142,122 @@ async function activate(app) {
   });
 
   app.route({
+    url: base_url + "/visitors",
+    method: "GET",
+    name: "ListVisitors",
+    preHandler: authMiddlewares.checkToken(AuthType.user),
+    schema: {
+      operationId: "ListVisitors",
+      tags: ["Customer"],
+      summary: "List Visitors",
+      description: "API to list all visitors.",
+      required: ["workspace_id"],
+      query: {
+        firstname: {
+          type: "string",
+        },
+        lastname: {
+          type: "string",
+        },
+        email: {
+          type: "string",
+          format: "email",
+        },
+        customer_type: {
+          type: "string",
+        },
+        company_id: {
+          type: "string",
+        },
+        archived: {
+          type: "boolean",
+          default: false,
+          description: "To fetch archived records.",
+        },
+        last_active_from: {
+          type: "string",
+        },
+        last_active_to: {
+          type: "string",
+        },
+        workspace_id: {
+          type: "string",
+        },
+        page: {
+          type: "string",
+        },
+        skip: {
+          type: "number",
+        },
+        limit: {
+          type: "number",
+        },
+      },
+    },
+    handler: async (req, reply) => {
+      return handler.listVisitors(req, reply);
+    },
+  });
+
+  app.route({
+    url: base_url + "/customers",
+    method: "GET",
+    name: "ListCustomers",
+    preHandler: authMiddlewares.checkToken(AuthType.user),
+    schema: {
+      operationId: "ListContacts",
+      tags: ["Customer"],
+      summary: "List Contacts",
+      description: "API to list all contacts.",
+      required: ["workspace_id"],
+      query: {
+        firstname: {
+          type: "string",
+        },
+        lastname: {
+          type: "string",
+        },
+        email: {
+          type: "string",
+          format: "email",
+        },
+        customer_type: {
+          type: "string",
+        },
+        company_id: {
+          type: "string",
+        },
+        archived: {
+          type: "boolean",
+          default: false,
+          description: "To fetch archived records.",
+        },
+        last_active_from: {
+          type: "string",
+        },
+        last_active_to: {
+          type: "string",
+        },
+        workspace_id: {
+          type: "string",
+        },
+        page: {
+          type: "string",
+        },
+        skip: {
+          type: "number",
+        },
+        limit: {
+          type: "number",
+        },
+      },
+    },
+    handler: async (req, reply) => {
+      return handler.listContacts(req, reply);
+    },
+  });
+
+  app.route({
     url: base_url + "/:customer_id",
     method: "GET",
     name: "ShowCustomerDetail",
