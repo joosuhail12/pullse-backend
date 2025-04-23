@@ -1,6 +1,6 @@
 {
   "name": "pullse_ai_base_framework",
-  "version": "1.0.36",
+  "version": "1.0.37",
   "description": "Pullse AI Base Framework",
   "main": "server.js",
   "scripts": {

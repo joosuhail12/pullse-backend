@@ -60,6 +60,19 @@ class WidgetService extends BaseService {
                 position: field.position
             })) : [];
 
+
+            const ticketFields = data.widgetfield.filter(field => field.fieldSourceType === "ticket");
+
+            const ticketFieldsArray = ticketFields.length > 0 ? ticketFields.map(field => ({
+                entityname: "ticket",
+                columnname: field.standardFieldName, // Use id incase of custom data
+                label: field.label,
+                type: field.fieldType,
+                placeholder: field.placeholder,
+                required: field.isRequired,
+                position: field.position
+            })) : [];
+
             const customFields = data.widgetfield.filter(field => field.fieldSourceType === "custom_field");
 
             const customFieldsData = await this.supabase.from("customfields").select("*").in("id", customFields.map(field => field.customFieldId)).is("deletedAt", null);
@@ -93,7 +106,7 @@ class WidgetService extends BaseService {
 
                 return {
                     entityname: "customobjectfield",
-                    columnname: widgetField.customFieldId,
+                    columnname: widgetField.customObjectFieldId,
                     label: customFieldData.name,
                     type: customFieldData.fieldType,
                     placeholder: customFieldData.placeholder,
@@ -107,6 +120,7 @@ class WidgetService extends BaseService {
             data.widgetfield = {
                 contactFields: [...contactFieldsArray, ...customFieldsArray.filter(field => field.entityType === "customer")],
                 companyFields: [...companyFieldsArray, ...customFieldsArray.filter(field => field.entityType === "company")],
+                ticketFields: [...ticketFieldsArray, ...customFieldsArray.filter(field => field.entityType === "ticket")],
                 customObjectFields: customObjectFieldsArray
             };
 
@@ -357,6 +371,18 @@ class WidgetService extends BaseService {
                 position: field.position
             })) : [];
 
+            const ticketFields = widgetData.widgetfield.filter(field => field.fieldSourceType === "ticket");
+
+            const ticketFieldsArray = ticketFields.length > 0 ? ticketFields.map(field => ({
+                entityname: "ticket",
+                columnname: field.standardFieldName, // Use id incase of custom data
+                label: field.label,
+                type: field.fieldType,
+                placeholder: field.placeholder,
+                required: field.isRequired,
+                position: field.position
+            })) : [];
+
             const customFields = widgetData.widgetfield.filter(field => field.fieldSourceType === "custom_field");
 
             const customFieldsData = await this.supabase.from("customfields").select("*").in("id", customFields.map(field => field.customFieldId)).is("deletedAt", null);
@@ -386,10 +412,10 @@ class WidgetService extends BaseService {
             const customObjectFieldsArray = customObjectFields.length > 0 ? customObjectFields.map(widgetField => {
                 // Find matching custom field data
                 const customFieldData = customObjectFieldsData.data.find(cf => cf.id === widgetField.customObjectFieldId);
-
+                console.log(customFieldData);
                 return {
                     entityname: "customobjectfield",
-                    columnname: widgetField.customFieldId,
+                    columnname: widgetField.customObjectFieldId,
                     label: customFieldData.name,
                     type: customFieldData.fieldType,
                     placeholder: customFieldData.placeholder,
@@ -399,7 +425,7 @@ class WidgetService extends BaseService {
                 };
             }) : [];
 
-            widgetData.widgetfield = [...contactFieldsArray, ...companyFieldsArray, ...customFieldsArray, ...customObjectFieldsArray];
+            widgetData.widgetfield = [...contactFieldsArray, ...companyFieldsArray, ...customFieldsArray, ...ticketFieldsArray, ...customObjectFieldsArray];
 
             const widgetSettings = widgetData.widgettheme[0].widgetSettings;
 
