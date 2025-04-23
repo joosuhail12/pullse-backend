@@ -19,19 +19,14 @@ async function activate(app) {
             description: "API to create Custom Object.",
             required: [
                 "name",
-                "slug",
-                "showInCustomerContext",
-                "showInCustomerDetail",
-                "showInCompanyDetail",
+                "connectiontype",
             ],
             body: {
                 additionalProperties: false,
                 type: "object",
                 required: [
                     "name",
-                    "showInCustomerContext",
-                    "showInCustomerDetail",
-                    "showInCompanyDetail",
+                    "connectiontype",
                 ],
                 properties: {
                     name: {
@@ -41,14 +36,8 @@ async function activate(app) {
                     description: {
                         type: "string",
                     },
-                    showInCustomerContext: {
-                        type: "boolean",
-                    },
-                    showInCustomerDetail: {
-                        type: "boolean",
-                    },
-                    showInCompanyDetail: {
-                        type: "boolean",
+                    connectiontype: {
+                        type: "string",
                     }
                 },
             },
