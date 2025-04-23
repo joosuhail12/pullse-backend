@@ -200,6 +200,7 @@ class CustomObjectService extends BaseService {
                     clientId,
                     workspaceId,
                     createdBy,
+                    entityType: customObject.connectiontype,
                     customObjectId: id,
                 })
                 .select();
