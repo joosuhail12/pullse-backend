@@ -107,28 +107,28 @@ class CompanyService extends BaseService {
     async getDetails(id, workspaceId, clientId) {
         try {
             let company = await this.findOne({ id, workspaceId, clientId });
-    
+
             if (_.isEmpty(company)) {
                 return Promise.reject(new errors.NotFound(`${this.entityName} not found.`));
             }
-    
+
             // Fetch tags related to the company from companyTags table
             const { data: companyTags, error: tagError } = await this.supabase
                 .from("companyTags")
                 .select("tag: tags(id, name)") // Fetch associated tag details
                 .eq("companyId", id);
-    
+
             if (tagError) throw tagError;
-    
+
             // Attach tags to the company object
             company.tags = companyTags ? companyTags.map(entry => entry.tag) : [];
-    
+
             return company;
         } catch (err) {
             return this.handleError(err);
         }
     }
-    
+
 
     async updateCompany({ id, workspaceId, clientId }, updateValues) {
         try {
@@ -152,16 +152,21 @@ class CompanyService extends BaseService {
             }
 
             await this.update({ id: company.id }, updateValues);
+
+            // update tag history only if tags are updated
             if (updateValues.tags) {
                 await this.supabase.from('companyTags').delete().eq('companyId', id);
                 const tagEntries = updateValues.tags.map(tag => ({ companyId: id, tagId: tag.id, workspaceId: workspaceId, clientId: clientId }));
                 await this.supabase.from('companyTags').insert(tagEntries);
+
+                // Only iterate through tags if they exist
+                updateValues.tags.forEach(async (tag) => {
+                    await tagHistoryService.updateTagHistory(tag.id, "company");
+                });
             }
-            updateValues.tags.forEach(async (tag) => {
-                await tagHistoryService.updateTagHistory(tag.id, "company");
-            });
-            let inst = new CompanyEventPublisher();
-            await inst.updated(company, updateValues);
+            // No use of this event publisher for now (No RabbitMQ)
+            // let inst = new CompanyEventPublisher();
+            // await inst.updated(company, updateValues);
 
             // Fetch and return updated company details
             let updatedCompany = await this.getDetails(id, workspaceId, clientId);
