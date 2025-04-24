@@ -169,30 +169,32 @@ async function activate(app) {
                                     enableConversationRating: { type: "boolean" },
                                 },
                             },
-                            widgetFields: {
+                            widgetField: {
                                 type: "object",
-                                minProperties: 1,
-                                additionalProperties: false,
-                                properties: {
-                                    contactFields: {
-                                        type: "object",
-                                        minProperties: 1,
-                                        additionalProperties: false,
-                                        properties: {
-                                            entityFields: { type: "array", items: { type: "object", properties: { columnname: { type: "string" }, label: { type: "string" }, type: { type: "string" }, required: { type: "boolean" }, options: { type: "array", items: { type: "string" } }, placeholder: { type: "string" } } } },
-                                            customFields: { type: "array", items: { type: "object", properties: { id: { type: "string" }, label: { type: "string" }, type: { type: "string" }, required: { type: "boolean" }, options: { type: "array", items: { type: "string" } }, placeholder: { type: "string" } } } },
-                                        },
-                                    },
-                                    companyFields: {
-                                        type: "object",
-                                        minProperties: 1,
-                                        additionalProperties: false,
-                                        properties: {
-                                            entityFields: { type: "array", items: { type: "object", properties: { columnname: { type: "string" }, label: { type: "string" }, type: { type: "string" }, required: { type: "boolean" }, options: { type: "array", items: { type: "string" } }, placeholder: { type: "string" } } } },
-                                            customFields: { type: "array", items: { type: "object", properties: { id: { type: "string" }, label: { type: "string" }, type: { type: "string" }, required: { type: "boolean" }, options: { type: "array", items: { type: "string" } }, placeholder: { type: "string" } } } },
-                                        },
-                                    },
-                                },
+                                // minProperties: 1,
+                                // additionalProperties: false,
+                                // properties: {
+                                //     contactFields: {
+                                //         type: "object",
+                                //         minProperties: 1,
+                                //         additionalProperties: false,
+                                //     },
+                                //     companyFields: {
+                                //         type: "object",
+                                //         minProperties: 1,
+                                //         additionalProperties: false,
+                                //     },
+                                //     ticketFields: {
+                                //         type: "object",
+                                //         minProperties: 1,
+                                //         additionalProperties: false,
+                                //     },
+                                //     customObjectFields: {
+                                //         type: "object",
+                                //         minProperties: 1,
+                                //         additionalProperties: false,
+                                //     },
+                                // },
                             },
                         },
                     },
