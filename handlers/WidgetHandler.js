@@ -37,11 +37,11 @@ class WidgetHandler extends BaseHandler {
     async updateWidget(req, reply) {
         let workspaceId = req.query.workspace_id;
         let clientId = req.authUser.clientId;
-
+        let createdBy = req.authUser.id;
         let toUpdate = req.body;
 
         let inst = new WidgetService();
-        return this.responder(req, reply, inst.updateWidget({ workspaceId, clientId }, toUpdate));
+        return this.responder(req, reply, inst.updateWidget({ workspaceId, clientId, createdBy }, toUpdate));
     }
 
     async deleteWidget(req, reply) {
