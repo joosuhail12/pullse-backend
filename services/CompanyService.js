@@ -235,6 +235,183 @@ class CompanyService extends BaseService {
 
         return filters;
     }
+
+    async getCompanyRelatedData({ id, workspaceId, clientId }) {
+        try {
+            // Get company details first
+            const company = await this.getDetails(id, workspaceId, clientId);
+
+            if (_.isEmpty(company)) {
+                return Promise.reject(new errors.NotFound(`${this.entityName} not found.`));
+            }
+
+            // Get customers associated with this company
+            const { data: customers, error: customersError } = await this.supabase
+                .from('customers')
+                .select('id, firstname, lastname, email, phone, status, type, title, department, timezone, linkedin, twitter, language, source, assignedTo, accountValue, notes, lastContacted, created_at, updated_at, street, city, state, postalCode, country')
+                .eq('companyId', id)
+                .eq('workspaceId', workspaceId)
+                .eq('clientId', clientId)
+                .is('deletedAt', null);
+
+            if (customersError) throw customersError;
+
+            // Get customer IDs for ticket lookup
+            const customerIds = (customers || []).map(customer => customer.id);
+
+            // 3. Get tickets for these customers
+            let tickets = [];
+            let assignedToUsersMap = {}; // Add this map to store user details
+
+            if (customerIds.length > 0) {
+                const { data: ticketsData, error: ticketsError } = await this.supabase
+                    .from('tickets')
+                    .select(`
+                        id, sno, title, description, status, priority, customerId, 
+                        teamId, teams:teamId(id, name),
+                        assignedTo, assigneeId, lastMessage, lastMessageAt, lastMessageBy,
+                        createdAt, updatedAt, closedAt, unread, language, typeId, channel, device
+                    `)
+                    .in('customerId', customerIds)
+                    .eq('workspaceId', workspaceId)
+                    .eq('clientId', clientId)
+                    .is('deletedAt', null)
+                    .order('updatedAt', { ascending: false });
+
+                if (ticketsError) {
+                    console.error("Tickets fetch error:", ticketsError);
+                    throw ticketsError;
+                }
+
+                tickets = ticketsData || [];
+
+                // Get all assignedTo IDs for a single lookup
+                const assignedToIds = tickets
+                    .filter(ticket => ticket.assignedTo)
+                    .map(ticket => ticket.assignedTo);
+
+                // Fetch user details if there are assignedTo values
+                if (assignedToIds.length > 0) {
+                    const { data: users, error: usersError } = await this.supabase
+                        .from('users')
+                        .select('id, name, email')
+                        .in('id', assignedToIds);
+
+                    if (!usersError && users) {
+                        // Create a lookup map for easy access
+                        assignedToUsersMap = users.reduce((map, user) => {
+                            map[user.id] = user;
+                            return map;
+                        }, {});
+                    }
+                }
+            }
+
+            // 4. Format customers
+            const formattedCustomers = (customers || []).map(customer => ({
+                id: customer.id,
+                firstname: customer.firstname || '',
+                lastname: customer.lastname || '',
+                email: customer.email,
+                phone: customer.phone || null,
+                company: company.name,
+                status: customer.status || 'active',
+                type: customer.type || 'customer',
+                title: customer.title || null,
+                department: customer.department || null,
+                timezone: customer.timezone || null,
+                linkedinUrl: customer.linkedin || null,
+                twitterUrl: customer.twitter || null,
+                language: customer.language || 'English',
+                source: customer.source || 'website',
+                assignedTo: customer.assignedTo || null,
+                accountValue: customer.accountValue || 0,
+                notes: customer.notes || '',
+                lastContacted: customer.lastContacted ? new Date(customer.lastContacted).toISOString() : null,
+                createdAt: customer.created_at ? new Date(customer.created_at).toISOString() : null,
+                updatedAt: customer.updated_at ? new Date(customer.updated_at).toISOString() : null,
+                street: customer.street || '',
+                city: customer.city || '',
+                state: customer.state || '',
+                postalCode: customer.postalCode || '',
+                country: customer.country || ''
+            }));
+
+            // 5. Format tickets with enhanced data
+            const formattedTickets = tickets.map(ticket => {
+                // Find the customer for this ticket
+                const ticketCustomer = customers.find(c => c.id === ticket.customerId);
+                const assignedToUser = ticket.assignedTo ? assignedToUsersMap[ticket.assignedTo] : null;
+
+                return {
+                    id: ticket.id,
+                    sno: ticket.sno,
+                    subject: ticket.title,
+                    description: ticket.description,
+
+                    status: ticket.status,
+                    statusType: ticket.statusId,
+                    priority: ticket.priority === 2 ? 'high' : ticket.priority === 1 ? 'medium' : 'low',
+                    priorityRaw: ticket.priority,
+
+                    customerId: ticket.customerId,
+                    customer: ticketCustomer ? {
+                        id: ticketCustomer.id,
+                        name: `${ticketCustomer.firstname || ''} ${ticketCustomer.lastname || ''}`.trim() || ticketCustomer.email || 'Unknown',
+                        email: ticketCustomer.email,
+                        phone: ticketCustomer.phone
+                    } : null,
+
+                    companyId: id,
+                    company: {
+                        id: company.id,
+                        name: company.name,
+                        domain: company.website
+                    },
+
+                    assigneeId: ticket.assigneeId,
+                    assignedTo: ticket.assignedTo,
+                    assignedToUser: assignedToUser ? {
+                        id: assignedToUser.id,
+                        name: assignedToUser.name,
+                        email: assignedToUser.email
+                    } : null,
+
+                    teamId: ticket.teamId,
+                    team: ticket.teams ? {
+                        id: ticket.teams.id,
+                        name: ticket.teams.name
+                    } : null,
+
+                    lastMessage: ticket.lastMessage,
+                    lastMessageAt: ticket.lastMessageAt,
+                    lastMessageBy: ticket.lastMessageBy,
+
+                    channel: ticket.channel,
+                    device: ticket.device,
+
+                    language: ticket.language || 'en',
+                    type: ticket.type || 'general',
+
+                    createdAt: ticket.createdAt,
+                    updatedAt: ticket.updatedAt,
+                    closedAt: ticket.closedAt,
+
+                    isUnread: Boolean(ticket.unread)
+                };
+            });
+
+            // 6. Return combined data
+            return {
+                company,
+                customers: formattedCustomers,
+                tickets: formattedTickets
+            };
+        } catch (err) {
+            console.error("Error in getCompanyRelatedData:", err);
+            return this.handleError(err);
+        }
+    }
 }
 
 module.exports = CompanyService;
