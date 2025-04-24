@@ -254,21 +254,140 @@ class WidgetService extends BaseService {
             }
 
             // Update widget fields
-            const contactFields = data.widgetFields.contactFields.entityFields;
-            const companyFields = data.widgetFields.companyFields.entityFields;
-            const customFields = [...data.widgetFields.contactFields.customFields, ...data.widgetFields.companyFields.customFields];
-            const customFieldsIds = customFields.map(field => field.id);
+            console.log(data);
+            const contactFields = data.widgetTheme.widgetField.contactFields.filter(field => field.entityname === "contact");
+            const companyFields = data.widgetTheme.widgetField.companyFields.filter(field => field.entityname === "company");
+            const ticketFields = data.widgetTheme.widgetField.ticketFields.filter(field => field.entityname === "ticket");
+            const contactCustomFields = data.widgetTheme.widgetField.contactFields.filter(field => field.entityname === "customfield");
+            const companyCustomFields = data.widgetTheme.widgetField.companyFields.filter(field => field.entityname === "customfield");
+            const ticketCustomFields = data.widgetTheme.widgetField.ticketFields.filter(field => field.entityname === "customfield");
+            const customObjectFields = data.widgetTheme.widgetField.customObjectFields;
 
-            const { data: updatedWidgetFields, error: updatedWidgetFieldsError } = await this.supabase.from("widgetfield").update({
-                entityFields: [...contactFields, ...companyFields],
-                customDataFields: customFieldsIds
-            }).eq("widgetId", widgetData.id).is("deletedAt", null);
+            console.log("Contact Fields", contactFields);
+            console.log("Company Fields", companyFields);
+            console.log("Ticket Fields", ticketFields);
+            console.log("Contact Custom Fields", contactCustomFields);
+            console.log("Company Custom Fields", companyCustomFields);
+            console.log("Ticket Custom Fields", ticketCustomFields);
+            console.log("Custom Object Fields", customObjectFields);
 
-            if (updatedWidgetFieldsError) {
-                throw new errors.InternalServerError(updatedWidgetFieldsError.message);
+
+            // CREATE TABLE widgetfield (
+            //     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            //     widgetId UUID NOT NULL REFERENCES widget(id),
+            //     fieldSourceType TEXT NOT NULL, -- 'customer', 'company', 'custom_field', 'custom_object_field'
+            //     standardFieldName TEXT NULL, -- For standard fields (e.g., 'name', 'email')
+            //     label TEXT NULL, -- For standard fields label
+            //     placeholder TEXT NULL, -- For standard fields placeholder in form 
+            //     customFieldId UUID NULL, -- Reference to customFields.id
+            //     customObjectId UUID NULL, -- Reference to customObjects.id
+            //     customObjectFieldId UUID NULL, -- Reference to customObjectFields.id
+            //     position INTEGER NOT NULL, -- Controls order in the form
+            //     isRequired BOOLEAN DEFAULT FALSE, -- Whether field is mandatory
+            //     workspaceId TEXT NOT NULL,
+            //     clientId TEXT NOT NULL,
+            //     createdBy  TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+            //     deletedAt  TIMESTAMPTZ DEFAULT NULL,
+            //     createdAt TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+            //     updatedAt TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+            // );
+
+            // Delete all widget fields & insert new widget fields
+            let { error: deleteWidgetFieldError } = await this.supabase.from("widgetfield").delete().eq("widgetId", widgetData.id);
+            if (deleteWidgetFieldError) {
+                throw new errors.InternalServerError(deleteWidgetFieldError.message);
             }
 
-            console.log(updatedWidgetFields);
+            // Create a new entry for all the fields
+            const widgetFieldData = [];
+            contactFields.forEach(field => {
+                widgetFieldData.push({
+                    widgetId: widgetData.id,
+                    fieldSourceType: field.entityname,
+                    standardFieldName: field.columnname,
+                    label: field.label,
+                    placeholder: field.placeholder,
+                    isRequired: field.required,
+                    position: field.position
+                });
+            });
+            companyFields.forEach(field => {
+                widgetFieldData.push({
+                    widgetId: widgetData.id,
+                    fieldSourceType: field.entityname,
+                    standardFieldName: field.columnname,
+                    label: field.label,
+                    placeholder: field.placeholder,
+                    isRequired: field.required,
+                    position: field.position
+                });
+            });
+            ticketFields.forEach(field => {
+                widgetFieldData.push({
+                    widgetId: widgetData.id,
+                    fieldSourceType: field.entityname,
+                    standardFieldName: field.columnname,
+                    label: field.label,
+                    placeholder: field.placeholder,
+                    isRequired: field.required,
+                    position: field.position
+                });
+            });
+
+            contactCustomFields.forEach(field => {
+                widgetFieldData.push({
+                    widgetId: widgetData.id,
+                    fieldSourceType: field.entityname,
+                    customFieldId: field.id,
+                    label: field.label,
+                    placeholder: field.placeholder,
+                    isRequired: field.required,
+                    position: field.position
+                });
+            });
+
+            companyCustomFields.forEach(field => {
+                widgetFieldData.push({
+                    widgetId: widgetData.id,
+                    fieldSourceType: field.entityname,
+                    customFieldId: field.id,
+                    label: field.label,
+                    placeholder: field.placeholder,
+                    isRequired: field.required,
+                    position: field.position
+                });
+            });
+
+            ticketCustomFields.forEach(field => {
+                widgetFieldData.push({
+                    widgetId: widgetData.id,
+                    fieldSourceType: "custom_field",
+                    customFieldId: field.id,
+                    label: field.label,
+                    placeholder: field.placeholder,
+                    isRequired: field.required,
+                    position: field.position
+                });
+            });
+
+            customObjectFields.forEach(field => {
+                widgetFieldData.push({
+                    widgetId: widgetData.id,
+                    fieldSourceType: "custom_object_field",
+                    customObjectFieldId: field.id,
+                    label: field.label,
+                    placeholder: field.placeholder,
+                    isRequired: field.required,
+                    position: field.position
+                });
+            });
+
+            let { error: insertWidgetFieldError } = await this.supabase.from("widgetfield").insert(widgetFieldData);
+            if (insertWidgetFieldError) {
+                throw new errors.InternalServerError(insertWidgetFieldError.message);
+            }
+
+            console.log("Widget fields updated");
 
             return updatedWidgetTheme;
         } catch (error) {
