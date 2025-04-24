@@ -886,6 +886,20 @@ class WidgetService extends BaseService {
                 }],
                 customFields: []
             };
+
+            const ticketFields = {
+                entityFields: [
+                    {
+                        columnname: "subject",
+                        label: "Subject",
+                        type: "text",
+                        options: [],
+                        placeholder: "Enter subject"
+                    }
+                ],
+                customFields: []
+            };
+
             // Fetch custom fields
             const { data: customFields, error: customFieldsError } = await this.supabase.from("customfields").select("*").eq("workspaceId", workspaceId).eq("clientId", clientId).is("deletedAt", null);
             if (customFieldsError) {
@@ -894,6 +908,7 @@ class WidgetService extends BaseService {
 
             const customerCustomFields = customFields.filter(field => field.entityType === "customer");
             const companyCustomFields = customFields.filter(field => field.entityType === "company");
+            const ticketCustomFields = customFields.filter(field => field.entityType === "ticket");
 
             customerCustomFields.forEach(field => {
                 contactFields.customFields.push({
@@ -915,9 +930,36 @@ class WidgetService extends BaseService {
                 });
             });
 
+            ticketCustomFields.forEach(field => {
+                ticketFields.customFields.push({
+                    id: field.id,
+                    label: field.name,
+                    type: field.fieldType,
+                    options: field.options,
+                    placeholder: field.placeholder
+                });
+            });
+            const customObjectFields = [];
+
+            const { data: customObjectField, error: customObjectFieldError } = await this.supabase.from("customobjectfields").select("*").eq("workspaceId", workspaceId).eq("clientId", clientId).is("deletedAt", null);
+            if (customObjectFieldError) {
+                throw new errors.Internal(customObjectFieldError.message);
+            }
+
+            customObjectField.forEach(field => {
+                customObjectFields.push({
+                    id: field.id,
+                    label: field.name,
+                    type: field.fieldType,
+                    options: field.options,
+                    placeholder: field.placeholder
+                });
+            });
             return {
                 contactFields,
                 companyFields,
+                ticketFields,
+                customObjectFields
             }
         } catch (error) {
             console.error(error);
