@@ -401,6 +401,7 @@ class WidgetService extends BaseService {
                     required: widgetField.isRequired,
                     options: customFieldData.options,
                     position: widgetField.position,
+                    entityType: customFieldData.entityType
                 };
             }) : [];
 
@@ -412,7 +413,7 @@ class WidgetService extends BaseService {
             const customObjectFieldsArray = customObjectFields.length > 0 ? customObjectFields.map(widgetField => {
                 // Find matching custom field data
                 const customFieldData = customObjectFieldsData.data.find(cf => cf.id === widgetField.customObjectFieldId);
-                console.log(customFieldData);
+
                 return {
                     entityname: "customobjectfield",
                     columnname: widgetField.customObjectFieldId,
@@ -422,6 +423,7 @@ class WidgetService extends BaseService {
                     required: widgetField.isRequired,
                     options: customFieldData.options,
                     position: widgetField.position,
+                    entityType: customFieldData.entityType
                 };
             }) : [];
 
@@ -502,11 +504,11 @@ class WidgetService extends BaseService {
 
     async createContactDevice(requestBody) {
         try {
-            let { device, operatingSystem, publicIpAddress, apiKey, name, authUser, contact, company, customData } = requestBody;
+            let { device, operatingSystem, publicIpAddress, apiKey, name, authUser, contact, company, ticket, customfield, customobjectfield } = requestBody;
             if ((!device && !operatingSystem) || !publicIpAddress) {
                 throw new errors.BadRequest("Device, operatingSystem and publicIpAddress are required");
             }
-            console.log("requestBody", device, operatingSystem, publicIpAddress, apiKey, name, authUser, contact, company, customData);
+            console.log("requestBody", device, operatingSystem, publicIpAddress, apiKey, name, authUser, contact, company, ticket, customfield, customobjectfield);
             // Check widget api key
             let { data: widgetApiKeyData, error: widgetApiKeyError } = await this.supabase.from("widgetapikeyrelation").select("*").eq("apiKey", apiKey).is("deletedAt", null).single();
             if (widgetApiKeyError || !widgetApiKeyData) {
@@ -576,13 +578,37 @@ class WidgetService extends BaseService {
                 });
             }
 
+            // Process ticket data
+            if (ticket && Array.isArray(ticket)) {
+                let ticketData = {};
+                ticket.forEach(field => {
+                    if (field.value && field.columnname) {
+                        ticketData[field.columnname] = field.value;
+                    }
+                });
+            }
+
             // Process custom data
-            if (customData && Array.isArray(customData)) {
-                for (const field of customData) {
+            if (customfield && Array.isArray(customfield)) {
+                for (const field of customfield) {
                     if (field.value) {
                         let { error: customDataError } = await this.supabase.from("customfielddata")
                             .upsert({
                                 customfieldId: field.columnname, // columnname contains the UUID of the custom field
+                                data: field.value,
+                            });
+                        if (customDataError) throw customDataError;
+                    }
+                }
+            }
+
+            // Process custom object data
+            if (customobjectfield && Array.isArray(customobjectfield)) {
+                for (const field of customobjectfield) {
+                    if (field.value) {
+                        let { error: customDataError } = await this.supabase.from("customobjectfielddata")
+                            .upsert({
+                                customObjectFieldId: field.columnname, // columnname contains the UUID of the custom object field
                                 data: field.value,
                             });
                         if (customDataError) throw customDataError;

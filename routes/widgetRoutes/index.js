@@ -294,6 +294,7 @@ async function activate(app) {
             },
             body: {
                 type: "object",
+                required: ["contact", "company", "ticket", "customfields", "customobjectfields"],
                 properties: {
                     contact: {
                         type: "array",
@@ -301,7 +302,13 @@ async function activate(app) {
                     company: {
                         type: "array",
                     },
-                    customData: {
+                    ticket: {
+                        type: "array",
+                    },
+                    customfield: {
+                        type: "array",
+                    },
+                    customobjectfield: {
                         type: "array",
                     },
                 },
