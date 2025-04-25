@@ -12,7 +12,7 @@ const ticketSubscriptions = {};
 const widgetEventSubscribedChannels = new Set();
 
 const safeUUID = (val) => typeof val === 'string' && /^[0-9a-f-]{36}$/i.test(val) ? val : null;
-
+console.log("ably", ticketSubscriptions, widgetEventSubscribedChannels);
 // 🔄 Handles routing logic
 async function handleMessageRouting(ticketId, msg, senderType) {
   const msgData = typeof msg.data === 'string' ? JSON.parse(msg.data) : msg.data;
@@ -20,24 +20,11 @@ async function handleMessageRouting(ticketId, msg, senderType) {
 
   const ticketInfo = ticketSubscriptions[ticketId];
   if (!ticketInfo || !ticketInfo[senderType]) return;
-
+  console.log("ticketInfo", ticketInfo, senderType, ticketSubscriptions);
   const sender = ticketInfo[senderType];
   const receiverType = senderType === 'agent' ? 'customer' : 'agent';
   const receiver = ticketInfo[receiverType];
-
-  // Save to conversations
-  // await supabase.from('conversations').insert({
-  //   message: text,
-  //   createdBy: sender.clientId,
-  //   type: 'chat',
-  //   ticketId,
-  //   userType: senderType,
-  //   clientId: sender.clientId,
-  //   workspaceId: sender.workspaceId,
-  //   createdAt: new Date().toISOString(),
-  //   updatedAt: new Date().toISOString(),
-  // });
-
+  console.log("sender", sender, "receiver", receiver);
   // Get proper sender name from msgData if available
   const senderName = msgData.senderName || sender.clientId;
 
@@ -81,7 +68,6 @@ async function handleMessageRouting(ticketId, msg, senderType) {
 
   let targetEvent = 'message';
   let channelName = `ticket:${ticketId}`;
-  console.log("ticketData", data[0], error, ticketInfo, ticketId);
   if (!receiver) {
     targetEvent = 'notification';
     console.log("senderType", senderType);
@@ -152,11 +138,19 @@ async function handleMessageRouting(ticketId, msg, senderType) {
 }
 
 // ✅ AGENT-SIDE: Ticket chat listener
-async function setAblyTicketChatListener(ticketId, clientId, workspaceId, sessionId) {
+async function setAblyTicketChatListener(ticketId, clientId, workspaceId, sessionId, userId) {
+  // save user id in ticketSubscriptions, 
+  // if the same user is subscribed to the same ticket
+  if (ticketSubscriptions[ticketId] && ticketSubscriptions[ticketId].userId === userId) {
+    delete ticketSubscriptions[ticketId];
+  }
+  // if the same user is subscribed to any other ticket, then delete the previous subscription
+  if (ticketSubscriptions[ticketId]) {
+    delete ticketSubscriptions[ticketId];
+  }
   if (!ticketSubscriptions[ticketId]) ticketSubscriptions[ticketId] = {};
   if (ticketSubscriptions[ticketId].agent) return;
-
-  ticketSubscriptions[ticketId].agent = { sessionId, clientId, workspaceId };
+  ticketSubscriptions[ticketId].agent = { sessionId, clientId, workspaceId, userId };
   console.log('✅ Agent subscribed for ticket', ticketId);
 
   const ticketChannel = ably.channels.get(`ticket:${ticketId}`);

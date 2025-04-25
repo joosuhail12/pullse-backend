@@ -327,13 +327,7 @@ class TicketService {
                 };
             });
 
-            return {
-                docs: enrichedTickets,
-                total: tickets.length,
-                page: parseInt(req.page) || 1,
-                limit: parseInt(req.limit) || 20,
-                hasMore: false
-            };
+            return enrichedTickets;
         } catch (err) {
             console.log(err, "err---");
             throw err;
@@ -1258,7 +1252,7 @@ class TicketService {
     }
 
     // get conversation by ticket id
-    async getConversationByTicketId(sno, workspaceId, clientId) {
+    async getConversationByTicketId(sno, workspaceId, clientId, sessionId, userId) {
         try {
             const { data, error } = await supabase
                 .from('conversations')
@@ -1275,7 +1269,7 @@ class TicketService {
 
             // at this point i want to subscribe to an ably channel i.e ticket:sno
             // and return the response from the channel
-            setAblyTicketChatListener(sno, clientId, workspaceId)
+            setAblyTicketChatListener(sno, clientId, workspaceId, sessionId, userId)
             const response = sortedData.map(item => ({
                 id: item.id,
                 content: item.message,
