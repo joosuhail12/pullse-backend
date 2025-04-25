@@ -296,7 +296,7 @@ async function activate(app) {
             },
             body: {
                 type: "object",
-                required: ["contact", "company", "ticket", "customfields", "customobjectfields"],
+                required: ["contact", "company", "ticket", "customfield", "customobjectfield"],
                 properties: {
                     contact: {
                         type: "array",

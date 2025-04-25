@@ -177,7 +177,7 @@ class WidgetService extends BaseService {
         }
     }
 
-    async updateWidget({ clientId, workspaceId }, data) {
+    async updateWidget({ clientId, workspaceId, createdBy }, data) {
         try {
             // Get the widget
             const { data: widgetData, error: widgetDataError } = await this.supabase.from(this.entityName).select("*").eq("clientId", clientId).eq("workspaceId", workspaceId).is("deletedAt", null).single();
@@ -271,27 +271,6 @@ class WidgetService extends BaseService {
             console.log("Ticket Custom Fields", ticketCustomFields);
             console.log("Custom Object Fields", customObjectFields);
 
-
-            // CREATE TABLE widgetfield (
-            //     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-            //     widgetId UUID NOT NULL REFERENCES widget(id),
-            //     fieldSourceType TEXT NOT NULL, -- 'customer', 'company', 'custom_field', 'custom_object_field'
-            //     standardFieldName TEXT NULL, -- For standard fields (e.g., 'name', 'email')
-            //     label TEXT NULL, -- For standard fields label
-            //     placeholder TEXT NULL, -- For standard fields placeholder in form 
-            //     customFieldId UUID NULL, -- Reference to customFields.id
-            //     customObjectId UUID NULL, -- Reference to customObjects.id
-            //     customObjectFieldId UUID NULL, -- Reference to customObjectFields.id
-            //     position INTEGER NOT NULL, -- Controls order in the form
-            //     isRequired BOOLEAN DEFAULT FALSE, -- Whether field is mandatory
-            //     workspaceId TEXT NOT NULL,
-            //     clientId TEXT NOT NULL,
-            //     createdBy  TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-            //     deletedAt  TIMESTAMPTZ DEFAULT NULL,
-            //     createdAt TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-            //     updatedAt TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-            // );
-
             // Delete all widget fields & insert new widget fields
             let { error: deleteWidgetFieldError } = await this.supabase.from("widgetfield").delete().eq("widgetId", widgetData.id);
             if (deleteWidgetFieldError) {
@@ -304,33 +283,42 @@ class WidgetService extends BaseService {
                 widgetFieldData.push({
                     widgetId: widgetData.id,
                     fieldSourceType: field.entityname,
-                    standardFieldName: field.columnname,
+                    standardFieldName: field.name,
                     label: field.label,
                     placeholder: field.placeholder,
                     isRequired: field.required,
-                    position: field.position
+                    position: field.position,
+                    clientId: widgetData.clientId,
+                    workspaceId: widgetData.workspaceId,
+                    createdBy: createdBy
                 });
             });
             companyFields.forEach(field => {
                 widgetFieldData.push({
                     widgetId: widgetData.id,
                     fieldSourceType: field.entityname,
-                    standardFieldName: field.columnname,
+                    standardFieldName: field.name,
                     label: field.label,
                     placeholder: field.placeholder,
                     isRequired: field.required,
-                    position: field.position
+                    position: field.position,
+                    clientId: widgetData.clientId,
+                    workspaceId: widgetData.workspaceId,
+                    createdBy: createdBy
                 });
             });
             ticketFields.forEach(field => {
                 widgetFieldData.push({
                     widgetId: widgetData.id,
                     fieldSourceType: field.entityname,
-                    standardFieldName: field.columnname,
+                    standardFieldName: field.name,
                     label: field.label,
                     placeholder: field.placeholder,
                     isRequired: field.required,
-                    position: field.position
+                    position: field.position,
+                    clientId: widgetData.clientId,
+                    workspaceId: widgetData.workspaceId,
+                    createdBy: createdBy
                 });
             });
 
@@ -342,7 +330,10 @@ class WidgetService extends BaseService {
                     label: field.label,
                     placeholder: field.placeholder,
                     isRequired: field.required,
-                    position: field.position
+                    position: field.position,
+                    clientId: widgetData.clientId,
+                    workspaceId: widgetData.workspaceId,
+                    createdBy: createdBy
                 });
             });
 
@@ -354,7 +345,10 @@ class WidgetService extends BaseService {
                     label: field.label,
                     placeholder: field.placeholder,
                     isRequired: field.required,
-                    position: field.position
+                    position: field.position,
+                    clientId: widgetData.clientId,
+                    workspaceId: widgetData.workspaceId,
+                    createdBy: createdBy
                 });
             });
 
@@ -366,7 +360,10 @@ class WidgetService extends BaseService {
                     label: field.label,
                     placeholder: field.placeholder,
                     isRequired: field.required,
-                    position: field.position
+                    position: field.position,
+                    clientId: widgetData.clientId,
+                    workspaceId: widgetData.workspaceId,
+                    createdBy: createdBy
                 });
             });
 
@@ -378,9 +375,14 @@ class WidgetService extends BaseService {
                     label: field.label,
                     placeholder: field.placeholder,
                     isRequired: field.required,
-                    position: field.position
+                    position: field.position,
+                    clientId: widgetData.clientId,
+                    workspaceId: widgetData.workspaceId,
+                    createdBy: createdBy
                 });
             });
+
+            console.log("Widget field data", widgetFieldData);
 
             let { error: insertWidgetFieldError } = await this.supabase.from("widgetfield").insert(widgetFieldData);
             if (insertWidgetFieldError) {

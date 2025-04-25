@@ -1,6 +1,6 @@
 const BaseHandler = require('./BaseHandler');
 const CompanyService = require('../services/CompanyService');
-
+const errors = require('../errors');
 
 class CompanyHandler extends BaseHandler {
 
@@ -64,6 +64,30 @@ class CompanyHandler extends BaseHandler {
 
     let inst = new CompanyService();
     return this.responder(req, reply, inst.deleteCompany({ id, workspaceId, clientId }));
+  }
+
+  async getCompanyRelatedData(req, reply) {
+    // Log inputs for debugging
+    console.log("GetCompanyRelatedData request:", {
+      company_id: req.params.company_id,
+      workspace_id: req.query.workspace_id,
+      clientId: req.authUser.clientId
+    });
+
+    let workspaceId = req.query.workspace_id;
+    let clientId = req.authUser.clientId;
+    let id = req.params.company_id;
+
+    if (!id) {
+      return this.responder(
+        req,
+        reply,
+        Promise.reject(new errors.BadRequest("Company ID is required"))
+      );
+    }
+
+    let inst = new CompanyService();
+    return this.responder(req, reply, inst.getCompanyRelatedData({ id, workspaceId, clientId }));
   }
 
 }

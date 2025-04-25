@@ -179,6 +179,33 @@ async function activate(app) {
     },
     handler: async (req, reply) => handler.deleteCompany(req, reply)
   });
+
+  app.route({
+    url: base_url + "/:company_id/related-data",
+    method: 'GET',
+    name: "GetCompanyRelatedData",
+    preHandler: authMiddlewares.checkToken(AuthType.user),
+    schema: {
+      tags: ['Company'],
+      summary: 'Get Company Related Tickets and Customers',
+      description: 'API to get tickets and customers associated with a company.',
+      params: {
+        type: 'object',
+        properties: {
+          company_id: { type: 'string' }
+        },
+        required: ['company_id']
+      },
+      query: {
+        type: 'object',
+        properties: {
+          workspace_id: { type: 'string' }
+        },
+        required: ['workspace_id']
+      }
+    },
+    handler: async (req, reply) => handler.getCompanyRelatedData(req, reply)
+  });
 }
 
 module.exports = {
