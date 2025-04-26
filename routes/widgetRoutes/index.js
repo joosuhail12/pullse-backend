@@ -170,7 +170,7 @@ async function activate(app) {
                                 },
                             },
                             widgetField: {
-                                type: "object",
+                                type: "array",
                             },
                         },
                     },
