@@ -273,11 +273,11 @@ class WidgetService extends BaseService {
                 }
             */
 
-            const standardFields = widgetData.widgetfield.filter(field => field.entityname === "contact" || field.entityName === "company" || field.entityName === "ticket");
+            const standardFields = data.widgetTheme.widgetField.filter(field => field.entityname === "contact" || field.entityname === "company" || field.entityname === "ticket");
 
-            const customFields = widgetData.widgetfield.filter(field => field.entityname === "custom_field");
+            const customFields = data.widgetTheme.widgetField.filter(field => field.entityname === "custom_field");
 
-            const customObjectFields = widgetData.widgetfield.filter(field => field.entityname === "custom_object_field");
+            const customObjectFields = data.widgetTheme.widgetField.filter(field => field.entityname === "custom_object_field");
 
             const widgetEntries = [];
 
@@ -291,7 +291,9 @@ class WidgetService extends BaseService {
                     placeholder: field.placeholder,
                     isRequired: field.required,
                     position: field.position,
-                    type: field.type
+                    type: field.type,
+                    workspaceId: widgetData.workspaceId,
+                    clientId: widgetData.clientId
                 });
             }
 
@@ -312,7 +314,9 @@ class WidgetService extends BaseService {
                     placeholder: customFieldData.placeholder,
                     isRequired: field.required,
                     position: field.position,
-                    type: customFieldData.fieldType
+                    type: customFieldData.fieldType,
+                    workspaceId: widgetData.workspaceId,
+                    clientId: widgetData.clientId
                 });
             }
 
@@ -334,7 +338,9 @@ class WidgetService extends BaseService {
                     placeholder: customObjectFieldData.placeholder,
                     isRequired: field.required,
                     position: field.position,
-                    type: customObjectFieldData.fieldType
+                    type: customObjectFieldData.fieldType,
+                    workspaceId: widgetData.workspaceId,
+                    clientId: widgetData.clientId
                 });
             }
 
