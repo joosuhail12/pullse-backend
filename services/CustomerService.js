@@ -255,6 +255,177 @@ class CustomerService extends BaseService {
         return filters;
     }
 
+    async getCustomerRelatedData({ id, workspaceId, clientId }) {
+        try {
+            // 1. Get customer details
+            const { data: customer, error: customerError } = await this.supabase
+                .from(this.entityName)
+                .select(`
+                    *, 
+                    company: companies(id, name, website),
+                    customerTags(tag: tags(id, name))
+                `)
+                .eq('id', id)
+                .eq('workspaceId', workspaceId)
+                .eq('clientId', clientId)
+                .is('deletedAt', null)
+                .single();
+
+            if (customerError) {
+                console.error("Customer fetch error:", customerError);
+                throw new errors.NotFound(`Customer not found.`);
+            }
+
+            if (!customer) {
+                throw new errors.NotFound(`Customer not found.`);
+            }
+
+            // 2. Get tickets associated with this customer
+            const { data: tickets, error: ticketsError } = await this.supabase
+                .from('tickets')
+                .select(`
+                    id, sno, title, description, status, priority, customerId, 
+                    teamId, teams:teamId(id, name),
+                    assignedTo, assigneeId, lastMessage, lastMessageAt, lastMessageBy,
+                    createdAt, updatedAt, closedAt, unread, language, typeId, channel, device
+                `)
+                .eq('customerId', id)
+                .eq('workspaceId', workspaceId)
+                .eq('clientId', clientId)
+                .is('deletedAt', null)
+                .order('updatedAt', { ascending: false });
+
+            if (ticketsError) {
+                console.error("Tickets fetch error:", ticketsError);
+                throw ticketsError;
+            }
+
+            // Get all assignedTo IDs for tickets
+            const assignedToIds = (tickets || [])
+                .filter(ticket => ticket.assignedTo)
+                .map(ticket => ticket.assignedTo);
+
+            // Fetch user details if there are assignedTo values
+            let assignedToUsersMap = {};
+            if (assignedToIds.length > 0) {
+                const { data: users, error: usersError } = await this.supabase
+                    .from('users')
+                    .select('id, name, email')
+                    .in('id', assignedToIds);
+
+                if (!usersError && users) {
+                    // Create a lookup map for easy access
+                    assignedToUsersMap = users.reduce((map, user) => {
+                        map[user.id] = user;
+                        return map;
+                    }, {});
+                }
+            }
+
+            // 3. Format customer
+            const formattedCustomer = {
+                id: customer.id,
+                firstname: customer.firstname || '',
+                lastname: customer.lastname || '',
+                email: customer.email,
+                phone: customer.phone || null,
+                companyId: customer.companyId,
+                company: customer.company ? customer.company.name : null,
+                status: customer.status || 'active',
+                type: customer.type || 'customer',
+                title: customer.title || null,
+                department: customer.department || null,
+                timezone: customer.timezone || null,
+                linkedinUrl: customer.linkedin || null,
+                twitterUrl: customer.twitter || null,
+                language: customer.language || 'English',
+                source: customer.source || 'website',
+                assignedTo: customer.assignedTo || null,
+                accountValue: customer.accountValue || 0,
+                tags: customer.customerTags ? customer.customerTags.map(tag => ({ id: tag.tag.id, name: tag.tag.name })) : [],
+                notes: customer.notes || '',
+                lastContacted: customer.lastContacted ? new Date(customer.lastContacted).toISOString() : null,
+                createdAt: customer.created_at ? new Date(customer.created_at).toISOString() : null,
+                updatedAt: customer.updated_at ? new Date(customer.updated_at).toISOString() : null,
+                street: customer.street || '',
+                city: customer.city || '',
+                state: customer.state || '',
+                postalCode: customer.postalCode || '',
+                country: customer.country || ''
+            };
+
+            // 4. Format tickets
+            const formattedTickets = (tickets || []).map(ticket => {
+                const assignedToUser = ticket.assignedTo ? assignedToUsersMap[ticket.assignedTo] : null;
+
+                return {
+                    id: ticket.id,
+                    sno: ticket.sno,
+                    subject: ticket.title,
+                    description: ticket.description,
+
+                    status: ticket.status,
+                    statusType: ticket.statusId,
+                    priority: ticket.priority === 2 ? 'high' : ticket.priority === 1 ? 'medium' : 'low',
+                    priorityRaw: ticket.priority,
+
+                    customerId: ticket.customerId,
+                    customer: {
+                        id: customer.id,
+                        name: `${customer.firstname || ''} ${customer.lastname || ''}`.trim() || customer.email || 'Unknown',
+                        email: customer.email,
+                        phone: customer.phone
+                    },
+
+                    company: customer.company ? {
+                        id: customer.company.id,
+                        name: customer.company.name,
+                        domain: customer.company.website
+                    } : null,
+
+                    assigneeId: ticket.assigneeId,
+                    assignedTo: ticket.assignedTo,
+                    assignedToUser: assignedToUser ? {
+                        id: assignedToUser.id,
+                        name: assignedToUser.name,
+                        email: assignedToUser.email
+                    } : null,
+
+                    teamId: ticket.teamId,
+                    team: ticket.teams ? {
+                        id: ticket.teams.id,
+                        name: ticket.teams.name
+                    } : null,
+
+                    lastMessage: ticket.lastMessage,
+                    lastMessageAt: ticket.lastMessageAt,
+                    lastMessageBy: ticket.lastMessageBy,
+
+                    channel: ticket.channel,
+                    device: ticket.device,
+
+                    language: ticket.language || 'en',
+                    type: ticket.type || 'general',
+
+                    createdAt: ticket.createdAt,
+                    updatedAt: ticket.updatedAt,
+                    closedAt: ticket.closedAt,
+
+                    isUnread: Boolean(ticket.unread)
+                };
+            });
+
+            // 5. Return combined data
+            return {
+                customer: formattedCustomer,
+                tickets: formattedTickets
+            };
+        } catch (err) {
+            console.error("Error in getCustomerRelatedData:", err);
+            return this.handleError(err);
+        }
+    }
+
 }
 
 module.exports = CustomerService;

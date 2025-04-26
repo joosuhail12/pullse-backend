@@ -260,6 +260,23 @@ class CustomerHandler extends BaseHandler {
     let inst = this.customerServiceInst;
     return this.responder(req, reply, inst.deleteCustomer({ id, workspaceId, clientId }));
   }
+
+  async getCustomerRelatedData(req, reply) {
+    let workspaceId = req.query.workspace_id;
+    let clientId = req.authUser.clientId;
+    let id = req.params.customer_id;
+
+    if (!id) {
+      return this.responder(
+        req,
+        reply,
+        Promise.reject(new errors.BadRequest("Customer ID is required"))
+      );
+    }
+
+    let inst = this.customerServiceInst;
+    return this.responder(req, reply, inst.getCustomerRelatedData({ id, workspaceId, clientId }));
+  }
 }
 
 module.exports = CustomerHandler;

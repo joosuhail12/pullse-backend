@@ -280,7 +280,7 @@ async function activate(app) {
     },
   });
 
-    app.route({
+  app.route({
     url: base_url + "/:customer_id",
     method: "PUT",
     name: "UpdateCustomer",
@@ -338,6 +338,33 @@ async function activate(app) {
     handler: async (req, reply) => {
       return handler.updateCustomer(req, reply);
     },
+  });
+
+  app.route({
+    url: base_url + "/:customer_id/related-data",
+    method: 'GET',
+    name: "GetCustomerRelatedData",
+    preHandler: authMiddlewares.checkToken(AuthType.user),
+    schema: {
+      tags: ['Customer'],
+      summary: 'Get Customer Related Tickets',
+      description: 'API to get tickets associated with a customer.',
+      params: {
+        type: 'object',
+        properties: {
+          customer_id: { type: 'string' }
+        },
+        required: ['customer_id']
+      },
+      query: {
+        type: 'object',
+        properties: {
+          workspace_id: { type: 'string' }
+        },
+        required: ['workspace_id']
+      }
+    },
+    handler: async (req, reply) => handler.getCustomerRelatedData(req, reply)
   });
 
 }
