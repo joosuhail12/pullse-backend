@@ -12,6 +12,7 @@ CREATE TABLE widgetfield (
     position INTEGER NOT NULL, -- Controls order in the form
     isRequired BOOLEAN DEFAULT FALSE, -- Whether field is mandatory
     workspaceId TEXT NOT NULL,
+    type TEXT,
     clientId TEXT NOT NULL,
     createdBy  TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
     deletedAt  TIMESTAMPTZ DEFAULT NULL,

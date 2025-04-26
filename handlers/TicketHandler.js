@@ -139,9 +139,11 @@ class TicketHandler extends BaseHandler {
     const workspaceId = req.query.workspace_id;
     const clientId = req.authUser.clientId;
     const sno = req.params.ticket_sno;
+    const sessionId = req.authUser.sessionId;
+    const userId = req.authUser.id;
 
     let inst = this.ticketServiceInst;
-    return this.responder(req, reply, inst.getConversationByTicketId(sno, workspaceId, clientId));
+    return this.responder(req, reply, inst.getConversationByTicketId(sno, workspaceId, clientId, sessionId, userId));
   }
 
   async getUnassignedTickets(req, reply) {

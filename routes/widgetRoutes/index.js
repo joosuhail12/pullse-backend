@@ -170,31 +170,7 @@ async function activate(app) {
                                 },
                             },
                             widgetField: {
-                                type: "object",
-                                // minProperties: 1,
-                                // additionalProperties: false,
-                                // properties: {
-                                //     contactFields: {
-                                //         type: "object",
-                                //         minProperties: 1,
-                                //         additionalProperties: false,
-                                //     },
-                                //     companyFields: {
-                                //         type: "object",
-                                //         minProperties: 1,
-                                //         additionalProperties: false,
-                                //     },
-                                //     ticketFields: {
-                                //         type: "object",
-                                //         minProperties: 1,
-                                //         additionalProperties: false,
-                                //     },
-                                //     customObjectFields: {
-                                //         type: "object",
-                                //         minProperties: 1,
-                                //         additionalProperties: false,
-                                //     },
-                                // },
+                                type: "array",
                             },
                         },
                     },

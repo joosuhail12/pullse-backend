@@ -253,143 +253,104 @@ class WidgetService extends BaseService {
                 throw new errors.InternalServerError(updatedWidgetThemeError.message);
             }
 
-            // Update widget fields
-            console.log(data);
-            const contactFields = data.widgetTheme.widgetField.contactFields.filter(field => field.entityname === "contact");
-            const companyFields = data.widgetTheme.widgetField.companyFields.filter(field => field.entityname === "company");
-            const ticketFields = data.widgetTheme.widgetField.ticketFields.filter(field => field.entityname === "ticket");
-            const contactCustomFields = data.widgetTheme.widgetField.contactFields.filter(field => field.entityname === "customfield");
-            const companyCustomFields = data.widgetTheme.widgetField.companyFields.filter(field => field.entityname === "customfield");
-            const ticketCustomFields = data.widgetTheme.widgetField.ticketFields.filter(field => field.entityname === "customfield");
-            const customObjectFields = data.widgetTheme.widgetField.customObjectFields;
+            // Delete all existing widget fields // TODO: Check if this is the best way to do this
+            let { error: deleteWidgetFieldsError } = await this.supabase.from("widgetfield").delete().eq("widgetId", widgetData.id);
 
-            console.log("Contact Fields", contactFields);
-            console.log("Company Fields", companyFields);
-            console.log("Ticket Fields", ticketFields);
-            console.log("Contact Custom Fields", contactCustomFields);
-            console.log("Company Custom Fields", companyCustomFields);
-            console.log("Ticket Custom Fields", ticketCustomFields);
-            console.log("Custom Object Fields", customObjectFields);
-
-            // Delete all widget fields & insert new widget fields
-            let { error: deleteWidgetFieldError } = await this.supabase.from("widgetfield").delete().eq("widgetId", widgetData.id);
-            if (deleteWidgetFieldError) {
-                throw new errors.InternalServerError(deleteWidgetFieldError.message);
+            if (deleteWidgetFieldsError) {
+                throw new errors.InternalServerError(deleteWidgetFieldsError.message);
             }
 
-            // Create a new entry for all the fields
-            const widgetFieldData = [];
-            contactFields.forEach(field => {
-                widgetFieldData.push({
+            // Loop over widget fields from front end and create new widget fields
+            /* 
+                Example fields body:{
+                    entityname: "contact/company/ticket/custom_field/custom_object_field",
+                    columnname: "email/phone/address/etc/id of custom field/id of custom object field",
+                    label: "Email/Phone/Address etc",
+                    type: "text/number/textarea etc",
+                    placeholder: "Enter your email/phone/address etc",
+                    required: true/false,
+                    position: 1/2/3/4/5 etc
+                }
+            */
+
+            const standardFields = data.widgetTheme.widgetField.filter(field => field.entityname === "contact" || field.entityname === "company" || field.entityname === "ticket");
+
+            const customFields = data.widgetTheme.widgetField.filter(field => field.entityname === "custom_field");
+
+            const customObjectFields = data.widgetTheme.widgetField.filter(field => field.entityname === "custom_object_field");
+
+            const widgetEntries = [];
+
+            for (const field of standardFields) {
+                widgetEntries.push({
+                    createdBy,
                     widgetId: widgetData.id,
                     fieldSourceType: field.entityname,
-                    standardFieldName: field.name,
+                    standardFieldName: field.columnname,
                     label: field.label,
                     placeholder: field.placeholder,
                     isRequired: field.required,
                     position: field.position,
-                    clientId: widgetData.clientId,
+                    type: field.type,
                     workspaceId: widgetData.workspaceId,
-                    createdBy: createdBy
+                    clientId: widgetData.clientId
                 });
-            });
-            companyFields.forEach(field => {
-                widgetFieldData.push({
-                    widgetId: widgetData.id,
-                    fieldSourceType: field.entityname,
-                    standardFieldName: field.name,
-                    label: field.label,
-                    placeholder: field.placeholder,
-                    isRequired: field.required,
-                    position: field.position,
-                    clientId: widgetData.clientId,
-                    workspaceId: widgetData.workspaceId,
-                    createdBy: createdBy
-                });
-            });
-            ticketFields.forEach(field => {
-                widgetFieldData.push({
-                    widgetId: widgetData.id,
-                    fieldSourceType: field.entityname,
-                    standardFieldName: field.name,
-                    label: field.label,
-                    placeholder: field.placeholder,
-                    isRequired: field.required,
-                    position: field.position,
-                    clientId: widgetData.clientId,
-                    workspaceId: widgetData.workspaceId,
-                    createdBy: createdBy
-                });
-            });
-
-            contactCustomFields.forEach(field => {
-                widgetFieldData.push({
-                    widgetId: widgetData.id,
-                    fieldSourceType: field.entityname,
-                    customFieldId: field.id,
-                    label: field.label,
-                    placeholder: field.placeholder,
-                    isRequired: field.required,
-                    position: field.position,
-                    clientId: widgetData.clientId,
-                    workspaceId: widgetData.workspaceId,
-                    createdBy: createdBy
-                });
-            });
-
-            companyCustomFields.forEach(field => {
-                widgetFieldData.push({
-                    widgetId: widgetData.id,
-                    fieldSourceType: field.entityname,
-                    customFieldId: field.id,
-                    label: field.label,
-                    placeholder: field.placeholder,
-                    isRequired: field.required,
-                    position: field.position,
-                    clientId: widgetData.clientId,
-                    workspaceId: widgetData.workspaceId,
-                    createdBy: createdBy
-                });
-            });
-
-            ticketCustomFields.forEach(field => {
-                widgetFieldData.push({
-                    widgetId: widgetData.id,
-                    fieldSourceType: "custom_field",
-                    customFieldId: field.id,
-                    label: field.label,
-                    placeholder: field.placeholder,
-                    isRequired: field.required,
-                    position: field.position,
-                    clientId: widgetData.clientId,
-                    workspaceId: widgetData.workspaceId,
-                    createdBy: createdBy
-                });
-            });
-
-            customObjectFields.forEach(field => {
-                widgetFieldData.push({
-                    widgetId: widgetData.id,
-                    fieldSourceType: "custom_object_field",
-                    customObjectFieldId: field.id,
-                    label: field.label,
-                    placeholder: field.placeholder,
-                    isRequired: field.required,
-                    position: field.position,
-                    clientId: widgetData.clientId,
-                    workspaceId: widgetData.workspaceId,
-                    createdBy: createdBy
-                });
-            });
-
-            console.log("Widget field data", widgetFieldData);
-
-            let { error: insertWidgetFieldError } = await this.supabase.from("widgetfield").insert(widgetFieldData);
-            if (insertWidgetFieldError) {
-                throw new errors.InternalServerError(insertWidgetFieldError.message);
             }
 
-            console.log("Widget fields updated");
+            for (const field of customFields) {
+                // fetch custom field data from db
+                const { data: customFieldData, error: customFieldError } = await this.supabase.from("customfields").select("*").eq("id", field.columnname).is("deletedAt", null).single();
+
+                if (customFieldError) {
+                    throw new errors.InternalServerError(customFieldError.message);
+                }
+
+                widgetEntries.push({
+                    createdBy,
+                    widgetId: widgetData.id,
+                    fieldSourceType: field.entityname,
+                    customFieldId: field.columnname,
+                    label: customFieldData.name,
+                    placeholder: customFieldData.placeholder,
+                    isRequired: field.required,
+                    position: field.position,
+                    type: customFieldData.fieldType,
+                    workspaceId: widgetData.workspaceId,
+                    clientId: widgetData.clientId
+                });
+            }
+
+            for (const field of customObjectFields) {
+                // fetch custom object field data from db
+                const { data: customObjectFieldData, error: customObjectFieldError } = await this.supabase.from("customobjectfields").select("*").eq("id", field.columnname).is("deletedAt", null).single();
+
+                if (customObjectFieldError) {
+                    throw new errors.InternalServerError(customObjectFieldError.message);
+                }
+
+                widgetEntries.push({
+                    createdBy,
+                    widgetId: widgetData.id,
+                    fieldSourceType: field.entityname,
+                    customObjectId: customObjectFieldData.customObjectId,
+                    customObjectFieldId: field.columnname,
+                    label: customObjectFieldData.name,
+                    placeholder: customObjectFieldData.placeholder,
+                    isRequired: field.required,
+                    position: field.position,
+                    type: customObjectFieldData.fieldType,
+                    workspaceId: widgetData.workspaceId,
+                    clientId: widgetData.clientId
+                });
+            }
+
+            // insert widget fields
+            let { data: widgetFieldsData, error: widgetFieldsError } = await this.supabase.from("widgetfield").insert(widgetEntries);
+
+            if (widgetFieldsError) {
+                throw new errors.InternalServerError(widgetFieldsError.message);
+            }
+
 
             return updatedWidgetTheme;
         } catch (error) {
@@ -923,103 +884,112 @@ class WidgetService extends BaseService {
 
     async getWidgetFieldOptions(workspaceId, clientId) {
         try {
-            const contactFields = {
-                entityFields: [{
-                    columnname: "firstname",
-                    label: "First Name",
-                    type: "text",
-                    options: [],
-                    placeholder: "Enter first name"
-                },
+            const tables = [
                 {
-                    columnname: "lastname",
-                    label: "Last Name",
-                    type: "text",
-                    options: [],
-                    placeholder: "Enter last name"
-                },
-                {
-                    columnname: "email",
-                    label: "Email",
-                    type: "text",
-                    options: [],
-                    placeholder: "Enter email"
-                },
-                {
-                    columnname: "phone",
-                    label: "Phone",
-                    type: "text",
-                    options: [],
-                    placeholder: "Enter phone"
-                },
-                {
-                    columnname: "twitter",
-                    label: "Twitter",
-                    type: "text",
-                    options: [],
-                    placeholder: "Enter twitter"
-                },
-                {
-                    columnname: "linkedin",
-                    label: "LinkedIn",
-                    type: "text",
-                    options: [],
-                    placeholder: "Enter linkedin"
-                },
-                {
-                    columnname: "address",
-                    label: "Address",
-                    type: "text",
-                    options: [],
-                    placeholder: "Enter address"
-                }
-                ],
-                customFields: []
-            };
-            const companyFields = {
-                entityFields: [{
-                    columnname: "name",
-                    label: "Name",
-                    type: "text",
-                    options: [],
-                    placeholder: "Enter company name"
-                },
-                {
-                    columnname: "description",
-                    label: "Description",
-                    type: "text",
-                    options: [],
-                    placeholder: "Enter company description"
-                },
-                {
-                    columnname: "phone",
-                    label: "Phone",
-                    type: "text",
-                    options: [],
-                    placeholder: "Enter company phone"
-                },
-                {
-                    columnname: "website",
-                    label: "Website",
-                    type: "text",
-                    options: [],
-                    placeholder: "Enter company website"
-                }],
-                customFields: []
-            };
-
-            const ticketFields = {
-                entityFields: [
+                    name: "Contact",
+                    fields: [{
+                        entityType: "contact",
+                        columnname: "firstname",
+                        label: "First Name",
+                        type: "text",
+                        placeholder: "Enter first name",
+                        table: "contact"
+                    },
                     {
+                        entityType: "contact",
+                        columnname: "lastname",
+                        label: "Last Name",
+                        type: "text",
+                        placeholder: "Enter last name",
+                        table: "contact"
+                    },
+                    {
+                        entityType: "contact",
+                        columnname: "email",
+                        label: "Email",
+                        type: "text",
+                        placeholder: "Enter email",
+                        table: "contact"
+                    },
+                    {
+                        entityType: "contact",
+                        columnname: "phone",
+                        label: "Phone",
+                        type: "text",
+                        placeholder: "Enter phone",
+                        table: "contact"
+                    },
+                    {
+                        entityType: "contact",
+                        columnname: "twitter",
+                        label: "Twitter",
+                        type: "text",
+                        placeholder: "Enter twitter",
+                        table: "contact"
+                    },
+                    {
+                        entityType: "contact",
+                        columnname: "linkedin",
+                        label: "LinkedIn",
+                        type: "text",
+                        placeholder: "Enter linkedin",
+                        table: "contact"
+                    },
+                    {
+                        entityType: "contact",
+                        columnname: "address",
+                        label: "Address",
+                        type: "text",
+                        placeholder: "Enter address",
+                        table: "contact"
+                    }]
+                },
+                {
+                    name: "Company",
+                    fields: [{
+                        entityType: "company",
+                        columnname: "name",
+                        label: "Name",
+                        type: "text",
+                        placeholder: "Enter company name",
+                        table: "company"
+                    },
+                    {
+                        entityType: "company",
+                        columnname: "description",
+                        label: "Description",
+                        type: "text",
+                        placeholder: "Enter company description",
+                        table: "company"
+                    },
+                    {
+                        columnname: "phone",
+                        label: "Phone",
+                        type: "text",
+                        placeholder: "Enter company phone",
+                        table: "company"
+                    },
+                    {
+                        entityType: "company",
+                        columnname: "website",
+                        label: "Website",
+                        type: "text",
+                        placeholder: "Enter company website",
+                        table: "company"
+                    }]
+                },
+                {
+                    name: "Ticket",
+                    fields: [{
+                        entityType: "ticket",
                         columnname: "subject",
                         label: "Subject",
                         type: "text",
-                        options: [],
-                        placeholder: "Enter subject"
-                    }
-                ],
-                customFields: []
-            };
+                        placeholder: "Enter subject",
+                        table: "ticket"
+                    }]
+                }
+            ];
 
             // Fetch custom fields
             const { data: customFields, error: customFieldsError } = await this.supabase.from("customfields").select("*").eq("workspaceId", workspaceId).eq("clientId", clientId).is("deletedAt", null);
@@ -1032,55 +1002,77 @@ class WidgetService extends BaseService {
             const ticketCustomFields = customFields.filter(field => field.entityType === "ticket");
 
             customerCustomFields.forEach(field => {
-                contactFields.customFields.push({
-                    id: field.id,
+                tables[0].fields.push({
+                    entityType: "custom_field",
+                    columnname: field.id,
                     label: field.name,
                     type: field.fieldType,
                     options: field.options,
-                    placeholder: field.placeholder
+                    placeholder: field.placeholder,
+                    table: "contact"
                 });
             });
 
             companyCustomFields.forEach(field => {
-                companyFields.customFields.push({
-                    id: field.id,
+                tables[1].fields.push({
+                    entityType: "custom_field",
+                    columnname: field.id,
                     label: field.name,
                     type: field.fieldType,
                     options: field.options,
-                    placeholder: field.placeholder
+                    placeholder: field.placeholder,
+                    table: "company"
                 });
             });
 
             ticketCustomFields.forEach(field => {
-                ticketFields.customFields.push({
-                    id: field.id,
+                tables[2].fields.push({
+                    entityType: "custom_field",
+                    columnname: field.id,
                     label: field.name,
                     type: field.fieldType,
                     options: field.options,
-                    placeholder: field.placeholder
+                    placeholder: field.placeholder,
+                    table: "ticket"
                 });
             });
-            const customObjectFields = [];
 
-            const { data: customObjectField, error: customObjectFieldError } = await this.supabase.from("customobjectfields").select("*").eq("workspaceId", workspaceId).eq("clientId", clientId).is("deletedAt", null);
-            if (customObjectFieldError) {
-                throw new errors.Internal(customObjectFieldError.message);
+            // List all custom objects and send them as tables with  their custom object fields
+            const { data: customObjects, error: customObjectsError } = await this.supabase.from("customobjects").select("*").eq("workspaceId", workspaceId).eq("clientId", clientId).is("deletedAt", null).order("createdAt", { ascending: false });
+
+            if (customObjectsError) {
+                throw new errors.Internal(customObjectsError.message);
             }
 
-            customObjectField.forEach(field => {
-                customObjectFields.push({
-                    id: field.id,
-                    label: field.name,
-                    type: field.fieldType,
-                    options: field.options,
-                    placeholder: field.placeholder
+            const promises = customObjects.map(async (customObject) => {
+                const customObjectFields = [];
+                const { data: customObjectFieldsData, error: customObjectFieldsError } = await this.supabase.from("customobjectfields").select("*").eq("workspaceId", workspaceId).eq("clientId", clientId).eq("customObjectId", customObject.id).is("deletedAt", null).order("createdAt", { ascending: false });
+
+                if (customObjectFieldsError) {
+                    throw new errors.Internal(customObjectFieldsError.message);
+                }
+                const fieldPromises = customObjectFieldsData.map(field => {
+                    customObjectFields.push({
+                        entityType: "custom_object_field",
+                        columnname: field.id,
+                        label: field.name,
+                        type: field.fieldType,
+                        options: field.options,
+                        placeholder: field.placeholder,
+                        table: customObject.name
+                    });
+                });
+                await Promise.all(fieldPromises);
+                tables.push({
+                    name: customObject.name,
+                    fields: customObjectFields
                 });
             });
+
+            await Promise.all(promises);
+
             return {
-                contactFields,
-                companyFields,
-                ticketFields,
-                customObjectFields
+                tables
             }
         } catch (error) {
             console.error(error);
