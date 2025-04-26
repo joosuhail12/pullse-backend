@@ -273,11 +273,11 @@ class WidgetService extends BaseService {
                 }
             */
 
-            const standardFields = widgetData.widgetfield.filter(field => field.entityName === "contact" || field.entityName === "company" || field.entityName === "ticket");
+            const standardFields = widgetData.widgetfield.filter(field => field.entityname === "contact" || field.entityName === "company" || field.entityName === "ticket");
 
-            const customFields = widgetData.widgetfield.filter(field => field.entityName === "custom_field");
+            const customFields = widgetData.widgetfield.filter(field => field.entityname === "custom_field");
 
-            const customObjectFields = widgetData.widgetfield.filter(field => field.entityName === "custom_object_field");
+            const customObjectFields = widgetData.widgetfield.filter(field => field.entityname === "custom_object_field");
 
             const widgetEntries = [];
 
