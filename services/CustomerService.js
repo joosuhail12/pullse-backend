@@ -78,12 +78,24 @@ class CustomerService extends BaseService {
     }
 
     async updateCustomer({ id, workspaceId, clientId }, updateValues) {
+        console.log("🔍 INCOMING UPDATE VALUES:", JSON.stringify(updateValues));
         try {
+            // Map API field names to database column names
+            if (updateValues.linkedinUrl !== undefined) {
+                updateValues.linkedin = updateValues.linkedinUrl;
+                delete updateValues.linkedinUrl;
+            }
+            if (updateValues.twitterUrl !== undefined) {
+                updateValues.twitter = updateValues.twitterUrl;
+                delete updateValues.twitterUrl;
+            }
+
             const tagHistoryService = new TagHistoryService();
-            // 1. Check if the customer exists
+
+            // 1. Check if the customer exists with company info
             const { data: existingCustomer, error: fetchError } = await this.supabase
                 .from(this.entityName)
-                .select("id")
+                .select("id, companyId")
                 .match({ id, workspaceId, clientId })
                 .single();
 
@@ -91,7 +103,30 @@ class CustomerService extends BaseService {
                 throw new Error("Customer not found or does not exist.");
             }
 
-            // 2. Update customer tags if provided
+            // 2. If company name is being updated, handle that separately
+            if (updateValues.company && existingCustomer.companyId) {
+                console.log(`Updating company name to: ${updateValues.company}`);
+
+                // Update the company name in the companies table
+                const { error: companyUpdateError } = await this.supabase
+                    .from('companies')
+                    .update({ name: updateValues.company })
+                    .match({
+                        id: existingCustomer.companyId,
+                        workspaceId,
+                        clientId
+                    });
+
+                if (companyUpdateError) {
+                    console.error("Error updating company:", companyUpdateError);
+                    throw companyUpdateError;
+                }
+
+                // Remove company from customer updates
+                delete updateValues.company;
+            }
+
+            // 3. Update customer tags if provided
             if (updateValues.tags) {
                 // Delete existing tags
                 await this.supabase.from('customerTags').delete().eq('customerId', id);
@@ -106,7 +141,7 @@ class CustomerService extends BaseService {
                 delete updateValues.tags; // Remove tags from the update object
             }
 
-            // 3. Check if there are any actual updates to the customer data
+            // 4. Check if there are any actual updates to the customer data
             if (Object.keys(updateValues).length > 0) {
                 const { data, error } = await this.supabase
                     .from(this.entityName)
@@ -119,7 +154,7 @@ class CustomerService extends BaseService {
                 if (!data) throw new Error("No updates were made. Ensure the data is different from existing values.");
             }
 
-            // 4. Fetch updated customer details including tags with names
+            // 5. Fetch updated customer details including tags with names
             const { data: updatedCustomer, error: fetchUpdatedError } = await this.supabase
                 .from(this.entityName)
                 .select("*, customerTags(tag: tags(id, name)), companies(name)")
@@ -130,8 +165,8 @@ class CustomerService extends BaseService {
 
             if (fetchUpdatedError) throw fetchUpdatedError;
 
-            let inst = new CustomerEventPublisher();
-            inst.updated(updatedCustomer, updateValues).catch(err => console.error("Event error:", err));
+            // let inst = new CustomerEventPublisher();
+            // inst.updated(updatedCustomer, updateValues).catch(err => console.error("Event error:", err));
 
             return {
                 ...updatedCustomer,
