@@ -133,45 +133,140 @@ class CompanyService extends BaseService {
     async updateCompany({ id, workspaceId, clientId }, updateValues) {
         try {
             const tagHistoryService = new TagHistoryService();
-            let company = await this.getDetails(id, workspaceId, clientId);
 
-            // Ensure location updates are correctly formatted
-            if (updateValues.street || updateValues.city || updateValues.state || updateValues.zipcode || updateValues.country) {
-                updateValues.location = {
-                    street: updateValues.street || company.location?.street || '',
-                    city: updateValues.city || company.location?.city || '',
-                    state: updateValues.state || company.location?.state || '',
-                    country: updateValues.country || company.location?.country || '',
-                    zipcode: updateValues.zipcode || company.location?.zipcode || ''
-                };
-                delete updateValues.street;
-                delete updateValues.city;
-                delete updateValues.state;
-                delete updateValues.zipcode;
-                delete updateValues.country;
+            console.log("🔍 INCOMING UPDATE VALUES:", JSON.stringify(updateValues));
+
+            let company = await this.getDetails(id, workspaceId, clientId);
+            console.log("📂 EXISTING COMPANY DATA:", {
+                id: company.id,
+                location: company.location,
+                socialMedia: company.socialMedia
+            });
+
+            // Create shallow copy of updateValues to avoid modifying the original object
+            const updates = { ...updateValues };
+            console.log("📋 UPDATES AFTER COPY:", JSON.stringify(updates));
+
+            // Process location updates with dot notation
+            const locationDotProps = Object.keys(updates).filter(key => key.startsWith('location.'));
+            console.log("🏠 LOCATION DOT PROPERTIES:", locationDotProps);
+
+            if (locationDotProps.length > 0) {
+                // Get current location or initialize empty object
+                const currentLocation = company.location || {};
+                console.log("🏠 CURRENT LOCATION:", currentLocation);
+
+                // Create updated location object
+                const newLocation = { ...currentLocation };
+
+                // Apply updates for each location property
+                locationDotProps.forEach(prop => {
+                    const fieldName = prop.split('.')[1]; // Extract field name (after 'location.')
+                    console.log(`🏠 UPDATING LOCATION FIELD: ${fieldName} = ${updates[prop]}`);
+                    newLocation[fieldName] = updates[prop];
+                    delete updates[prop]; // Remove dot notation property
+                });
+
+                console.log("🏠 NEW LOCATION OBJECT:", newLocation);
+
+                // Set the complete location object in updates
+                updates.location = newLocation;
             }
 
-            await this.update({ id: company.id }, updateValues);
+            // Process socialMedia updates with dot notation
+            const socialMediaDotProps = Object.keys(updates).filter(key => key.startsWith('socialMedia.'));
+            console.log("🔗 SOCIAL MEDIA DOT PROPERTIES:", socialMediaDotProps);
+
+            if (socialMediaDotProps.length > 0) {
+                // Get current socialMedia or initialize empty object
+                const currentSocialMedia = company.socialMedia || {};
+                console.log("🔗 CURRENT SOCIAL MEDIA:", currentSocialMedia);
+
+                // Create updated socialMedia object
+                const newSocialMedia = { ...currentSocialMedia };
+
+                // Apply updates for each socialMedia property
+                socialMediaDotProps.forEach(prop => {
+                    const fieldName = prop.split('.')[1]; // Extract field name (after 'socialMedia.')
+                    console.log(`🔗 UPDATING SOCIAL MEDIA FIELD: ${fieldName} = ${updates[prop]}`);
+                    newSocialMedia[fieldName] = updates[prop];
+                    delete updates[prop]; // Remove dot notation property
+                });
+
+                console.log("🔗 NEW SOCIAL MEDIA OBJECT:", newSocialMedia);
+
+                // Set the complete socialMedia object in updates
+                updates.socialMedia = newSocialMedia;
+            }
+
+            // Handle traditional location field updates if present
+            if (updates.street || updates.city || updates.state || updates.zipcode || updates.country) {
+                console.log("🏠 USING TRADITIONAL LOCATION FIELDS");
+                const currentLocation = updates.location || company.location || {};
+                updates.location = {
+                    ...currentLocation,
+                    street: updates.street || currentLocation.street || '',
+                    city: updates.city || currentLocation.city || '',
+                    state: updates.state || currentLocation.state || '',
+                    country: updates.country || currentLocation.country || '',
+                    zipcode: updates.zipcode || currentLocation.zipcode || ''
+                };
+                delete updates.street;
+                delete updates.city;
+                delete updates.state;
+                delete updates.zipcode;
+                delete updates.country;
+            }
+
+            // Handle traditional socialMedia field updates if present
+            if (updates.linkedin || updates.twitter || updates.facebook) {
+                console.log("🔗 USING TRADITIONAL SOCIAL MEDIA FIELDS");
+                const currentSocialMedia = updates.socialMedia || company.socialMedia || {};
+                updates.socialMedia = {
+                    ...currentSocialMedia,
+                    linkedin: updates.linkedin || currentSocialMedia.linkedin || '',
+                    twitter: updates.twitter || currentSocialMedia.twitter || '',
+                    facebook: updates.facebook || currentSocialMedia.facebook || ''
+                };
+                delete updates.linkedin;
+                delete updates.twitter;
+                delete updates.facebook;
+            }
+
+            console.log("✅ FINAL UPDATES OBJECT:", JSON.stringify(updates));
+
+            // Check if there's an actual update to make
+            if (Object.keys(updates).length === 0) {
+                console.log("⚠️ NO UPDATES TO APPLY");
+            }
+
+            await this.update({ id: company.id }, updates);
+            console.log("✅ UPDATE COMPLETED");
 
             // update tag history only if tags are updated
-            if (updateValues.tags) {
+            if (updates.tags) {
+                console.log("🏷️ UPDATING TAGS");
                 await this.supabase.from('companyTags').delete().eq('companyId', id);
-                const tagEntries = updateValues.tags.map(tag => ({ companyId: id, tagId: tag.id, workspaceId: workspaceId, clientId: clientId }));
+                const tagEntries = updates.tags.map(tag => ({ companyId: id, tagId: tag.id, workspaceId, clientId }));
                 await this.supabase.from('companyTags').insert(tagEntries);
 
                 // Only iterate through tags if they exist
-                updateValues.tags.forEach(async (tag) => {
+                updates.tags.forEach(async (tag) => {
                     await tagHistoryService.updateTagHistory(tag.id, "company");
                 });
             }
-            // No use of this event publisher for now (No RabbitMQ)
-            // let inst = new CompanyEventPublisher();
-            // await inst.updated(company, updateValues);
 
             // Fetch and return updated company details
             let updatedCompany = await this.getDetails(id, workspaceId, clientId);
+            console.log("📄 RETURNED COMPANY DATA:", {
+                id: updatedCompany.id,
+                location: updatedCompany.location,
+                socialMedia: updatedCompany.socialMedia
+            });
+
             return updatedCompany;
         } catch (e) {
+            console.error("❌ ERROR IN updateCompany:", e);
             return this.handleError(e);
         }
     }
