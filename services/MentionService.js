@@ -200,6 +200,10 @@ class MentionService {
                     customerId: ticket.customerId,
                     teamId: ticket.teamId,
                     assignedTo: ticket.assignedTo,
+                    // createdBy: ticket.createdBy,
+                    // updatedBy: ticket.updatedBy,
+                    // createdAt: ticket.createdAt,
+                    // updatedAt: ticket.updatedAt,
                     customer: customer ? {
                         id: customer.id,
                         name: `${customer.firstname || ''} ${customer.lastname || ''}`.trim() || customer.email || 'Unknown',
@@ -245,18 +249,137 @@ class MentionService {
             const enrichedMentions = mentions.map(mention => {
                 const ticket = ticketMap[mention.ticketId] || null;
                 const mentioner = mention.mentionedBy ? mentionerMap[mention.mentionedBy] : null;
-
+                const primaryCustomer = ticket?.customer || null;
+                const primaryCompany = ticket?.company || null;
+                const assignees = ticket?.assignees || null;
+                const teamData = ticket?.team || null;
+                const ticketType = ticket?.type || null;
+                const messageCount = ticket?.messageCount || 0;
+                const assigneeStatus = assignees?.[0]?.users ? 'Assigned' : 'Unassigned';  
+                const assignedToUser = ticket?.assignedToUser || null;
+                const formattedTags = ticket?.tags || null;
+                const recipientEmails = ticket?.recipients || null;
                 return {
+                    // id: mention.id,
+                    // ticketId: mention.ticketId,
+                    // userId: mention.userId,
+                    // content: mention.content,
+                    // mentionedAt: mention.mentionedAt,
+                    // isRead: mention.isRead,
+                    // mentionedBy: mention.mentionedBy,
+                    // ticket: ticket,
+                    // createdBy: ticket.createdBy,
+                    // updatedBy: ticket.updatedBy,
+                    // createdAt: ticket.createdAt,
+                    // updatedAt: ticket.updatedAt,
+
+                    // status: ticket.status,
+                    // statusType: ticket.statusId,
+                    // priority: ticket.priority === 2 ? 'high' : ticket.priority === 1 ? 'medium' : 'low',
+                    // priorityRaw: ticket.priority,
+
+                    // customerId: ticket.customerId,
+                    // customer: {
+                    //     id: primaryCustomer?.id,
+                    //     name: `${primaryCustomer?.firstname || ''} ${primaryCustomer?.lastname || ''}`.trim() || primaryCustomer?.email || 'Unknown',
+                    //     email: primaryCustomer?.email,
+                    //     phone: primaryCustomer?.phone
+                    // },
+
+                    // companyId: ticket.companyId,
+                    // company: primaryCompany ? {
+                    //     id: primaryCompany.id,
+                    //     name: primaryCompany.name,
+                    //     domain: primaryCompany.domain
+                    // } : null,
+
+                    // assigneeId: ticket.assigneeId,
+                    // assignee: assignees?.[0]?.users ? {
+                    //     id: assignees[0].users.id,
+                    //     name: assignees[0].users.name,
+                    //     email: assignees[0].users.email,
+                    //     role: assignees[0].users.role
+                    // } : null,
+                    // assigneeStatus: assigneeStatus,
+
+                    // assignedTo: ticket.assignedTo,
+                    // assignedToUser: assignedToUser ? {
+                    //     id: assignedToUser.id,
+                    //     name: assignedToUser.name,
+                    //     email: assignedToUser.email
+                    // } : null,
+
+                    // teamId: ticket.teamId,
+                    // team: teamData ? {
+                    //     id: teamData.id,
+                    //     name: teamData.name
+                    // } : null,
+
+                    // lastMessage: ticket.lastMessage,
+                    // lastMessageAt: ticket.lastMessageAt,
+                    // lastMessageBy: ticket.lastMessageBy,
+                    // messageCount: messageCount || 0,
+
+                    // channel: ticket.channel,
+                    // device: ticket.device,
+                    // tags: formattedTags,
+                    // intents: ticket.intents,
+                    // sentiment: ticket.sentiment,
+
+                    // // Add language field
+                    // language: ticket.language || 'en',
+
+                    // // Add type information
+                    // type: ticketType?.[0]?.type || 'general',
+                    // typeName: ticketType?.[0]?.name || 'General',
+
+                    // createdAt: ticket.createdAt,
+                    // updatedAt: ticket.updatedAt,
+                    // closedAt: ticket.closedAt,
+
+                    // isUnread: Boolean(ticket.unread),
+                    // hasNotification: false,
+                    // notificationType: null,
+                    // recipients: recipientEmails,
+
+                    // summary: ticket.summary,
+                    // threadId: ticket.threadId,
+                    // externalId: ticket.externalId,
+
+                    // customFields: ticket.customFields || {},
+                    // topicIds: ticket.topicIds || [],
+                    // mentionIds: ticket.mentionIds || [],
+                    // reopenInfo: ticket.reopen || null
                     id: mention.id,
-                    ticketId: mention.ticketId,
-                    userId: mention.userId,
-                    content: mention.content,
-                    mentionedAt: mention.mentionedAt,
-                    isRead: mention.isRead,
-                    mentionedBy: mention.mentionedBy,
-                    ticket: ticket,
-                    mentioner
+                    subject: ticket.title,
+                    customer: primaryCustomer?.name || 'Unknown',
+                    assignee: assignedToUser?.name || null,
+                    status: ticket.status,
+                    priority: ticket.priority,
+                    createdAt: new Date(ticket.createdAt).toISOString(),
+                    updatedAt: ticket.updatedAt ? new Date(ticket.updatedAt).toISOString() : undefined,
+                    lastMessage: ticket.lastMessage,
+                    isUnread: ticket.isUnread,
+                    recipients: recipientEmails,
+                    channel: ticket.channel,
+                    hasNotification: ticket.hasNotification,
+                    notificationType: ticket.notificationType,
+                    tags: formattedTags,
                 };
+                // return {
+                //     id: mention.id,
+                //     ticketId: mention.ticketId,
+                //     userId: mention.userId,
+                //     content: mention.content,
+                //     mentionedAt: mention.mentionedAt,
+                //     isRead: mention.isRead,
+                //     mentionedBy: mention.mentionedBy,
+                //     ticket: ticket,
+                //     createdBy: ticket.createdBy,
+                //     updatedBy: ticket.updatedBy,
+                //     createdAt: ticket.createdAt,
+                //     updatedAt: ticket.updatedAt,
+                // };
             }).filter(mention => mention.ticket !== null); // Only return mentions with valid tickets
 
             console.log(`Returning ${enrichedMentions.length} enriched mentions`);
