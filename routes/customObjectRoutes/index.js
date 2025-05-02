@@ -143,7 +143,7 @@ async function activate(app) {
                     description: {
                         type: "string",
                     },
-                    connectiontype: {
+                    connectionType: {
                         type: "string",
                     },
                     showInCustomerContext: {
