@@ -253,104 +253,106 @@ class WidgetService extends BaseService {
                 throw new errors.InternalServerError(updatedWidgetThemeError.message);
             }
 
-            // Delete all existing widget fields // TODO: Check if this is the best way to do this
-            let { error: deleteWidgetFieldsError } = await this.supabase.from("widgetfield").delete().eq("widgetId", widgetData.id);
+            if (data.widgetTheme.widgetField && data.widgetTheme.widgetField.length > 0) {
+                // Delete all existing widget fields // TODO: Check if this is the best way to do this
+                let { error: deleteWidgetFieldsError } = await this.supabase.from("widgetfield").delete().eq("widgetId", widgetData.id);
 
-            if (deleteWidgetFieldsError) {
-                throw new errors.InternalServerError(deleteWidgetFieldsError.message);
-            }
-
-            // Loop over widget fields from front end and create new widget fields
-            /* 
-                Example fields body:{
-                    entityname: "contact/company/ticket/custom_field/custom_object_field",
-                    columnname: "email/phone/address/etc/id of custom field/id of custom object field",
-                    label: "Email/Phone/Address etc",
-                    type: "text/number/textarea etc",
-                    placeholder: "Enter your email/phone/address etc",
-                    required: true/false,
-                    position: 1/2/3/4/5 etc
-                }
-            */
-
-            const standardFields = data.widgetTheme.widgetField.filter(field => field.entityname === "contact" || field.entityname === "company" || field.entityname === "ticket");
-
-            const customFields = data.widgetTheme.widgetField.filter(field => field.entityname === "custom_field");
-
-            const customObjectFields = data.widgetTheme.widgetField.filter(field => field.entityname === "custom_object_field");
-
-            const widgetEntries = [];
-
-            for (const field of standardFields) {
-                widgetEntries.push({
-                    createdBy,
-                    widgetId: widgetData.id,
-                    fieldSourceType: field.entityname,
-                    standardFieldName: field.columnname,
-                    label: field.label,
-                    placeholder: field.placeholder,
-                    isRequired: field.required,
-                    position: field.position,
-                    type: field.type,
-                    workspaceId: widgetData.workspaceId,
-                    clientId: widgetData.clientId
-                });
-            }
-
-            for (const field of customFields) {
-                // fetch custom field data from db
-                const { data: customFieldData, error: customFieldError } = await this.supabase.from("customfields").select("*").eq("id", field.columnname).is("deletedAt", null).single();
-
-                if (customFieldError) {
-                    throw new errors.InternalServerError(customFieldError.message);
+                if (deleteWidgetFieldsError) {
+                    throw new errors.InternalServerError(deleteWidgetFieldsError.message);
                 }
 
-                widgetEntries.push({
-                    createdBy,
-                    widgetId: widgetData.id,
-                    fieldSourceType: field.entityname,
-                    customFieldId: field.columnname,
-                    label: customFieldData.name,
-                    placeholder: customFieldData.placeholder,
-                    isRequired: field.required,
-                    position: field.position,
-                    type: customFieldData.fieldType,
-                    workspaceId: widgetData.workspaceId,
-                    clientId: widgetData.clientId
-                });
-            }
+                // Loop over widget fields from front end and create new widget fields
+                /* 
+                    Example fields body:{
+                        entityname: "contact/company/ticket/custom_field/custom_object_field",
+                        columnname: "email/phone/address/etc/id of custom field/id of custom object field",
+                        label: "Email/Phone/Address etc",
+                        type: "text/number/textarea etc",
+                        placeholder: "Enter your email/phone/address etc",
+                        required: true/false,
+                        position: 1/2/3/4/5 etc
+                    }
+                */
 
-            for (const field of customObjectFields) {
-                // fetch custom object field data from db
-                const { data: customObjectFieldData, error: customObjectFieldError } = await this.supabase.from("customobjectfields").select("*").eq("id", field.columnname).is("deletedAt", null).single();
+                const standardFields = data.widgetTheme.widgetField.filter(field => field.entityname === "contact" || field.entityname === "company" || field.entityname === "ticket");
 
-                if (customObjectFieldError) {
-                    throw new errors.InternalServerError(customObjectFieldError.message);
+                const customFields = data.widgetTheme.widgetField.filter(field => field.entityname === "custom_field");
+
+                const customObjectFields = data.widgetTheme.widgetField.filter(field => field.entityname === "custom_object_field");
+
+                const widgetEntries = [];
+
+                for (const field of standardFields) {
+                    widgetEntries.push({
+                        createdBy,
+                        widgetId: widgetData.id,
+                        fieldSourceType: field.entityname,
+                        standardFieldName: field.columnname,
+                        label: field.label,
+                        placeholder: field.placeholder,
+                        isRequired: field.required,
+                        position: field.position,
+                        type: field.type,
+                        workspaceId: widgetData.workspaceId,
+                        clientId: widgetData.clientId
+                    });
                 }
 
-                widgetEntries.push({
-                    createdBy,
-                    widgetId: widgetData.id,
-                    fieldSourceType: field.entityname,
-                    customObjectId: customObjectFieldData.customObjectId,
-                    customObjectFieldId: field.columnname,
-                    label: customObjectFieldData.name,
-                    placeholder: customObjectFieldData.placeholder,
-                    isRequired: field.required,
-                    position: field.position,
-                    type: customObjectFieldData.fieldType,
-                    workspaceId: widgetData.workspaceId,
-                    clientId: widgetData.clientId
-                });
+                for (const field of customFields) {
+                    // fetch custom field data from db
+                    const { data: customFieldData, error: customFieldError } = await this.supabase.from("customfields").select("*").eq("id", field.columnname).is("deletedAt", null).single();
+
+                    if (customFieldError) {
+                        throw new errors.InternalServerError(customFieldError.message);
+                    }
+
+                    widgetEntries.push({
+                        createdBy,
+                        widgetId: widgetData.id,
+                        fieldSourceType: field.entityname,
+                        customFieldId: field.columnname,
+                        label: customFieldData.name,
+                        placeholder: customFieldData.placeholder,
+                        isRequired: field.required,
+                        position: field.position,
+                        type: customFieldData.fieldType,
+                        workspaceId: widgetData.workspaceId,
+                        clientId: widgetData.clientId
+                    });
+                }
+
+                for (const field of customObjectFields) {
+                    // fetch custom object field data from db
+                    const { data: customObjectFieldData, error: customObjectFieldError } = await this.supabase.from("customobjectfields").select("*").eq("id", field.columnname).is("deletedAt", null).single();
+
+                    if (customObjectFieldError) {
+                        throw new errors.InternalServerError(customObjectFieldError.message);
+                    }
+
+                    widgetEntries.push({
+                        createdBy,
+                        widgetId: widgetData.id,
+                        fieldSourceType: field.entityname,
+                        customObjectId: customObjectFieldData.customObjectId,
+                        customObjectFieldId: field.columnname,
+                        label: customObjectFieldData.name,
+                        placeholder: customObjectFieldData.placeholder,
+                        isRequired: field.required,
+                        position: field.position,
+                        type: customObjectFieldData.fieldType,
+                        workspaceId: widgetData.workspaceId,
+                        clientId: widgetData.clientId
+                    });
+                }
+
+                // insert widget fields
+                let { data: widgetFieldsData, error: widgetFieldsError } = await this.supabase.from("widgetfield").insert(widgetEntries);
+
+                if (widgetFieldsError) {
+                    throw new errors.InternalServerError(widgetFieldsError.message);
+                }
+
             }
-
-            // insert widget fields
-            let { data: widgetFieldsData, error: widgetFieldsError } = await this.supabase.from("widgetfield").insert(widgetEntries);
-
-            if (widgetFieldsError) {
-                throw new errors.InternalServerError(widgetFieldsError.message);
-            }
-
 
             return updatedWidgetTheme;
         } catch (error) {
