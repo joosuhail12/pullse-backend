@@ -188,6 +188,20 @@ class EmailDomainService extends BaseService {
         try {
             let emailDomain = await this.getDetails(id, clientId);
             let res = await this.softDelete(emailDomain.id, "archiveAt");
+
+            try {
+                // Delete mailgun route
+                const mailgun = new Mailgun(formData);
+                let mg = mailgun.client({
+                    username: 'api',
+                    key: process.env.MAILGUN_API_KEY
+                });
+
+                await mg.routes.delete(emailDomain.mailgunRouteId);
+            } catch (e) {
+                console.log("Error while deleting mailgun route", e);
+            }
+
             return res;
         } catch (err) {
             return this.handleError(err);
