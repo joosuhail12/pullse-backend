@@ -1081,6 +1081,61 @@ class WidgetService extends BaseService {
             throw error;
         }
     }
+
+    async updateTicketRating(requestBody) {
+        try {
+            const { rating, apiKey, authUser, ticketId } = requestBody;
+
+            // Check if the api key is valid
+            const { data: widgetApiKeyRelation, error: widgetApiKeyRelationError } = await this.supabase.from("widgetapikeyrelation").select("*").eq("apiKey", apiKey).is("deletedAt", null).single();
+
+            if (widgetApiKeyRelationError) {
+                throw new errors.Internal(widgetApiKeyRelationError.message);
+            }
+
+            if (!widgetApiKeyRelation) {
+                throw new errors.NotFound("Invalid API key");
+            }
+
+            // Check if the widget session is active
+            const { data: widgetSession, error: widgetSessionError } = await this.supabase.from("widgetsessions").select("*").eq("id", authUser.sessionId).is("deletedAt", null).single();
+
+            if (widgetSessionError) {
+                throw new errors.Internal(widgetSessionError.message);
+            }
+
+            if (!widgetSession) {
+                throw new errors.NotFound("Widget session not found");
+            }
+
+            if (widgetSession.status !== "active") {
+                throw new errors.BadRequest("Widget session is not active");
+            }
+
+            // Check if the ticket exists
+            const { data: ticket, error: ticketError } = await this.supabase.from("tickets").select("*").eq("id", ticketId).is("deletedAt", null).single();
+
+            if (ticketError) {
+                throw new errors.Internal(ticketError.message);
+            }
+
+            if (!ticket) {
+                throw new errors.NotFound("Ticket not found");
+            }
+
+            // Update the ticket rating
+            const { data: updatedTicket, error: updatedTicketError } = await this.supabase.from("tickets").update({ rating }).eq("id", ticketId).is("deletedAt", null).single();
+
+            if (updatedTicketError) {
+                throw new errors.Internal(updatedTicketError.message);
+            }
+
+            return updatedTicket;
+        } catch (error) {
+            console.error(error);
+            throw error;
+        }
+    }
 }
 
-module.exports = WidgetService; 
+module.exports = WidgetService;

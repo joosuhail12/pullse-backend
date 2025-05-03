@@ -107,6 +107,13 @@ class WidgetHandler extends BaseHandler {
         const clientId = req.authUser.clientId;
         return this.responder(req, reply, inst.getWidgetFieldOptions(workspaceId, clientId));
     }
+
+    async updateTicketRating(req, reply) {
+        let inst = new WidgetService();
+        req.body.apiKey = req.params.api_key;
+        req.body.authUser = req.authUser;
+        return this.responder(req, reply, inst.updateTicketRating(req.body));
+    }
 }
 
 module.exports = WidgetHandler;
