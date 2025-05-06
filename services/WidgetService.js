@@ -28,7 +28,8 @@ class WidgetService extends BaseService {
             const { data, error } = await this.supabase.from(this.entityName).select(`
                 *,
                 widgettheme!widgettheme_widgetId_fkey(id, name, colors, labels,widgetId, layout, brandAssets, widgetSettings, interfaceSettings),
-                widgetfield!widgetfield_widgetId_fkey1(*)
+                widgetfield!widgetfield_widgetId_fkey1(*),
+                widgetapikeyrelation!widgetapikeyrelation_widgetId_fkey(apiKey)
             `).eq("workspaceId", workspaceId).eq("clientId", clientId).is("deletedAt", null).single();
             console.log(data, error);
             if (error) {
