@@ -922,30 +922,31 @@ class WidgetService extends BaseService {
                         placeholder: "Enter phone",
                         table: "contact"
                     },
-                    {
-                        entityType: "contact",
-                        columnname: "twitter",
-                        label: "Twitter",
-                        type: "text",
-                        placeholder: "Enter twitter",
-                        table: "contact"
-                    },
-                    {
-                        entityType: "contact",
-                        columnname: "linkedin",
-                        label: "LinkedIn",
-                        type: "text",
-                        placeholder: "Enter linkedin",
-                        table: "contact"
-                    },
-                    {
-                        entityType: "contact",
-                        columnname: "address",
-                        label: "Address",
-                        type: "text",
-                        placeholder: "Enter address",
-                        table: "contact"
-                    }]
+                        // {
+                        //     entityType: "contact",
+                        //     columnname: "twitter",
+                        //     label: "Twitter",
+                        //     type: "text",
+                        //     placeholder: "Enter twitter",
+                        //     table: "contact"
+                        // },
+                        // {
+                        //     entityType: "contact",
+                        //     columnname: "linkedin",
+                        //     label: "LinkedIn",
+                        //     type: "text",
+                        //     placeholder: "Enter linkedin",
+                        //     table: "contact"
+                        // },
+                        // {
+                        //     entityType: "contact",
+                        //     columnname: "address",
+                        //     label: "Address",
+                        //     type: "text",
+                        //     placeholder: "Enter address",
+                        //     table: "contact"
+                        // }
+                    ]
                 },
                 {
                     name: "Company",
@@ -957,122 +958,123 @@ class WidgetService extends BaseService {
                         placeholder: "Enter company name",
                         table: "company"
                     },
-                    {
-                        entityType: "company",
-                        columnname: "description",
-                        label: "Description",
-                        type: "text",
-                        placeholder: "Enter company description",
-                        table: "company"
-                    },
-                    {
-                        columnname: "phone",
-                        label: "Phone",
-                        type: "text",
-                        placeholder: "Enter company phone",
-                        table: "company"
-                    },
-                    {
-                        entityType: "company",
-                        columnname: "website",
-                        label: "Website",
-                        type: "text",
-                        placeholder: "Enter company website",
-                        table: "company"
-                    }]
+                        // {
+                        //     entityType: "company",
+                        //     columnname: "description",
+                        //     label: "Description",
+                        //     type: "text",
+                        //     placeholder: "Enter company description",
+                        //     table: "company"
+                        // },
+                        // {
+                        //     columnname: "phone",
+                        //     label: "Phone",
+                        //     type: "text",
+                        //     placeholder: "Enter company phone",
+                        //     table: "company"
+                        // },
+                        // {
+                        //     entityType: "company",
+                        //     columnname: "website",
+                        //     label: "Website",
+                        //     type: "text",
+                        //     placeholder: "Enter company website",
+                        //     table: "company"
+                        // }
+                    ]
                 },
-                {
-                    name: "Ticket",
-                    fields: [{
-                        entityType: "ticket",
-                        columnname: "subject",
-                        label: "Subject",
-                        type: "text",
-                        placeholder: "Enter subject",
-                        table: "ticket"
-                    }]
-                }
+                // {
+                //     name: "Ticket",
+                //     fields: [{
+                //         entityType: "ticket",
+                //         columnname: "subject",
+                //         label: "Subject",
+                //         type: "text",
+                //         placeholder: "Enter subject",
+                //         table: "ticket"
+                //     }]
+                // }
             ];
 
-            // Fetch custom fields
-            const { data: customFields, error: customFieldsError } = await this.supabase.from("customfields").select("*").eq("workspaceId", workspaceId).eq("clientId", clientId).is("deletedAt", null);
-            if (customFieldsError) {
-                throw new errors.Internal(customFieldsError.message);
-            }
+            // // Fetch custom fields
+            // const { data: customFields, error: customFieldsError } = await this.supabase.from("customfields").select("*").eq("workspaceId", workspaceId).eq("clientId", clientId).is("deletedAt", null);
+            // if (customFieldsError) {
+            //     throw new errors.Internal(customFieldsError.message);
+            // }
 
-            const customerCustomFields = customFields.filter(field => field.entityType === "customer");
-            const companyCustomFields = customFields.filter(field => field.entityType === "company");
-            const ticketCustomFields = customFields.filter(field => field.entityType === "ticket");
+            // const customerCustomFields = customFields.filter(field => field.entityType === "customer");
+            // const companyCustomFields = customFields.filter(field => field.entityType === "company");
+            // const ticketCustomFields = customFields.filter(field => field.entityType === "ticket");
 
-            customerCustomFields.forEach(field => {
-                tables[0].fields.push({
-                    entityType: "custom_field",
-                    columnname: field.id,
-                    label: field.name,
-                    type: field.fieldType,
-                    options: field.options,
-                    placeholder: field.placeholder,
-                    table: "contact"
-                });
-            });
+            // customerCustomFields.forEach(field => {
+            //     tables[0].fields.push({
+            //         entityType: "custom_field",
+            //         columnname: field.id,
+            //         label: field.name,
+            //         type: field.fieldType,
+            //         options: field.options,
+            //         placeholder: field.placeholder,
+            //         table: "contact"
+            //     });
+            // });
 
-            companyCustomFields.forEach(field => {
-                tables[1].fields.push({
-                    entityType: "custom_field",
-                    columnname: field.id,
-                    label: field.name,
-                    type: field.fieldType,
-                    options: field.options,
-                    placeholder: field.placeholder,
-                    table: "company"
-                });
-            });
+            // companyCustomFields.forEach(field => {
+            //     tables[1].fields.push({
+            //         entityType: "custom_field",
+            //         columnname: field.id,
+            //         label: field.name,
+            //         type: field.fieldType,
+            //         options: field.options,
+            //         placeholder: field.placeholder,
+            //         table: "company"
+            //     });
+            // });
 
-            ticketCustomFields.forEach(field => {
-                tables[2].fields.push({
-                    entityType: "custom_field",
-                    columnname: field.id,
-                    label: field.name,
-                    type: field.fieldType,
-                    options: field.options,
-                    placeholder: field.placeholder,
-                    table: "ticket"
-                });
-            });
+            // ticketCustomFields.forEach(field => {
+            //     tables[2].fields.push({
+            //         entityType: "custom_field",
+            //         columnname: field.id,
+            //         label: field.name,
+            //         type: field.fieldType,
+            //         options: field.options,
+            //         placeholder: field.placeholder,
+            //         table: "ticket"
+            //     });
+            // });
 
-            // List all custom objects and send them as tables with  their custom object fields
-            const { data: customObjects, error: customObjectsError } = await this.supabase.from("customobjects").select("*").eq("workspaceId", workspaceId).eq("clientId", clientId).is("deletedAt", null).order("createdAt", { ascending: false });
+            // // List all custom objects and send them as tables with  their custom object fields
+            // const { data: customObjects, error: customObjectsError } = await this.supabase.from("customobjects").select("*").eq("workspaceId", workspaceId).eq("clientId", clientId).is("deletedAt", null).order("createdAt", { ascending: false });
 
-            if (customObjectsError) {
-                throw new errors.Internal(customObjectsError.message);
-            }
+            // if (customObjectsError) {
+            //     throw new errors.Internal(customObjectsError.message);
+            // }
 
-            const promises = customObjects.map(async (customObject) => {
-                const customObjectFields = [];
-                const { data: customObjectFieldsData, error: customObjectFieldsError } = await this.supabase.from("customobjectfields").select("*").eq("workspaceId", workspaceId).eq("clientId", clientId).eq("customObjectId", customObject.id).is("deletedAt", null).order("createdAt", { ascending: false });
+            // const promises = customObjects.map(async (customObject) => {
+            //     const customObjectFields = [];
+            //     const { data: customObjectFieldsData, error: customObjectFieldsError } = await this.supabase.from("customobjectfields").select("*").eq("workspaceId", workspaceId).eq("clientId", clientId).eq("customObjectId", customObject.id).is("deletedAt", null).order("createdAt", { ascending: false });
 
-                if (customObjectFieldsError) {
-                    throw new errors.Internal(customObjectFieldsError.message);
-                }
-                const fieldPromises = customObjectFieldsData.map(field => {
-                    customObjectFields.push({
-                        entityType: "custom_object_field",
-                        columnname: field.id,
-                        label: field.name,
-                        type: field.fieldType,
-                        options: field.options,
-                        placeholder: field.placeholder,
-                        table: customObject.name
-                    });
-                });
-                await Promise.all(fieldPromises);
-                tables.push({
-                    name: customObject.name,
-                    fields: customObjectFields
-                });
-            });
+            //     if (customObjectFieldsError) {
+            //         throw new errors.Internal(customObjectFieldsError.message);
+            //     }
+            //     const fieldPromises = customObjectFieldsData.map(field => {
+            //         customObjectFields.push({
+            //             entityType: "custom_object_field",
+            //             columnname: field.id,
+            //             label: field.name,
+            //             type: field.fieldType,
+            //             options: field.options,
+            //             placeholder: field.placeholder,
+            //             table: customObject.name
+            //         });
+            //     });
+            //     await Promise.all(fieldPromises);
+            //     tables.push({
+            //         name: customObject.name,
+            //         fields: customObjectFields
+            //     });
+            // });
 
-            await Promise.all(promises);
+            // await Promise.all(promises);
 
             return {
                 tables
