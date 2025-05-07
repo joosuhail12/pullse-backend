@@ -616,6 +616,10 @@ class WidgetService extends BaseService {
                 });
             }
 
+            if (!contactUpdateData.email) {
+                throw new errors.BadRequest("Email is required");
+            }
+
             // Check for customer
             let { data: customer, error: customerError } = await this.supabase.from("customers").select("*").eq("email", contactUpdateData.email).eq("workspaceId", widgetData.workspaceId).eq("clientId", widgetData.clientId).is("deletedAt", null).single();
             if (customerError && customerError.code !== "PGRST116") {
@@ -661,6 +665,34 @@ class WidgetService extends BaseService {
                         companyData[field.columnname] = field.value;
                     }
                 });
+
+                if (!companyData.name) {
+                    throw new errors.BadRequest("Company name is required");
+                }
+
+                const { data: existingCompany, error: existingCompanyError } = await this.supabase.from("companies").select("*").eq("name", companyData.name).eq("workspaceId", widgetData.workspaceId).eq("clientId", widgetData.clientId).is("deletedAt", null).single();
+
+                if (!customer.companyId && !existingCompany) {
+                    // Create company if not found
+                    let { data: newCompany, error: insertError } = await this.supabase.from("companies")
+                        .insert({
+                            name: companyData.name,
+                        })
+                        .select()
+                        .single();
+                    if (insertError) throw insertError;
+                    companyData.id = newCompany.id;
+
+                    // Update customer with company id
+                    let { data: updatedCustomer, error: updateError } = await this.supabase.from("customers").update({ companyId: newCompany.id }).eq("id", customer.id).select().single();
+                    if (updateError) throw updateError;
+                    customer = updatedCustomer;
+                } else if (existingCompany) {
+                    // Update customer with company id
+                    let { data: updatedCustomer, error: updateError } = await this.supabase.from("customers").update({ companyId: existingCompany.id }).eq("id", customer.id).select().single();
+                    if (updateError) throw updateError;
+                    customer = updatedCustomer;
+                }
             }
 
             // Process ticket data
@@ -673,33 +705,33 @@ class WidgetService extends BaseService {
                 });
             }
 
-            // Process custom data
-            if (customfield && Array.isArray(customfield)) {
-                for (const field of customfield) {
-                    if (field.value) {
-                        let { error: customDataError } = await this.supabase.from("customfielddata")
-                            .upsert({
-                                customfieldId: field.columnname, // columnname contains the UUID of the custom field
-                                data: field.value,
-                            });
-                        if (customDataError) throw customDataError;
-                    }
-                }
-            }
+            // // Process custom data
+            // if (customfield && Array.isArray(customfield)) {
+            //     for (const field of customfield) {
+            //         if (field.value) {
+            //             let { error: customDataError } = await this.supabase.from("customfielddata")
+            //                 .upsert({
+            //                     customfieldId: field.columnname, // columnname contains the UUID of the custom field
+            //                     data: field.value,
+            //                 });
+            //             if (customDataError) throw customDataError;
+            //         }
+            //     }
+            // }
 
-            // Process custom object data
-            if (customobjectfield && Array.isArray(customobjectfield)) {
-                for (const field of customobjectfield) {
-                    if (field.value) {
-                        let { error: customDataError } = await this.supabase.from("customobjectfielddata")
-                            .upsert({
-                                customObjectFieldId: field.columnname, // columnname contains the UUID of the custom object field
-                                data: field.value,
-                            });
-                        if (customDataError) throw customDataError;
-                    }
-                }
-            }
+            // // Process custom object data
+            // if (customobjectfield && Array.isArray(customobjectfield)) {
+            //     for (const field of customobjectfield) {
+            //         if (field.value) {
+            //             let { error: customDataError } = await this.supabase.from("customobjectfielddata")
+            //                 .upsert({
+            //                     customObjectFieldId: field.columnname, // columnname contains the UUID of the custom object field
+            //                     data: field.value,
+            //                 });
+            //             if (customDataError) throw customDataError;
+            //         }
+            //     }
+            // }
 
             // check if contactdevice already exists
             const { data: contactDeviceData, error: contactDeviceError } = await this.supabase.from("contactdevice").select("*").eq("publicIpAddress", publicIpAddress).eq("device", device).eq("operatingSystem", operatingSystem).eq("contactId", customer.id).is("deletedAt", null).select().single();
