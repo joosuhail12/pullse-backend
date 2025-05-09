@@ -225,7 +225,7 @@ async function activate(app) {
 
   // Get tickets for a specific team
   app.route({
-    url: base_url + "/:team_id/tickets",
+    url: base_url + "/:team_id/team-tickets",
     method: 'GET',
     name: "GetTeamTickets",
     preHandler: authMiddlewares.checkToken(AuthType.user),

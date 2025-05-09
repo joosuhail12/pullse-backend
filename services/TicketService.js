@@ -799,6 +799,7 @@ class TicketService {
     async listTicketsByTeam(filters) {
         try {
             const { teamId, clientId, workspaceId, status, priority, skip = 0, limit = 10 } = filters;
+            console.log("listTicketsByTeam filters:", filters);
 
             if (!teamId) {
                 return Promise.reject(new errors.BadRequest("Team ID is required"));
@@ -808,20 +809,20 @@ class TicketService {
                 .from(this.entityName)
                 .select(`
                     id, sno, title, description, status, priority, teamId,
-                    assigneeId, assignedTo, lastMessage, lastMessageAt, created_at, updated_at,
+                    assigneeId, assignedTo, lastMessage, lastMessageAt, createdAt, updatedAt,
                     teams!teamId(id, name),
                     users!assigneeId(id, name, email)
                 `)
-                .eq('teamId', teamId)
-                .eq('clientId', clientId)
-                .is('deletedAt', null);
+                .eq('teamId', teamId);
+            // .eq('clientId', clientId)
+            // .is('deletedAt', null);
 
             if (workspaceId) query = query.eq('workspaceId', workspaceId);
             if (status) query = query.eq('status', status);
             if (priority !== undefined) query = query.eq('priority', priority);
 
             const { data: tickets, error } = await query
-                .order('created_at', { ascending: false })
+                .order('createdAt', { ascending: false })
                 .range(skip, skip + limit - 1);
 
             if (error) throw error;
@@ -1264,7 +1265,7 @@ class TicketService {
                 .limit(10);
 
             const sortedData = data ? data.reverse() : [];
-            
+
             if (error) throw error;
 
             // at this point i want to subscribe to an ably channel i.e ticket:sno
