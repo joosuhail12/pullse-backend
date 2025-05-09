@@ -177,6 +177,30 @@ class MentionService {
                 }, {});
             }
 
+            // Extract assigneeId values to fetch assignedBy user details
+            const assigneeIds = tickets
+                .map(ticket => ticket.assigneeId)
+                .filter(id => id);
+
+            // Fetch assignedBy user details
+            let assignedByUserMap = {};
+            if (assigneeIds.length > 0) {
+                const { data: assignedByUsers, error: assignedByUsersError } = await supabase
+                    .from('users')
+                    .select('id, name, email')
+                    .in('id', assigneeIds);
+
+                if (assignedByUsersError) {
+                    console.error("Error in assignedByUsers query:", assignedByUsersError);
+                    throw assignedByUsersError;
+                }
+
+                assignedByUserMap = assignedByUsers.reduce((map, user) => {
+                    map[user.id] = user;
+                    return map;
+                }, {});
+            }
+
             // Create a lookup map for ticket data
             const ticketMap = {};
             tickets.forEach(ticket => {
@@ -259,6 +283,10 @@ class MentionService {
                 const assignedToUser = ticket?.assignedToUser || null;
                 const formattedTags = ticket?.tags || null;
                 const recipientEmails = ticket?.recipients || null;
+
+                // Add assignedBy data from assigneeId
+                const assignedByUser = ticket.assigneeId ? assignedByUserMap[ticket.assigneeId] : null;
+
                 return {
                     id: mention.id,
                     ticketId: mention.ticketId,
@@ -349,38 +377,15 @@ class MentionService {
                     customFields: ticket.customFields || {},
                     topicIds: ticket.topicIds || [],
                     mentionIds: ticket.mentionIds || [],
-                    reopenInfo: ticket.reopen || null
-                    // new res that is causing issues
-                    // id: mention.id,
-                    // subject: ticket.title,
-                    // customer: primaryCustomer?.name || 'Unknown',
-                    // assignee: assignedToUser?.name || null,
-                    // status: ticket.status,
-                    // priority: ticket.priority,
-                    // createdAt: new Date(ticket.createdAt).toISOString(),
-                    // updatedAt: ticket.updatedAt ? new Date(ticket.updatedAt).toISOString() : undefined,
-                    // lastMessage: ticket.lastMessage,
-                    // isUnread: ticket.isUnread,
-                    // recipients: recipientEmails,
-                    // channel: ticket.channel,
-                    // hasNotification: ticket.hasNotification,
-                    // notificationType: ticket.notificationType,
-                    // tags: formattedTags,
+                    reopenInfo: ticket.reopen || null,
+
+                    // Add assignedBy information to the response
+                    assignedBy: assignedByUser ? {
+                        id: assignedByUser.id,
+                        name: assignedByUser.name,
+                        email: assignedByUser.email
+                    } : null,
                 };
-                // return {
-                //     id: mention.id,
-                //     ticketId: mention.ticketId,
-                //     userId: mention.userId,
-                //     content: mention.content,
-                //     mentionedAt: mention.mentionedAt,
-                //     isRead: mention.isRead,
-                //     mentionedBy: mention.mentionedBy,
-                //     ticket: ticket,
-                //     createdBy: ticket.createdBy,
-                //     updatedBy: ticket.updatedBy,
-                //     createdAt: ticket.createdAt,
-                //     updatedAt: ticket.updatedAt,
-                // };
             }).filter(mention => mention.ticket !== null); // Only return mentions with valid tickets
 
             console.log(`Returning ${enrichedMentions.length} enriched mentions`);
