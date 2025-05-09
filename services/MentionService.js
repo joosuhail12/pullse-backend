@@ -208,6 +208,7 @@ class MentionService {
                 const customer = ticket.customerId ? customerMap[ticket.customerId] : null;
                 const assignedToUser = ticket.assignedTo ? assignedToUserMap[ticket.assignedTo] : null;
                 const team = ticket.teamId ? teamMap[ticket.teamId] : null;
+                const assignedByUser = ticket.assigneeId ? assignedByUserMap[ticket.assigneeId] : null;
 
                 ticketMap[ticket.id] = {
                     id: ticket.id,
@@ -238,6 +239,11 @@ class MentionService {
                         id: assignedToUser.id,
                         name: assignedToUser.name,
                         email: assignedToUser.email
+                    } : null,
+                    assignedByUser: assignedByUser ? {
+                        id: assignedByUser.id,
+                        name: assignedByUser.name,
+                        email: assignedByUser.email
                     } : null,
                     team: team ? {
                         id: team.id,
@@ -322,12 +328,7 @@ class MentionService {
                     } : null,
 
                     assigneeId: ticket.assigneeId,
-                    assignee: assignees?.[0]?.users ? {
-                        id: assignees[0].users.id,
-                        name: assignees[0].users.name,
-                        email: assignees[0].users.email,
-                        role: assignees[0].users.role
-                    } : null,
+
                     assigneeStatus: assigneeStatus,
 
                     assignedTo: ticket.assignedTo,
@@ -384,6 +385,13 @@ class MentionService {
                         id: assignedByUser.id,
                         name: assignedByUser.name,
                         email: assignedByUser.email
+                    } : null,
+
+                    // Add this formatted structure for mentioner (similar to assignedToUser)
+                    mentioner: mentioner ? {
+                        id: mentioner.id,
+                        name: mentioner.name,
+                        email: mentioner.email
                     } : null,
                 };
             }).filter(mention => mention.ticket !== null); // Only return mentions with valid tickets
