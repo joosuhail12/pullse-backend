@@ -13,57 +13,86 @@ class WorkflowService extends BaseService {
         this.updatableFields = ["name", "summary", "description", "status", "ruleIds", "actionIds", "lastUpdatedBy"];
     }
 
-    async createWorkflow(workflowData) {
+    async createWorkflowFolder(data) {
         try {
-            workflowData.id = uuid();
-            const { data, error } = await this.supabase
-                .from('workflows')
-                .insert(workflowData)
-                .select();
-            if (error) throw error;
-            return data;
-        } catch (err) {
-            return this.handleError(err);
-        }
-    }
+            const { name, workspaceId, clientId, createdBy } = data;
 
-    async getWorkflowDetails(id) {
-        try {
-            const { data, error } = await this.supabase
-                .from('workflows')
-                .select()
-                .eq('id', id)
+            // Check if the folder name already exists
+            const { data: existingFolder, error: existingFolderError } = await this.supabase
+                .from('workflowFolder')
+                .select('*')
+                .eq('name', name)
+                .eq('workspaceId', workspaceId)
+                .eq('clientId', clientId)
+                .is('deletedAt', null)
                 .single();
-            if (error) throw error;
-            return data;
-        } catch (err) {
-            return this.handleError(err);
+
+            if (existingFolderError) {
+                console.log("Error in createWorkflowFolder()", existingFolderError);
+                throw new errors.BadRequestError(existingFolderError.message);
+            }
+
+            if (existingFolder) {
+                throw new errors.BadRequestError("Folder name already exists");
+            }
+
+
+            const { data: newFolder, error } = await this.supabase
+                .from('workflowFolder')
+                .insert({ name, workspaceId, clientId, createdBy })
+                .select()
+
+            if (error) {
+                console.log("Error in createWorkflowFolder()", error);
+                throw new errors.BadRequestError(error.message);
+            }
+
+            return newFolder;
+        } catch (error) {
+            return this.handleError(error);
         }
     }
 
-    async updateWorkflow(id, updateValues) {
+    async getWorkflowFolders(data) {
         try {
-            const { error } = await this.supabase
-                .from('workflows')
-                .update(updateValues)
-                .eq('id', id);
-            if (error) throw error;
-            return { message: "Updated successfully" };
-        } catch (err) {
-            return this.handleError(err);
+            const { workspaceId, clientId } = data;
+            const { data: folders, error } = await this.supabase
+                .from('workflowFolder')
+                .select('*')
+                .eq('workspaceId', workspaceId)
+                .eq('clientId', clientId)
+                .is('deletedAt', null)
+                .order('createdAt', { ascending: false });
+
+            if (error) {
+                console.log("Error in getWorkflowFolders()", error);
+                throw new errors.InternalServerError(error.message);
+            }
+
+            return folders;
+        } catch (error) {
+            return this.handleError(error);
         }
     }
 
-    async deleteWorkflow(id) {
+    async deleteWorkflowFolder(id) {
         try {
-            const { error } = await this.supabase
-                .from('workflows')
-                .delete()
-                .eq('id', id);
-            if (error) throw error;
-            return { message: "Deleted successfully" };
-        } catch (err) {
-            return this.handleError(err);
+            const { data: deletedFolder, error } = await this.supabase
+                .from('workflowFolder')
+                .update({ deletedAt: new Date() })
+                .eq('id', id)
+                .select()
+                .single();
+
+            if (error) {
+                console.log("Error in deleteWorkflowFolder()", error);
+                throw new errors.InternalServerError(error.message);
+            }
+
+            return deletedFolder;
+        } catch (error) {
+            console.log("Error in deleteWorkflowFolder()", error);
+            return this.handleError(error);
         }
     }
 }
