@@ -1,7 +1,7 @@
 // serviceBusClient.js
 const { ServiceBusClient } = require("@azure/service-bus");
 
-const connectionString = 'Endpoint=sb://pullse-ai-service-bus.servicebus.windows.net/;SharedAccessKeyName=RootManageSharedAccessKey;SharedAccessKey=dmXSEjQkwewIfk1VdmF2HK3DTyWobgc+u+ASbAQTouw=';
+const connectionString = process.env.AZURE_SERVICE_BUS_CONNECTION_STRING;
 const queueName = 'embedding-pipeline-dev';
 
   async function sendTaskMessage(blobUrl, title, description, content, type) {
