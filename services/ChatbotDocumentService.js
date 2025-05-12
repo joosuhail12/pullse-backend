@@ -7,7 +7,10 @@ const BaseService = require("./BaseService");
 const _ = require("lodash");
 const path = require("path");
 const LLMServiceExternalService = require("../ExternalService/LLMServiceExternalService");
-
+const AzureStorageService = require('../StorageService/AzureStorageService');
+const { sendTaskMessage } = require('../serviceBusService/AzureServiceBus');
+const fs = require('fs').promises;
+const { S3Client, PutObjectCommand } = require("@aws-sdk/client-s3");
 class ChatbotDocumentService extends BaseService {
     constructor(fields = null, dependencies = null) {
         super();
@@ -16,6 +19,78 @@ class ChatbotDocumentService extends BaseService {
         this.entityName = 'ChatbotDocument';
         this.listingFields = ["id", "title", "type", "chatbotIds", "createdBy", "createdAt"];
         this.updatableFields = ["title", "type", "chatbotIds", "filePath"];
+        this.s3Client = new S3Client({
+            region: 'auto',
+            endpoint: process.env.CLOUDFLARE_R2_ENDPOINT,
+            credentials: {
+                accessKeyId: process.env.CLOUDFLARE_R2_ACCESS_KEY,
+                secretAccessKey: process.env.CLOUDFLARE_R2_SECRET_KEY,
+            },
+        });
+    }
+
+    async addCreateSnippet({ title,content,category,tags,isLive,description: description,status, contentType}){
+        try {
+            console.log("addCreateSnippet",title,content,category,tags,isLive,description,status, contentType)
+            const azureService = new AzureStorageService()
+            await azureService.init()
+            const url = await azureService.uploadSnippet(title, description, content)
+            await sendTaskMessage(url, title, description, content, 'text')
+            return url
+        } catch (err) {
+            console.log(err)
+            return this.handleError(err);
+        }
+    }
+
+    async addCreateDocument({ title,file,category,tags,isLive,description: description,status, contentType, workspaceId,}){
+        try {
+
+            const bucketName = "pullse";
+
+            // Generate unique key for the file
+            const key = `document-${workspaceId}-${Date.now()}`;
+
+            const fileBuffer = await fs.readFile(file.tempFilePath);
+
+            // Upload to R2 using PutObjectCommand
+            await this.s3Client.send(
+                new PutObjectCommand({
+                    Bucket: bucketName,
+                    Key: key,
+                    Body: fileBuffer,
+                    ContentType: file.mimetype,
+                    ContentLength: file.size
+                })
+            );
+
+            // Generate and return the file URL
+            // Public url https://pub-1db3dea75deb4e36a362d30e3f67bb76.r2.dev
+            // Private url https://98d50eb9172903f66dfd5573801dc8b6.r2.cloudflarestorage.com
+            const fileUrl = `${process.env.CLOUDFLARE_R2_PUBLIC_URL}/${process.env.CLOUDFLARE_R2_BUCKET}/${key}`;
+            await sendTaskMessage(fileUrl, title, description, file.mimetype, 'pdf')
+
+            return {
+                fileUrl
+            };
+        } catch (err) {
+            console.log(err)
+            return this.handleError(err);
+        }
+    }
+
+    async addCreateLink({ title,content,category,tags,isLive,description: description,status, contentType}){
+        try {
+            console.log("addCreateLink",title,content,category,tags,isLive,description,status, contentType)
+            const azureService = new AzureStorageService()
+            await azureService.init()
+            const url = await azureService.uploadSnippet(title, description, content)
+            await sendTaskMessage(url, title, description, content, 'url')
+            return url
+        } catch (err) {
+            console.log(err)
+            return this.handleError(err);
+        }
     }
 
     async addChatbotDocument({ title, type, chatbotIds, link, content, workspaceId, clientId, createdBy }, fileInst = null) {

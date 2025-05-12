@@ -69,6 +69,36 @@ async function activate(app) {
   });
 
   app.route({
+    url: base_url + "/snippet",
+    method: 'POST',
+    name: "CreateSnippet",
+    preHandler: authMiddlewares.checkToken(AuthType.user),
+    handler: async (req, reply) => {
+      return handler.createSnippet(req, reply);
+    }
+  });
+
+  app.route({
+    url: base_url + "/link",
+    method: 'POST',
+    name: "CreateLink",
+    preHandler: authMiddlewares.checkToken(AuthType.user),  
+    handler: async (req, reply) => {
+      return handler.createLink(req, reply);
+    }
+  });
+
+  app.route({
+    url: base_url + "/document",
+    method: 'POST',
+    name: "CreateDocument",
+    preHandler: authMiddlewares.checkToken(AuthType.user),
+    handler: async (req, reply) => {
+      return handler.createDocument(req, reply);
+    }
+  });
+
+  app.route({
     url: base_url,
     method: 'GET',
     name: "ListChatbotDocuments",

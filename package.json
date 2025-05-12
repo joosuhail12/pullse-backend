@@ -13,6 +13,7 @@
   "license": "SEE LICENSE IN License.md",
   "dependencies": {
     "@aws-sdk/client-s3": "^3.787.0",
+    "@azure/service-bus": "^7.9.5",
     "@azure/storage-blob": "^12.17.0",
     "@casl/ability": "^6.7.1",
     "@fastify/cookie": "^9.2.0",
@@ -31,6 +32,7 @@
     "case-anything": "^2.1.13",
     "convict": "^6.2.4",
     "dotenv": "^16.4.7",
+    "express": "^5.1.0",
     "fastify": "^4.0.0",
     "fastify-file-upload": "^4.0.0",
     "fastify-socket.io": "^5.0.0",

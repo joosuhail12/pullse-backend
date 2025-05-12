@@ -5,14 +5,19 @@ const StorageService = require("./StorageService");
 class AzureStorageService extends StorageService {
 
   constructor() {
+    super();
     this.accountName = 'pullseaipublicassets';
     this.accountKey = 'rAy43JOCKTQRL4PKIxpHet3hi+q7FCWHlZJXKhNyHlS1OrVqTKXyB0h7MpOUYGNS9ElwFLmc6YhJ+AStwJDTDQ==';
     this.containerName = 'pullse-ai-public-assets';
+    this.init();
   }
 
   init() {
-    this.sharedKeyCredential = new StorageSharedKeyCredential(this.accountName, this.accountKey);
-    this.blobServiceClient = new BlobServiceClient(`https://${this.accountName}.blob.core.windows.net`, this.sharedKeyCredential);
+    const cred = new StorageSharedKeyCredential(this.accountName, this.accountKey);
+    this.blobServiceClient = new BlobServiceClient(
+      `https://${this.accountName}.blob.core.windows.net`,
+      cred
+    );
   }
 
   async listBlobs() {
@@ -68,6 +73,25 @@ class AzureStorageService extends StorageService {
     const uploadBlobResponse = await blockBlobClient.upload(data, data.length);
     console.log(`Blob uploaded: ${uploadBlobResponse.requestId}`);
     return uploadBlobResponse;
+  }
+
+  async uploadToBlob(fileBuffer, originalName) {  
+    const containerClient = this.blobServiceClient.getContainerClient(`pullse-ai-content-center`);
+  
+    const blockBlobClient = containerClient.getBlockBlobClient(originalName);
+  
+    await blockBlobClient.uploadData(fileBuffer);
+    return blockBlobClient.url;
+  }
+
+  async uploadSnippet(title, description, content) {  
+    const containerClient = this.blobServiceClient.getContainerClient(this.containerName);
+  
+    const blockBlobClient = containerClient.getBlockBlobClient(title);
+    // create buffer for the provided data
+    const buffer = Buffer.from(content);
+    await blockBlobClient.uploadData(buffer);
+    return blockBlobClient.url;
   }
 
 };
