@@ -169,7 +169,45 @@ async function handleWidgetConversationEvent(ticketId, clientId, workspaceId, se
 
   const channel = ably.channels.get(`widget:conversation:ticket-${ticketId}`);
   channel.subscribe('message', async (msg) => {
-    await handleMessageRouting(ticketId, msg, 'customer');
+    //handle message using ai
+    // push this message to document-qa channel
+    // and subscribe to the document-qa-results channel to get the response
+    // send the response back to the widget
+    const { text } = msg.data;
+    const { data, error } = await supabase
+      .from('conversations')
+      .insert({
+        message: text,
+        createdBy: 'customer',  
+        type: 'chat',
+        ticketId,
+        userType: 'customer',
+        clientId,
+        workspaceId,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      });
+    const documentQaChannel = ably.channels.get(`document-qa`);
+    // send this message to document-qa channel
+    documentQaChannel.publish('message', {
+      "id":ticketId,
+      "query":text,
+    });
+    // subscribe to the document-qa-results channel to get the response
+    const documentQaResultsChannel = ably.channels.get(`document-qa-results`);
+    documentQaResultsChannel.subscribe('message', async (msg) => {
+      const { text } = msg.data;
+      // send this response back to the widget  
+      // await handleMessageRouting(ticketId, msg, 'customer');
+      const channel = ably.channels.get(`widget:conversation:ticket-${ticketId}`);
+      channel.publish('message_reply', {
+        ticketId,
+        text,
+        from: 'customer',
+        to: 'agent',
+        sessionId: sender.sessionId,
+      });
+    });
   });
 }
 
