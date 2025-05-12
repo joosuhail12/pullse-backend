@@ -23,6 +23,7 @@ async function activate(app) {
         required: ['name'],
         properties: {
           name: { type: 'string', minLength: 2 },
+          description: { type: 'string', minLength: 2 },
         },
       },
       query: {
@@ -81,6 +82,58 @@ async function activate(app) {
     },
     handler: async (req, reply) => {
       return handler.deleteWorkflowFolder(req, reply);
+    }
+  });
+
+  app.route({
+    url: base_url + '/folder/:id',
+    method: 'PATCH',
+    name: "UpdateWorkflowFolder",
+    preHandler: authMiddlewares.checkToken(AuthType.user),
+    schema: {
+      tags: ['Workflow'],
+      summary: 'Update Workflow Folder',
+      description: 'API to update workflow folder.',
+      params: {
+        type: 'object',
+        required: ['id'],
+        properties: {
+          id: { type: 'string' },
+        },
+      },
+      body: {
+        type: 'object',
+        minProperties: 1,
+        properties: {
+          name: { type: 'string', minLength: 2 },
+          description: { type: 'string', minLength: 2 },
+        },
+      },
+    },
+    handler: async (req, reply) => {
+      return handler.updateWorkflowFolder(req, reply);
+    }
+  });
+
+  app.route({
+    url: base_url,
+    method: 'POST',
+    name: "CreateWorkflow",
+    preHandler: authMiddlewares.checkToken(AuthType.user),
+    schema: {
+      tags: ['Workflow'],
+      summary: 'Create Workflow',
+      description: 'API to create workflow.',
+      params: {
+        type: 'object',
+        required: ['workspace_id'],
+        properties: {
+          workspace_id: { type: 'string' },
+        },
+      },
+    },
+    handler: async (req, reply) => {
+      return handler.createWorkflow(req, reply);
     }
   });
 }

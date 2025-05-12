@@ -15,11 +15,11 @@ class WorkflowService extends BaseService {
 
     async createWorkflowFolder(data) {
         try {
-            const { name, workspaceId, clientId, createdBy } = data;
+            const { name, workspaceId, clientId, createdBy, description } = data;
 
             // Check if the folder name already exists
             const { data: existingFolder, error: existingFolderError } = await this.supabase
-                .from('workflowFolder')
+                .from('workflowfolder')
                 .select('*')
                 .eq('name', name)
                 .eq('workspaceId', workspaceId)
@@ -38,8 +38,8 @@ class WorkflowService extends BaseService {
 
 
             const { data: newFolder, error } = await this.supabase
-                .from('workflowFolder')
-                .insert({ name, workspaceId, clientId, createdBy })
+                .from('workflowfolder')
+                .insert({ name, workspaceId, clientId, createdBy, description })
                 .select()
 
             if (error) {
@@ -57,7 +57,7 @@ class WorkflowService extends BaseService {
         try {
             const { workspaceId, clientId } = data;
             const { data: folders, error } = await this.supabase
-                .from('workflowFolder')
+                .from('workflowfolder')
                 .select('*')
                 .eq('workspaceId', workspaceId)
                 .eq('clientId', clientId)
@@ -78,7 +78,7 @@ class WorkflowService extends BaseService {
     async deleteWorkflowFolder(id) {
         try {
             const { data: deletedFolder, error } = await this.supabase
-                .from('workflowFolder')
+                .from('workflowfolder')
                 .update({ deletedAt: new Date() })
                 .eq('id', id)
                 .select()
@@ -92,6 +92,32 @@ class WorkflowService extends BaseService {
             return deletedFolder;
         } catch (error) {
             console.log("Error in deleteWorkflowFolder()", error);
+            return this.handleError(error);
+        }
+    }
+
+
+    async updateWorkflowFolder(id, data) {
+        try {
+            const { name, description, clientId, workspaceId } = data;
+            const { data: updatedFolder, error } = await this.supabase
+                .from('workflowfolder')
+                .update({ name, description, updatedAt: `now()` })
+                .eq('id', id)
+                .eq('clientId', clientId)
+                .eq('workspaceId', workspaceId)
+                .is('deletedAt', null)
+                .select()
+                .single();
+
+            if (error) {
+                console.log("Error in updateWorkflowFolder()", error);
+                throw new errors.InternalServerError(error.message);
+            }
+
+            return updatedFolder;
+        } catch (error) {
+            console.log("Error in updateWorkflowFolder()", error);
             return this.handleError(error);
         }
     }
