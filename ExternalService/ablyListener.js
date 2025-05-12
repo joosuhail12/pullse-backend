@@ -187,16 +187,19 @@ async function handleWidgetConversationEvent(ticketId, clientId, workspaceId, se
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       });
+    console.log("ticketId", data, text);
     const documentQaChannel = ably.channels.get(`document-qa`);
     // send this message to document-qa channel
     documentQaChannel.publish('message', {
       "id":ticketId,
       "query":text,
     });
+    console.log("message sent to document-qa channel", ticketId, text);
     // subscribe to the document-qa-results channel to get the response
     const documentQaResultsChannel = ably.channels.get(`document-qa-results`);
     documentQaResultsChannel.subscribe('message', async (msg) => {
       const { text } = msg.data;
+      console.log("message received from document-qa-results channel", msg);
       // send this response back to the widget  
       // await handleMessageRouting(ticketId, msg, 'customer');
       const channel = ably.channels.get(`widget:conversation:ticket-${ticketId}`);
