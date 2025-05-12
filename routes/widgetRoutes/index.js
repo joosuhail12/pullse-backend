@@ -398,6 +398,41 @@ async function activate(app) {
             return handler.getWidgetFieldOptions(req, reply);
         },
     });
+
+    app.route({
+        url: base_url + "/updateTicketRating/:api_key",
+        method: "PATCH",
+        name: "UpdateTicketRating",
+        preHandler: authMiddlewares.verifyJWTToken(),
+        schema: {
+            tags: ['Ticket'],
+            summary: 'Update Ticket Rating',
+            description: 'API to update the rating of a ticket.',
+            params: {
+                type: "object",
+                required: ["api_key"],
+                properties: {
+                    api_key: { type: "string" },
+                },
+            },
+            body: {
+                required: ['rating', 'ticketId'],
+                properties: {
+                    rating: {
+                        type: 'number',
+                        description: 'Rating of the ticket'
+                    },
+                    ticketId: {
+                        type: 'string',
+                        description: 'Ticket ID'
+                    }
+                }
+            }
+        },
+        handler: async (req, reply) => {
+            return handler.updateTicketRating(req, reply);
+        }
+    });
 }
 
 module.exports = {

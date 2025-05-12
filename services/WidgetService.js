@@ -28,7 +28,8 @@ class WidgetService extends BaseService {
             const { data, error } = await this.supabase.from(this.entityName).select(`
                 *,
                 widgettheme!widgettheme_widgetId_fkey(id, name, colors, labels,widgetId, layout, brandAssets, widgetSettings, interfaceSettings),
-                widgetfield!widgetfield_widgetId_fkey1(*)
+                widgetfield!widgetfield_widgetId_fkey1(*),
+                widgetapikeyrelation!widgetapikeyrelation_widgetId_fkey(apiKey)
             `).eq("workspaceId", workspaceId).eq("clientId", clientId).is("deletedAt", null).single();
             console.log(data, error);
             if (error) {
@@ -253,104 +254,106 @@ class WidgetService extends BaseService {
                 throw new errors.InternalServerError(updatedWidgetThemeError.message);
             }
 
-            // Delete all existing widget fields // TODO: Check if this is the best way to do this
-            let { error: deleteWidgetFieldsError } = await this.supabase.from("widgetfield").delete().eq("widgetId", widgetData.id);
+            if (data.widgetTheme.widgetField && data.widgetTheme.widgetField.length > 0) {
+                // Delete all existing widget fields // TODO: Check if this is the best way to do this
+                let { error: deleteWidgetFieldsError } = await this.supabase.from("widgetfield").delete().eq("widgetId", widgetData.id);
 
-            if (deleteWidgetFieldsError) {
-                throw new errors.InternalServerError(deleteWidgetFieldsError.message);
-            }
-
-            // Loop over widget fields from front end and create new widget fields
-            /* 
-                Example fields body:{
-                    entityname: "contact/company/ticket/custom_field/custom_object_field",
-                    columnname: "email/phone/address/etc/id of custom field/id of custom object field",
-                    label: "Email/Phone/Address etc",
-                    type: "text/number/textarea etc",
-                    placeholder: "Enter your email/phone/address etc",
-                    required: true/false,
-                    position: 1/2/3/4/5 etc
-                }
-            */
-
-            const standardFields = data.widgetTheme.widgetField.filter(field => field.entityname === "contact" || field.entityname === "company" || field.entityname === "ticket");
-
-            const customFields = data.widgetTheme.widgetField.filter(field => field.entityname === "custom_field");
-
-            const customObjectFields = data.widgetTheme.widgetField.filter(field => field.entityname === "custom_object_field");
-
-            const widgetEntries = [];
-
-            for (const field of standardFields) {
-                widgetEntries.push({
-                    createdBy,
-                    widgetId: widgetData.id,
-                    fieldSourceType: field.entityname,
-                    standardFieldName: field.columnname,
-                    label: field.label,
-                    placeholder: field.placeholder,
-                    isRequired: field.required,
-                    position: field.position,
-                    type: field.type,
-                    workspaceId: widgetData.workspaceId,
-                    clientId: widgetData.clientId
-                });
-            }
-
-            for (const field of customFields) {
-                // fetch custom field data from db
-                const { data: customFieldData, error: customFieldError } = await this.supabase.from("customfields").select("*").eq("id", field.columnname).is("deletedAt", null).single();
-
-                if (customFieldError) {
-                    throw new errors.InternalServerError(customFieldError.message);
+                if (deleteWidgetFieldsError) {
+                    throw new errors.InternalServerError(deleteWidgetFieldsError.message);
                 }
 
-                widgetEntries.push({
-                    createdBy,
-                    widgetId: widgetData.id,
-                    fieldSourceType: field.entityname,
-                    customFieldId: field.columnname,
-                    label: customFieldData.name,
-                    placeholder: customFieldData.placeholder,
-                    isRequired: field.required,
-                    position: field.position,
-                    type: customFieldData.fieldType,
-                    workspaceId: widgetData.workspaceId,
-                    clientId: widgetData.clientId
-                });
-            }
+                // Loop over widget fields from front end and create new widget fields
+                /* 
+                    Example fields body:{
+                        entityname: "contact/company/ticket/custom_field/custom_object_field",
+                        columnname: "email/phone/address/etc/id of custom field/id of custom object field",
+                        label: "Email/Phone/Address etc",
+                        type: "text/number/textarea etc",
+                        placeholder: "Enter your email/phone/address etc",
+                        required: true/false,
+                        position: 1/2/3/4/5 etc
+                    }
+                */
 
-            for (const field of customObjectFields) {
-                // fetch custom object field data from db
-                const { data: customObjectFieldData, error: customObjectFieldError } = await this.supabase.from("customobjectfields").select("*").eq("id", field.columnname).is("deletedAt", null).single();
+                const standardFields = data.widgetTheme.widgetField.filter(field => field.entityname === "contact" || field.entityname === "company" || field.entityname === "ticket");
 
-                if (customObjectFieldError) {
-                    throw new errors.InternalServerError(customObjectFieldError.message);
+                const customFields = data.widgetTheme.widgetField.filter(field => field.entityname === "custom_field");
+
+                const customObjectFields = data.widgetTheme.widgetField.filter(field => field.entityname === "custom_object_field");
+
+                const widgetEntries = [];
+
+                for (const field of standardFields) {
+                    widgetEntries.push({
+                        createdBy,
+                        widgetId: widgetData.id,
+                        fieldSourceType: field.entityname,
+                        standardFieldName: field.columnname,
+                        label: field.label,
+                        placeholder: field.placeholder,
+                        isRequired: field.required,
+                        position: field.position,
+                        type: field.type,
+                        workspaceId: widgetData.workspaceId,
+                        clientId: widgetData.clientId
+                    });
                 }
 
-                widgetEntries.push({
-                    createdBy,
-                    widgetId: widgetData.id,
-                    fieldSourceType: field.entityname,
-                    customObjectId: customObjectFieldData.customObjectId,
-                    customObjectFieldId: field.columnname,
-                    label: customObjectFieldData.name,
-                    placeholder: customObjectFieldData.placeholder,
-                    isRequired: field.required,
-                    position: field.position,
-                    type: customObjectFieldData.fieldType,
-                    workspaceId: widgetData.workspaceId,
-                    clientId: widgetData.clientId
-                });
+                for (const field of customFields) {
+                    // fetch custom field data from db
+                    const { data: customFieldData, error: customFieldError } = await this.supabase.from("customfields").select("*").eq("id", field.columnname).is("deletedAt", null).single();
+
+                    if (customFieldError) {
+                        throw new errors.InternalServerError(customFieldError.message);
+                    }
+
+                    widgetEntries.push({
+                        createdBy,
+                        widgetId: widgetData.id,
+                        fieldSourceType: field.entityname,
+                        customFieldId: field.columnname,
+                        label: customFieldData.name,
+                        placeholder: customFieldData.placeholder,
+                        isRequired: field.required,
+                        position: field.position,
+                        type: customFieldData.fieldType,
+                        workspaceId: widgetData.workspaceId,
+                        clientId: widgetData.clientId
+                    });
+                }
+
+                for (const field of customObjectFields) {
+                    // fetch custom object field data from db
+                    const { data: customObjectFieldData, error: customObjectFieldError } = await this.supabase.from("customobjectfields").select("*").eq("id", field.columnname).is("deletedAt", null).single();
+
+                    if (customObjectFieldError) {
+                        throw new errors.InternalServerError(customObjectFieldError.message);
+                    }
+
+                    widgetEntries.push({
+                        createdBy,
+                        widgetId: widgetData.id,
+                        fieldSourceType: field.entityname,
+                        customObjectId: customObjectFieldData.customObjectId,
+                        customObjectFieldId: field.columnname,
+                        label: customObjectFieldData.name,
+                        placeholder: customObjectFieldData.placeholder,
+                        isRequired: field.required,
+                        position: field.position,
+                        type: customObjectFieldData.fieldType,
+                        workspaceId: widgetData.workspaceId,
+                        clientId: widgetData.clientId
+                    });
+                }
+
+                // insert widget fields
+                let { data: widgetFieldsData, error: widgetFieldsError } = await this.supabase.from("widgetfield").insert(widgetEntries);
+
+                if (widgetFieldsError) {
+                    throw new errors.InternalServerError(widgetFieldsError.message);
+                }
+
             }
-
-            // insert widget fields
-            let { data: widgetFieldsData, error: widgetFieldsError } = await this.supabase.from("widgetfield").insert(widgetEntries);
-
-            if (widgetFieldsError) {
-                throw new errors.InternalServerError(widgetFieldsError.message);
-            }
-
 
             return updatedWidgetTheme;
         } catch (error) {
@@ -613,6 +616,10 @@ class WidgetService extends BaseService {
                 });
             }
 
+            if (!contactUpdateData.email) {
+                throw new errors.BadRequest("Email is required");
+            }
+
             // Check for customer
             let { data: customer, error: customerError } = await this.supabase.from("customers").select("*").eq("email", contactUpdateData.email).eq("workspaceId", widgetData.workspaceId).eq("clientId", widgetData.clientId).is("deletedAt", null).single();
             if (customerError && customerError.code !== "PGRST116") {
@@ -658,6 +665,34 @@ class WidgetService extends BaseService {
                         companyData[field.columnname] = field.value;
                     }
                 });
+
+                if (!companyData.name) {
+                    throw new errors.BadRequest("Company name is required");
+                }
+
+                const { data: existingCompany, error: existingCompanyError } = await this.supabase.from("companies").select("*").eq("name", companyData.name).eq("workspaceId", widgetData.workspaceId).eq("clientId", widgetData.clientId).is("deletedAt", null).single();
+
+                if (!customer.companyId && !existingCompany) {
+                    // Create company if not found
+                    let { data: newCompany, error: insertError } = await this.supabase.from("companies")
+                        .insert({
+                            name: companyData.name,
+                        })
+                        .select()
+                        .single();
+                    if (insertError) throw insertError;
+                    companyData.id = newCompany.id;
+
+                    // Update customer with company id
+                    let { data: updatedCustomer, error: updateError } = await this.supabase.from("customers").update({ companyId: newCompany.id }).eq("id", customer.id).select().single();
+                    if (updateError) throw updateError;
+                    customer = updatedCustomer;
+                } else if (existingCompany) {
+                    // Update customer with company id
+                    let { data: updatedCustomer, error: updateError } = await this.supabase.from("customers").update({ companyId: existingCompany.id }).eq("id", customer.id).select().single();
+                    if (updateError) throw updateError;
+                    customer = updatedCustomer;
+                }
             }
 
             // Process ticket data
@@ -670,33 +705,33 @@ class WidgetService extends BaseService {
                 });
             }
 
-            // Process custom data
-            if (customfield && Array.isArray(customfield)) {
-                for (const field of customfield) {
-                    if (field.value) {
-                        let { error: customDataError } = await this.supabase.from("customfielddata")
-                            .upsert({
-                                customfieldId: field.columnname, // columnname contains the UUID of the custom field
-                                data: field.value,
-                            });
-                        if (customDataError) throw customDataError;
-                    }
-                }
-            }
+            // // Process custom data
+            // if (customfield && Array.isArray(customfield)) {
+            //     for (const field of customfield) {
+            //         if (field.value) {
+            //             let { error: customDataError } = await this.supabase.from("customfielddata")
+            //                 .upsert({
+            //                     customfieldId: field.columnname, // columnname contains the UUID of the custom field
+            //                     data: field.value,
+            //                 });
+            //             if (customDataError) throw customDataError;
+            //         }
+            //     }
+            // }
 
-            // Process custom object data
-            if (customobjectfield && Array.isArray(customobjectfield)) {
-                for (const field of customobjectfield) {
-                    if (field.value) {
-                        let { error: customDataError } = await this.supabase.from("customobjectfielddata")
-                            .upsert({
-                                customObjectFieldId: field.columnname, // columnname contains the UUID of the custom object field
-                                data: field.value,
-                            });
-                        if (customDataError) throw customDataError;
-                    }
-                }
-            }
+            // // Process custom object data
+            // if (customobjectfield && Array.isArray(customobjectfield)) {
+            //     for (const field of customobjectfield) {
+            //         if (field.value) {
+            //             let { error: customDataError } = await this.supabase.from("customobjectfielddata")
+            //                 .upsert({
+            //                     customObjectFieldId: field.columnname, // columnname contains the UUID of the custom object field
+            //                     data: field.value,
+            //                 });
+            //             if (customDataError) throw customDataError;
+            //         }
+            //     }
+            // }
 
             // check if contactdevice already exists
             const { data: contactDeviceData, error: contactDeviceError } = await this.supabase.from("contactdevice").select("*").eq("publicIpAddress", publicIpAddress).eq("device", device).eq("operatingSystem", operatingSystem).eq("contactId", customer.id).is("deletedAt", null).select().single();
@@ -919,30 +954,31 @@ class WidgetService extends BaseService {
                         placeholder: "Enter phone",
                         table: "contact"
                     },
-                    {
-                        entityType: "contact",
-                        columnname: "twitter",
-                        label: "Twitter",
-                        type: "text",
-                        placeholder: "Enter twitter",
-                        table: "contact"
-                    },
-                    {
-                        entityType: "contact",
-                        columnname: "linkedin",
-                        label: "LinkedIn",
-                        type: "text",
-                        placeholder: "Enter linkedin",
-                        table: "contact"
-                    },
-                    {
-                        entityType: "contact",
-                        columnname: "address",
-                        label: "Address",
-                        type: "text",
-                        placeholder: "Enter address",
-                        table: "contact"
-                    }]
+                        // {
+                        //     entityType: "contact",
+                        //     columnname: "twitter",
+                        //     label: "Twitter",
+                        //     type: "text",
+                        //     placeholder: "Enter twitter",
+                        //     table: "contact"
+                        // },
+                        // {
+                        //     entityType: "contact",
+                        //     columnname: "linkedin",
+                        //     label: "LinkedIn",
+                        //     type: "text",
+                        //     placeholder: "Enter linkedin",
+                        //     table: "contact"
+                        // },
+                        // {
+                        //     entityType: "contact",
+                        //     columnname: "address",
+                        //     label: "Address",
+                        //     type: "text",
+                        //     placeholder: "Enter address",
+                        //     table: "contact"
+                        // }
+                    ]
                 },
                 {
                     name: "Company",
@@ -954,122 +990,123 @@ class WidgetService extends BaseService {
                         placeholder: "Enter company name",
                         table: "company"
                     },
-                    {
-                        entityType: "company",
-                        columnname: "description",
-                        label: "Description",
-                        type: "text",
-                        placeholder: "Enter company description",
-                        table: "company"
-                    },
-                    {
-                        columnname: "phone",
-                        label: "Phone",
-                        type: "text",
-                        placeholder: "Enter company phone",
-                        table: "company"
-                    },
-                    {
-                        entityType: "company",
-                        columnname: "website",
-                        label: "Website",
-                        type: "text",
-                        placeholder: "Enter company website",
-                        table: "company"
-                    }]
+                        // {
+                        //     entityType: "company",
+                        //     columnname: "description",
+                        //     label: "Description",
+                        //     type: "text",
+                        //     placeholder: "Enter company description",
+                        //     table: "company"
+                        // },
+                        // {
+                        //     columnname: "phone",
+                        //     label: "Phone",
+                        //     type: "text",
+                        //     placeholder: "Enter company phone",
+                        //     table: "company"
+                        // },
+                        // {
+                        //     entityType: "company",
+                        //     columnname: "website",
+                        //     label: "Website",
+                        //     type: "text",
+                        //     placeholder: "Enter company website",
+                        //     table: "company"
+                        // }
+                    ]
                 },
-                {
-                    name: "Ticket",
-                    fields: [{
-                        entityType: "ticket",
-                        columnname: "subject",
-                        label: "Subject",
-                        type: "text",
-                        placeholder: "Enter subject",
-                        table: "ticket"
-                    }]
-                }
+                // {
+                //     name: "Ticket",
+                //     fields: [{
+                //         entityType: "ticket",
+                //         columnname: "subject",
+                //         label: "Subject",
+                //         type: "text",
+                //         placeholder: "Enter subject",
+                //         table: "ticket"
+                //     }]
+                // }
             ];
 
-            // Fetch custom fields
-            const { data: customFields, error: customFieldsError } = await this.supabase.from("customfields").select("*").eq("workspaceId", workspaceId).eq("clientId", clientId).is("deletedAt", null);
-            if (customFieldsError) {
-                throw new errors.Internal(customFieldsError.message);
-            }
+            // // Fetch custom fields
+            // const { data: customFields, error: customFieldsError } = await this.supabase.from("customfields").select("*").eq("workspaceId", workspaceId).eq("clientId", clientId).is("deletedAt", null);
+            // if (customFieldsError) {
+            //     throw new errors.Internal(customFieldsError.message);
+            // }
 
-            const customerCustomFields = customFields.filter(field => field.entityType === "customer");
-            const companyCustomFields = customFields.filter(field => field.entityType === "company");
-            const ticketCustomFields = customFields.filter(field => field.entityType === "ticket");
+            // const customerCustomFields = customFields.filter(field => field.entityType === "customer");
+            // const companyCustomFields = customFields.filter(field => field.entityType === "company");
+            // const ticketCustomFields = customFields.filter(field => field.entityType === "ticket");
 
-            customerCustomFields.forEach(field => {
-                tables[0].fields.push({
-                    entityType: "custom_field",
-                    columnname: field.id,
-                    label: field.name,
-                    type: field.fieldType,
-                    options: field.options,
-                    placeholder: field.placeholder,
-                    table: "contact"
-                });
-            });
+            // customerCustomFields.forEach(field => {
+            //     tables[0].fields.push({
+            //         entityType: "custom_field",
+            //         columnname: field.id,
+            //         label: field.name,
+            //         type: field.fieldType,
+            //         options: field.options,
+            //         placeholder: field.placeholder,
+            //         table: "contact"
+            //     });
+            // });
 
-            companyCustomFields.forEach(field => {
-                tables[1].fields.push({
-                    entityType: "custom_field",
-                    columnname: field.id,
-                    label: field.name,
-                    type: field.fieldType,
-                    options: field.options,
-                    placeholder: field.placeholder,
-                    table: "company"
-                });
-            });
+            // companyCustomFields.forEach(field => {
+            //     tables[1].fields.push({
+            //         entityType: "custom_field",
+            //         columnname: field.id,
+            //         label: field.name,
+            //         type: field.fieldType,
+            //         options: field.options,
+            //         placeholder: field.placeholder,
+            //         table: "company"
+            //     });
+            // });
 
-            ticketCustomFields.forEach(field => {
-                tables[2].fields.push({
-                    entityType: "custom_field",
-                    columnname: field.id,
-                    label: field.name,
-                    type: field.fieldType,
-                    options: field.options,
-                    placeholder: field.placeholder,
-                    table: "ticket"
-                });
-            });
+            // ticketCustomFields.forEach(field => {
+            //     tables[2].fields.push({
+            //         entityType: "custom_field",
+            //         columnname: field.id,
+            //         label: field.name,
+            //         type: field.fieldType,
+            //         options: field.options,
+            //         placeholder: field.placeholder,
+            //         table: "ticket"
+            //     });
+            // });
 
-            // List all custom objects and send them as tables with  their custom object fields
-            const { data: customObjects, error: customObjectsError } = await this.supabase.from("customobjects").select("*").eq("workspaceId", workspaceId).eq("clientId", clientId).is("deletedAt", null).order("createdAt", { ascending: false });
+            // // List all custom objects and send them as tables with  their custom object fields
+            // const { data: customObjects, error: customObjectsError } = await this.supabase.from("customobjects").select("*").eq("workspaceId", workspaceId).eq("clientId", clientId).is("deletedAt", null).order("createdAt", { ascending: false });
 
-            if (customObjectsError) {
-                throw new errors.Internal(customObjectsError.message);
-            }
+            // if (customObjectsError) {
+            //     throw new errors.Internal(customObjectsError.message);
+            // }
 
-            const promises = customObjects.map(async (customObject) => {
-                const customObjectFields = [];
-                const { data: customObjectFieldsData, error: customObjectFieldsError } = await this.supabase.from("customobjectfields").select("*").eq("workspaceId", workspaceId).eq("clientId", clientId).eq("customObjectId", customObject.id).is("deletedAt", null).order("createdAt", { ascending: false });
+            // const promises = customObjects.map(async (customObject) => {
+            //     const customObjectFields = [];
+            //     const { data: customObjectFieldsData, error: customObjectFieldsError } = await this.supabase.from("customobjectfields").select("*").eq("workspaceId", workspaceId).eq("clientId", clientId).eq("customObjectId", customObject.id).is("deletedAt", null).order("createdAt", { ascending: false });
 
-                if (customObjectFieldsError) {
-                    throw new errors.Internal(customObjectFieldsError.message);
-                }
-                const fieldPromises = customObjectFieldsData.map(field => {
-                    customObjectFields.push({
-                        entityType: "custom_object_field",
-                        columnname: field.id,
-                        label: field.name,
-                        type: field.fieldType,
-                        options: field.options,
-                        placeholder: field.placeholder,
-                        table: customObject.name
-                    });
-                });
-                await Promise.all(fieldPromises);
-                tables.push({
-                    name: customObject.name,
-                    fields: customObjectFields
-                });
-            });
+            //     if (customObjectFieldsError) {
+            //         throw new errors.Internal(customObjectFieldsError.message);
+            //     }
+            //     const fieldPromises = customObjectFieldsData.map(field => {
+            //         customObjectFields.push({
+            //             entityType: "custom_object_field",
+            //             columnname: field.id,
+            //             label: field.name,
+            //             type: field.fieldType,
+            //             options: field.options,
+            //             placeholder: field.placeholder,
+            //             table: customObject.name
+            //         });
+            //     });
+            //     await Promise.all(fieldPromises);
+            //     tables.push({
+            //         name: customObject.name,
+            //         fields: customObjectFields
+            //     });
+            // });
 
-            await Promise.all(promises);
+            // await Promise.all(promises);
 
             return {
                 tables
@@ -1079,6 +1116,61 @@ class WidgetService extends BaseService {
             throw error;
         }
     }
+
+    async updateTicketRating(requestBody) {
+        try {
+            const { rating, apiKey, authUser, ticketId } = requestBody;
+
+            // Check if the api key is valid
+            const { data: widgetApiKeyRelation, error: widgetApiKeyRelationError } = await this.supabase.from("widgetapikeyrelation").select("*").eq("apiKey", apiKey).is("deletedAt", null).single();
+
+            if (widgetApiKeyRelationError) {
+                throw new errors.Internal(widgetApiKeyRelationError.message);
+            }
+
+            if (!widgetApiKeyRelation) {
+                throw new errors.NotFound("Invalid API key");
+            }
+
+            // Check if the widget session is active
+            const { data: widgetSession, error: widgetSessionError } = await this.supabase.from("widgetsessions").select("*").eq("id", authUser.sessionId).is("deletedAt", null).single();
+
+            if (widgetSessionError) {
+                throw new errors.Internal(widgetSessionError.message);
+            }
+
+            if (!widgetSession) {
+                throw new errors.NotFound("Widget session not found");
+            }
+
+            if (widgetSession.status !== "active") {
+                throw new errors.BadRequest("Widget session is not active");
+            }
+
+            // Check if the ticket exists
+            const { data: ticket, error: ticketError } = await this.supabase.from("tickets").select("*").eq("id", ticketId).is("deletedAt", null).single();
+
+            if (ticketError) {
+                throw new errors.Internal(ticketError.message);
+            }
+
+            if (!ticket) {
+                throw new errors.NotFound("Ticket not found");
+            }
+
+            // Update the ticket rating
+            const { data: updatedTicket, error: updatedTicketError } = await this.supabase.from("tickets").update({ rating }).eq("id", ticketId).is("deletedAt", null).single();
+
+            if (updatedTicketError) {
+                throw new errors.Internal(updatedTicketError.message);
+            }
+
+            return updatedTicket;
+        } catch (error) {
+            console.error(error);
+            throw error;
+        }
+    }
 }
 
-module.exports = WidgetService; 
+module.exports = WidgetService;
