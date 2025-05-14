@@ -142,17 +142,17 @@ class CustomerService extends BaseService {
             }
 
             // 4. Check if there are any actual updates to the customer data
-            if (Object.keys(updateValues).length > 0) {
-                const { data, error } = await this.supabase
-                    .from(this.entityName)
-                    .update(updateValues)
-                    .match({ id, workspaceId, clientId })
-                    .select("*")
-                    .maybeSingle();
+            console.log("Final update values being sent to database:", updateValues);
 
-                if (error) throw error;
-                if (!data) throw new Error("No updates were made. Ensure the data is different from existing values.");
-            }
+            const { data, error } = await this.supabase
+                .from(this.entityName)
+                .update(updateValues)
+                .match({ id, workspaceId, clientId })
+                .select("*")
+                .maybeSingle();
+
+            if (error) throw error;
+            if (!data) throw new Error("No updates were made. Ensure the data is different from existing values.");
 
             // 5. Fetch updated customer details including tags with names
             const { data: updatedCustomer, error: fetchUpdatedError } = await this.supabase

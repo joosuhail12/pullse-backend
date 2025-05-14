@@ -313,6 +313,8 @@ async function activate(app) {
           lastname: { type: "string", minLength: 2 },
           email: { type: "string", format: "email" },
           type: { type: "string" },
+          status: { type: "string" },
+          // companyId: { type: 'object', properties: { id: { type: 'string' } }, name: { type: 'string' } },
           title: { type: "string" },
           companyId: { type: "string" },
           department: { type: "string" },
