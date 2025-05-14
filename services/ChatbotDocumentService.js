@@ -29,13 +29,12 @@ class ChatbotDocumentService extends BaseService {
         });
     }
 
-    async addCreateSnippet({ title,content,category,tags,isLive,description: description,status, contentType}){
+    async addCreateSnippet({ title,content,category,tags,isLive,description: description,status, contentType, uesrId, clientId, workspaceId}){
         try {
-            console.log("addCreateSnippet",title,content,category,tags,isLive,description,status, contentType)
             const azureService = new AzureStorageService()
             await azureService.init()
             const url = await azureService.uploadSnippet(title, description, content)
-            await sendTaskMessage(url, title, description, content, 'text')
+            await sendTaskMessage(url, title, description, content, 'text', uesrId, clientId, workspaceId)
             return url
         } catch (err) {
             console.log(err)

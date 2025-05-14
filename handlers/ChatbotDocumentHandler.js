@@ -32,7 +32,10 @@ class ChatbotDocumentHandler extends BaseHandler {
 
   async createSnippet(req, reply) {
     let inst = this.ChatbotDocumentServiceInst;
-    return this.responder(req, reply, inst.addCreateSnippet(req.body));
+    const userId = req.authUser.id;
+    const clientId = req.authUser.clientId;
+    const workspaceId = req.query.workspace_id;
+    return this.responder(req, reply, inst.addCreateSnippet(req.body, userId, clientId, workspaceId));
   }
 
   async createLink(req, reply) {
