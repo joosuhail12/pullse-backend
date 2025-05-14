@@ -186,7 +186,7 @@ class CustomerService extends BaseService {
                         id, firstname, lastname, email, phone, type, title, department, timezone,
                         linkedin, twitter, language, source, assignedTo, accountValue, notes,
                         lastContacted, created_at, updated_at, street, city, state, postalCode, country,
-                        company: companies(name),
+                        company: companies(name), companyId,
                         customerTags(tag: tags(id, name))
                     `)
                 .eq("id", customer_id)
@@ -206,6 +206,7 @@ class CustomerService extends BaseService {
                 email: data.email,
                 phone: data.phone || null,
                 company: data.company ? data.company.name : null, // Extract company name
+                companyId: data.companyId,
                 status: data.status || "active",
                 type: data.type,
                 title: data.title,
