@@ -37,6 +37,45 @@ class WorkflowHandler extends BaseHandler {
     return this.responder(req, res, inst.updateWorkflowFolder(id, req.body));
   }
 
+  async createWorkflow(req, res) {
+    req.body.clientId = req.authUser.clientId;
+    req.body.workspaceId = req.query.workspace_id;
+    req.body.createdBy = req.authUser.id;
+    let inst = new WorkflowService();
+    return this.responder(req, res, inst.createWorkflow(req.body));
+  }
+
+  async getAllWorkflows(req, res) {
+    let workspaceId = req.query.workspace_id;
+    let clientId = req.authUser.clientId;
+    let inst = new WorkflowService();
+    return this.responder(req, res, inst.getAllWorkflows({ workspaceId, clientId }));
+  }
+
+  async getWorkflowById(req, res) {
+    let id = req.params.id;
+    let workspaceId = req.query.workspace_id;
+    let clientId = req.authUser.clientId;
+    let inst = new WorkflowService();
+    return this.responder(req, res, inst.getWorkflowById({ id, workspaceId, clientId }));
+  }
+
+
+  async deleteWorkflow(req, res) {
+    let id = req.params.id;
+    let workspaceId = req.query.workspace_id;
+    let clientId = req.authUser.clientId;
+    let inst = new WorkflowService();
+    return this.responder(req, res, inst.deleteWorkflow({ id, workspaceId, clientId }));
+  }
+
+  async updateWorkflowTags(req, res) {
+    let id = req.params.id;
+    let workspaceId = req.query.workspace_id;
+    let clientId = req.authUser.clientId;
+    let inst = new WorkflowService();
+    return this.responder(req, res, inst.updateWorkflowTags({ id, workspaceId, clientId, tags: req.body.tags }));
+  }
 }
 
 module.exports = WorkflowHandler;

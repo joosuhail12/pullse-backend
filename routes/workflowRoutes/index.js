@@ -124,7 +124,45 @@ async function activate(app) {
       tags: ['Workflow'],
       summary: 'Create Workflow',
       description: 'API to create workflow.',
-      params: {
+      query: {
+        type: 'object',
+        required: ['workspace_id'],
+        properties: {
+          workspace_id: { type: 'string' },
+        },
+      },
+      body: {
+        type: 'object',
+        required: ['triggerType', 'triggerPosition', 'nodeId'],
+        properties: {
+          triggerType: { type: 'string', minLength: 2 },
+          triggerPosition: {
+            type: 'object',
+            required: ['positionX', 'positionY'],
+            properties: {
+              positionX: { type: 'number' },
+              positionY: { type: 'number' },
+            },
+          },
+          nodeId: { type: 'string' },
+        },
+      },
+    },
+    handler: async (req, reply) => {
+      return handler.createWorkflow(req, reply);
+    }
+  });
+
+  app.route({
+    url: base_url,
+    method: 'GET',
+    name: "GetAllWorkflows",
+    preHandler: authMiddlewares.checkToken(AuthType.user),
+    schema: {
+      tags: ['Workflow'],
+      summary: 'Get All Workflows',
+      description: 'API to get all workflows.',
+      query: {
         type: 'object',
         required: ['workspace_id'],
         properties: {
@@ -133,9 +171,98 @@ async function activate(app) {
       },
     },
     handler: async (req, reply) => {
-      return handler.createWorkflow(req, reply);
+      return handler.getAllWorkflows(req, reply);
     }
   });
+
+  app.route({
+    url: base_url + '/:id',
+    method: 'GET',
+    name: "GetWorkflowById",
+    preHandler: authMiddlewares.checkToken(AuthType.user),
+    schema: {
+      tags: ['Workflow'],
+      summary: 'Get Workflow By Id',
+      description: 'API to get workflow by id.',
+      params: {
+        type: 'object',
+        required: ['id'],
+        properties: {
+          id: { type: 'string' },
+        },
+      },
+      query: {
+        type: 'object',
+        required: ['workspace_id'],
+        properties: {
+          workspace_id: { type: 'string' },
+        },
+      },
+    },
+    handler: async (req, reply) => {
+      return handler.getWorkflowById(req, reply);
+    }
+  });
+
+  app.route({
+    url: base_url + '/:id',
+    method: 'DELETE',
+    name: "DeleteWorkflow",
+    preHandler: authMiddlewares.checkToken(AuthType.user),
+    schema: {
+      tags: ['Workflow'],
+      summary: 'Delete Workflow',
+      description: 'API to delete workflow.',
+      params: {
+        type: 'object',
+        required: ['id'],
+        properties: {
+          id: { type: 'string' },
+        },
+      },
+      query: {
+        type: 'object',
+        required: ['workspace_id'],
+        properties: {
+          workspace_id: { type: 'string' },
+        },
+      },
+    },
+    handler: async (req, reply) => {
+      return handler.deleteWorkflow(req, reply);
+    }
+  });
+
+
+  app.route({
+    url: base_url + '/tags/:id',
+    method: 'PATCH',
+    name: "UpdateWorkflowTags",
+    preHandler: authMiddlewares.checkToken(AuthType.user),
+    schema: {
+      tags: ['Workflow'],
+      summary: 'Update Workflow Tags',
+      description: 'API to update workflow tags.',
+      params: {
+        type: 'object',
+        required: ['id'],
+        properties: {
+          id: { type: 'string' },
+        },
+      },
+      body: {
+        type: 'object',
+        required: ['tags'],
+        properties: {
+          tags: { type: 'array', items: { type: 'string' } },
+        },
+      },
+    },
+    handler: async (req, reply) => {
+      return handler.updateWorkflowTags(req, reply);
+    }
+  });
+
 }
 
 module.exports = { activate };
