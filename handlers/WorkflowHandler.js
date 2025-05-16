@@ -76,6 +76,22 @@ class WorkflowHandler extends BaseHandler {
     let inst = new WorkflowService();
     return this.responder(req, res, inst.updateWorkflowTags({ id, workspaceId, clientId, tags: req.body.tags }));
   }
+
+  async updateWorkflow(req, res) {
+    let id = req.params.id;
+    let workspaceId = req.query.workspace_id;
+    let clientId = req.authUser.clientId;
+    let inst = new WorkflowService();
+    return this.responder(req, res, inst.updateWorkflow({ id, workspaceId, clientId, workflowConfig: req.body.workflowConfig, nodes: req.body.nodes, edges: req.body.edges }));
+  }
+
+  async activateWorkflow(req, res) {
+    let id = req.params.id;
+    let workspaceId = req.query.workspace_id;
+    let clientId = req.authUser.clientId;
+    let inst = new WorkflowService();
+    return this.responder(req, res, inst.activateWorkflow({ id, workspaceId, clientId }));
+  }
 }
 
 module.exports = WorkflowHandler;

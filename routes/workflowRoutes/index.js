@@ -263,6 +263,99 @@ async function activate(app) {
     }
   });
 
+  app.route({
+    url: base_url + '/:id',
+    method: 'POST',
+    name: "UpdateWorkflow",
+    preHandler: authMiddlewares.checkToken(AuthType.user),
+    schema: {
+      tags: ['Workflow'],
+      summary: 'Update Workflow',
+      description: 'API to update workflow.',
+      params: {
+        type: 'object',
+        required: ['id'],
+        properties: {
+          id: { type: 'string' },
+        },
+      },
+      query: {
+        type: 'object',
+        required: ['workspace_id'],
+        properties: {
+          workspace_id: { type: 'string' },
+        },
+      },
+      body: {
+        type: 'object',
+        required: ['nodes', 'edges', 'workflowConfig'],
+        properties: {
+          workflowConfig: {
+            type: 'object',
+            required: ['name'],
+            properties: {
+              name: { type: 'string' },
+            },
+          },
+          nodes: {
+            type: 'array', items: {
+              type: 'object', required: ['type', 'position', 'data', 'id'], properties: {
+                id: { type: 'string' },
+                dbId: { type: 'string' },
+                type: { type: 'string' },
+                position: { type: 'object', required: ['x', 'y'] },
+                data: {
+                  type: 'object',
+                  additionalProperties: true,
+                },
+              }
+            }
+          },
+          edges: {
+            type: 'array', items: {
+              type: 'object', required: ['source', 'sourceHandle', 'target', 'targetHandle', 'id'], properties: {
+                source: { type: 'string' },
+                sourceHandle: { type: 'string' },
+                target: { type: 'string' },
+                targetHandle: { type: 'string' },
+                id: { type: 'string' },
+                dbId: { type: 'string' },
+              }
+            }
+          },
+        },
+      },
+    },
+    handler: async (req, reply) => {
+      return handler.updateWorkflow(req, reply);
+    }
+  });
+
+  app.route({
+    url: base_url + '/:id/activate',
+    method: 'POST',
+    name: "ActivateWorkflow",
+    preHandler: authMiddlewares.checkToken(AuthType.user),
+    schema: {
+      query: {
+        type: 'object',
+        required: ['workspace_id'],
+        properties: {
+          workspace_id: { type: 'string' },
+        },
+      },
+      params: {
+        type: 'object',
+        required: ['id'],
+        properties: {
+          id: { type: 'string' },
+        },
+      },
+    },
+    handler: async (req, reply) => {
+      return handler.activateWorkflow(req, reply);
+    }
+  })
 }
 
 module.exports = { activate };

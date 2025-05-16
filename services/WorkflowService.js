@@ -3,7 +3,7 @@ const errors = require("../errors");
 const BaseService = require("./BaseService");
 const _ = require("lodash");
 const { v4: uuid } = require("uuid");
-
+const Ajv = require('ajv');
 class WorkflowService extends BaseService {
     constructor() {
         super();
@@ -155,10 +155,24 @@ class WorkflowService extends BaseService {
 
             const workflowId = workflowData.id;
 
+            const { data: getTriggerNodeSchema, error: getTriggerNodeSchemaError } = await this.supabase
+                .from('workflownodeschema')
+                .select('*')
+                .eq('nodeType', triggerType)
+                .eq('type', 'draft')
+                .single();
+
+            console.log("getTriggerNodeSchema", getTriggerNodeSchema);
+
+            if (getTriggerNodeSchemaError) {
+                console.log("Error in createWorkflow()", getTriggerNodeSchemaError);
+                throw new errors.InternalServerError(getTriggerNodeSchemaError.message);
+            }
+
             // Create entry in workflownode table
             const { data: workflownodeData, error: workflownodeError } = await this.supabase
                 .from('workflownode')
-                .insert({ workflowId: workflowId, type: triggerType, isTrigger: true, positionX: triggerPosition.positionX, positionY: triggerPosition.positionY, reactFlowId: nodeId })
+                .insert({ workflowId: workflowId, type: triggerType, isTrigger: true, positionX: triggerPosition.positionX, positionY: triggerPosition.positionY, reactFlowId: nodeId, schemaVersion: getTriggerNodeSchema.schemaVersion, config: {} })
                 .select()
                 .single();
 
@@ -184,6 +198,7 @@ class WorkflowService extends BaseService {
 
             return updatedWorkflow;
         } catch (error) {
+            console.log("Error in createWorkflow()", error);
             return this.handleError(error);
         }
     }
@@ -374,6 +389,19 @@ class WorkflowService extends BaseService {
 
             workflow.nodes = nodes;
 
+            // Get all the edges of the workflow
+            const { data: edges, error: edgesError } = await this.supabase
+                .from('workflowedge')
+                .select('*')
+                .eq('workflowId', id);
+
+            if (edgesError) {
+                console.log("Error in getWorkflowById()", edgesError);
+                throw new errors.InternalServerError(edgesError.message);
+            }
+
+            workflow.edges = edges;
+
             return workflow;
         } catch (error) {
             return this.handleError(error);
@@ -442,6 +470,428 @@ class WorkflowService extends BaseService {
 
         } catch (error) {
             return this.handleError(error);
+        }
+    }
+
+
+    async updateWorkflow({ id, workspaceId, clientId, workflowConfig, nodes, edges }) {
+        try {
+            // Get workspace and check if its live
+            const { data: workspace, error: workspaceError } = await this.supabase
+                .from('workspace')
+                .select('*')
+                .eq('id', workspaceId)
+                .eq('clientId', clientId)
+                .is('deletedAt', null)
+                .single();
+
+            if (workspaceError) throw new Error(`Fetch failed: ${workspaceError.message}`);
+
+            // Update the workflow config
+            const { data: updatedWorkflow, error: updatedWorkflowError } = await this.supabase
+                .from('workflow')
+                .update({ name: workflowConfig.name, status: "draft" })
+                .eq('id', id)
+                .eq('workspaceId', workspaceId)
+                .eq('clientId', clientId);
+
+            if (updatedWorkflowError) throw new Error(`Update failed: ${updatedWorkflowError.message}`);
+
+            // Add all the node types in an array
+            const nodeTypes = nodes.map(node => node.type);
+
+            // 1. Validate schema (TODO: Implement AJV validation here)
+            // Get all the schemas for the node types
+            const { data: schemas, error: schemasError } = await this.supabase
+                .from('workflownodeschema')
+                .select('*')
+                .in('nodeType', nodeTypes)
+                .eq('type', 'draft');
+
+            if (schemasError) throw new Error(`Fetch failed: ${schemasError.message}`);
+
+            // Validate the schemas before proceeding forward for each node using ajv
+            const ajv = new Ajv();
+            for (const node of nodes) {
+                const schema = schemas.find(schema => schema.nodeType === node.type);
+                if (!schema) throw new Error(`Schema not found for node type: ${node.type}`);
+
+                const validate = ajv.compile(schema.schema);
+                const valid = validate(node.data);
+                console.log(node.data, valid, schema.schema, "hehehe")
+                if (!valid) throw new Error(`Invalid data for node type: ${node.type}`);
+            }
+
+            // map all schema versions to the node types by creating a new Set
+            const schemaVersionMap = new Map();
+            for (const schema of schemas) {
+                schemaVersionMap.set(schema.nodeType, schema.schemaVersion);
+            }
+
+            // 2. Fetch current state in a single query with related edges
+            const { data: dbNodes, error: fetchError } = await this.supabase
+                .from('workflownode')
+                .select('*')
+                .eq('workflowId', id);
+
+            const { data: dbEdges, error: edgesError } = await this.supabase
+                .from('workflowedge')
+                .select('*')
+                .eq('workflowId', id);
+
+            if (fetchError) throw new Error(`Fetch failed: ${fetchError.message}`);
+            if (edgesError) throw new Error(`Fetch failed: ${edgesError.message}`);
+
+            // 3. Prepare batch operations
+            const existingNodeIds = new Set();
+            const existingEdgeIds = new Set();
+            const nodeUpdates = [];
+            const nodeInserts = [];
+            const edgeUpdates = [];
+            const edgeInserts = [];
+            const newIdsMap = new Map();
+
+            // Process Nodes
+            for (const node of nodes) {
+                if (node.dbId) {
+                    existingNodeIds.add(node.dbId);
+                    nodeUpdates.push({
+                        id: node.dbId,
+                        type: node.type,
+                        positionX: node.position.x,
+                        positionY: node.position.y,
+                        config: node.data,
+                        workflowId: id,
+                        reactFlowId: node.id,
+                    });
+                } else {
+                    nodeInserts.push({
+                        type: node.type,
+                        positionX: node.position.x,
+                        positionY: node.position.y,
+                        config: node.data,
+                        workflowId: id,
+                        reactFlowId: node.id,
+                        isTrigger: false,
+                        schemaVersion: schemaVersionMap.get(node.type)
+                    });
+                }
+            }
+
+            // Process Edges
+            for (const edge of edges) {
+                if (edge.dbId) {
+                    existingEdgeIds.add(edge.dbId);
+                    edgeUpdates.push({
+                        id: edge.dbId,
+                        reactflowSourceId: edge.source,
+                        reactflowSourceHandle: edge.sourceHandle,
+                        reactflowTargetId: edge.target,
+                        reactflowTargetHandle: edge.targetHandle,
+                        workflowId: id
+                    });
+                } else {
+                    edgeInserts.push({
+                        reactflowSourceId: edge.source,
+                        reactflowSourceHandle: edge.sourceHandle,
+                        reactflowTargetId: edge.target,
+                        reactflowTargetHandle: edge.targetHandle,
+                        workflowId: id
+                    });
+                }
+            }
+
+            // 4. Execute batch operations
+            // Update existing nodes
+            if (nodeUpdates.length > 0) {
+                const { error } = await this.supabase
+                    .from('workflownode')
+                    .upsert(nodeUpdates);
+                if (error) throw error;
+            }
+
+            // Insert new nodes and capture IDs
+            if (nodeInserts.length > 0) {
+                const { data: newNodes, error } = await this.supabase
+                    .from('workflownode')
+                    .insert(nodeInserts)
+                    .select('id, reactFlowId');
+                if (error) throw error;
+
+                newNodes.forEach(({ id: dbId, reactFlowId }) => {
+                    newIdsMap.set(reactFlowId, dbId);
+                });
+            }
+
+            // Update existing edges
+            if (edgeUpdates.length > 0) {
+                const { error } = await this.supabase
+                    .from('workflowedge')
+                    .upsert(edgeUpdates);
+                if (error) throw error;
+            }
+
+            // Insert new edges
+            if (edgeInserts.length > 0) {
+                const { data: newEdges, error } = await this.supabase
+                    .from('workflowedge')
+                    .insert(edgeInserts)
+                    .select('id, reactflowSourceId');
+                if (error) throw error;
+            }
+
+            // 5. Handle deletions
+            const currentNodes = dbNodes.map(n => n.id);
+            const currentEdges = dbEdges.map(e => e.id);
+
+            // Delete nodes not present in the update
+            const nodesToDelete = currentNodes.filter(id => !existingNodeIds.has(id));
+            if (nodesToDelete.length > 0) {
+                await this.supabase
+                    .from('workflownode')
+                    .delete()
+                    .in('id', nodesToDelete);
+            }
+
+            // Delete edges not present in the update
+            const edgesToDelete = currentEdges.filter(id => !existingEdgeIds.has(id));
+            if (edgesToDelete.length > 0) {
+                await this.supabase
+                    .from('workflowedge')
+                    .delete()
+                    .in('id', edgesToDelete);
+            }
+
+            return {
+                error: false,
+                message: "Workflow updated successfully",
+                newIds: Object.fromEntries(newIdsMap) // Map of reactFlowId → dbId
+            };
+
+        } catch (error) {
+            console.error("Workflow update failed:", error);
+            return this.handleError({
+                error: true,
+                message: "Workflow update failed",
+                data: error,
+                httpCode: 400,
+                code: "WORKFLOW_UPDATE_FAILED"
+            });
+        }
+    }
+
+    getSendMessageNodeHandles(node) {
+        if (node.config.buttons.length > 0) {
+            const idArray = [`${node.reactFlowId}:entry`];
+            const buttons = node.config.buttons;
+
+            for (const button of buttons) {
+                idArray.push(`${button.id}`);
+            }
+            return idArray;
+        } else {
+            return [`${node.reactFlowId}:entry`, `${node.reactFlowId}:exit`]
+        }
+    }
+
+    async getWorkflowNodeHandles(node) {
+        switch (node.type) {
+            case "ticket_created":
+                return [
+                    `${node.reactFlowId}:exit`
+                ]
+            case "send_message":
+                return this.getSendMessageNodeHandles(node);
+            case "end":
+                return [`${node.reactFlowId}:entry`]
+            default:
+                return false;
+        }
+    }
+
+    async validateWorkflow(nodes, edges) {
+        try {
+            // Add all the node types in an array
+            const nodeTypes = nodes.map(node => node.type);
+
+            // Get all the schemas for the node types
+            const { data: schemas, error: schemasError } = await this.supabase
+                .from('workflownodeschema')
+                .select('*')
+                .in('nodeType', nodeTypes)
+                .eq('type', 'live');
+
+            if (schemasError) throw new Error(`Fetch failed: ${schemasError.message}`);
+
+            // Step 1: Validate the schemas before proceeding forward for each node using ajv
+            const ajv = new Ajv();
+            for (const node of nodes) {
+                const schema = schemas.find(schema => schema.nodeType === node.type);
+                if (!schema) throw new Error(`Schema not found for node type: ${node.type}`);
+
+                const validate = ajv.compile(schema.schema);
+                const valid = validate(node.config);
+                if (!valid) throw new Error(`Invalid data for node type: ${node.type}`);
+            }
+
+            // Step 2: Check if the workflow contains minimum of one exit node and one trigger node
+            const hasTrigger = nodes.some(n => n.isTrigger);
+            const hasEnd = nodes.some(n => n.type === 'end');
+            if (!hasTrigger || !hasEnd) throw new Error("Workflow must contain at least one trigger and one exit node");
+
+            // Get all the handles for the nodes in the workflow
+            const handles = [];
+            for (const node of nodes) {
+                const nodeHandles = await this.getWorkflowNodeHandles(node);
+                handles.push({
+                    id: node.id,
+                    handles: nodeHandles
+                });
+            }
+
+            const usedHandles = [];
+            for (const edge of edges) {
+                usedHandles.push(edge.reactflowSourceHandle);
+                usedHandles.push(edge.reactflowTargetHandle);
+            }
+
+            const totalHandles = handles.map(handle => handle.handles).flat();
+
+            // Step 3: Check the used handles in the edges if there is any handle that is not used in the edges, throw an error
+            for (const handle of totalHandles) {
+                if (!usedHandles.includes(handle)) {
+                    throw new Error("The workflow has an unused handle");
+                }
+            }
+
+            // Step 4: Use DFS to check if the workflow is connected and the last nodes are exit nodes
+            // 1. Create a map for node lookups
+            const nodeMap = new Map(nodes.map(n => [n.reactFlowId, n]));
+
+            // 2. Create adjacency list for handles
+            const edgeMap = new Map();
+
+            edges.forEach(edge => {
+                const key = `${edge.reactflowSourceId}:${edge.reactflowSourceHandle}`;
+                if (!edgeMap.has(key)) edgeMap.set(key, []);
+                edgeMap.get(key).push({
+                    node: edge.reactflowTargetId,
+                    handle: edge.reactflowTargetHandle
+                });
+            });
+
+            // 3. DFS function to validate paths
+            function dfs(currentNodeId, currentHandle, path, pathSet) {
+                const currentKey = `${currentNodeId}:${currentHandle}`;
+
+                if (pathSet.has(currentKey)) {
+                    throw new Error(`❌ Circular reference detected: ${path.join(' -> ')}`);
+                }
+
+                pathSet.add(currentKey); // Mark this node-handle as "in progress"
+                const nextNodes = edgeMap.get(currentKey) || [];
+
+                // If no outgoing edge, must end on an 'end' node
+                if (nextNodes.length === 0) {
+                    const currentNode = nodeMap.get(currentNodeId);
+                    if (!currentNode || currentNode.type !== 'end') {
+                        throw new Error(`❌ Dead end at non-end node: ${currentNodeId}`);
+                    }
+                    pathSet.delete(currentKey); // Backtrack
+                    return;
+                }
+
+                // Explore next connected nodes
+                for (const next of nextNodes) {
+                    const nextNode = nodeMap.get(next.node);
+                    if (!nextNode) {
+                        throw new Error(`❌ Missing node in path: ${next.node}`);
+                    }
+
+                    dfs(next.node, next.handle, [...path, next.node], pathSet);
+                }
+
+                pathSet.delete(currentKey); // Done exploring this path
+            }
+
+            // 4. Run DFS from each trigger node and its exit handles
+            const triggers = nodes.filter(n => n.isTrigger);
+
+            for (const trigger of triggers) {
+                const triggerHandles = handles.find(h => h.id === trigger.reactFlowId)?.handles || [];
+                const exitHandles = triggerHandles.filter(h => h.endsWith(':exit'));
+
+                for (const exitHandle of exitHandles) {
+                    const pathSet = new Set();
+                    dfs(trigger.reactFlowId, exitHandle, [trigger.reactFlowId], pathSet);
+                }
+            }
+
+            return true;
+        } catch (error) {
+            console.log("Error in validateWorkflow()", error);
+            return false;
+        }
+    }
+
+    async activateWorkflow({ id, workspaceId, clientId }) {
+        try {
+            // Get the workflow
+            const { data: workflow, error: workflowError } = await this.supabase
+                .from('workflow')
+                .select('*')
+                .eq('id', id)
+                .eq('workspaceId', workspaceId)
+                .eq('clientId', clientId)
+                .is('deletedAt', null)
+                .single();
+
+
+            if (workflowError) throw new Error(`Fetch failed: ${workflowError.message}`);
+
+            // Get all nodes
+            const { data: nodes, error: nodesError } = await this.supabase
+                .from('workflownode')
+                .select('*')
+                .eq('workflowId', id);
+
+            if (nodesError) throw new Error(`Fetch failed: ${nodesError.message}`);
+
+
+            // Get all edges
+            const { data: edges, error: edgesError } = await this.supabase
+                .from('workflowedge')
+                .select('*')
+                .eq('workflowId', id);
+
+            if (edgesError) throw new Error(`Fetch failed: ${edgesError.message}`);
+
+            const isValid = await this.validateWorkflow(nodes, edges);
+
+            if (!isValid) throw new Error("Workflow is not valid");
+
+            console.log("✅ Workflow is valid. No cycles or invalid dead ends.");
+
+            // Update status of the workflow to active
+            const { data: updatedWorkflow, error: updatedWorkflowError } = await this.supabase
+                .from('workflow')
+                .update({ status: 'live' })
+                .eq('id', id)
+                .eq('workspaceId', workspaceId)
+                .eq('clientId', clientId);
+
+            if (updatedWorkflowError) throw new Error(`Update failed: ${updatedWorkflowError.message}`);
+
+            return updatedWorkflow;
+        } catch (error) {
+            console.log("Error in activateWorkflow()", error);
+            return this.handleError({
+                error: true,
+                message: "Workflow activation failed",
+                data: error,
+                httpCode: 400,
+                code: "WORKFLOW_ACTIVATION_FAILED"
+            });
         }
     }
 }
