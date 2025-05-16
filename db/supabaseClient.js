@@ -1,8 +1,25 @@
 const { createClient } = require('@supabase/supabase-js');
+const WorkflowService = require("../services/WorkflowService");
 
 const SUPABASE_URL = "https://qplvypinkxzbohbmykei.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFwbHZ5cGlua3h6Ym9oYm15a2VpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzgyMzg1NjUsImV4cCI6MjA1MzgxNDU2NX0.aU1miuCLext0FZjA4KLum9VuoK4GrlKorAJFZgrK-30";
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const workflowService = new WorkflowService();
+
+const newTicketChannel = supabase
+    .channel('new-ticket-channel')
+    .on(
+        'postgres_changes',
+        {
+            event: 'insert',
+            schema: 'public',
+            table: 'tickets',
+        },
+        (payload) => {
+            workflowService.handleNewTicket(payload);
+        }
+    )
+    .subscribe()
 
 module.exports = supabase;

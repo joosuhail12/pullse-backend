@@ -7,7 +7,6 @@ const Ajv = require('ajv');
 class WorkflowService extends BaseService {
     constructor() {
         super();
-        this.supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
         this.entityName = 'Workflow';
         this.listingFields = ["id", "name", "description", "status", "affectedTicketsCount"];
         this.updatableFields = ["name", "summary", "description", "status", "ruleIds", "actionIds", "lastUpdatedBy"];
@@ -162,7 +161,6 @@ class WorkflowService extends BaseService {
                 .eq('type', 'draft')
                 .single();
 
-            console.log("getTriggerNodeSchema", getTriggerNodeSchema);
 
             if (getTriggerNodeSchemaError) {
                 console.log("Error in createWorkflow()", getTriggerNodeSchemaError);
@@ -709,8 +707,38 @@ class WorkflowService extends BaseService {
         }
     }
 
-    async validateWorkflow(nodes, edges) {
+    async validateWorkflow(id, workspaceId, clientId) {
         try {
+            // Get the workflow
+            const { data: workflow, error: workflowError } = await this.supabase
+                .from('workflow')
+                .select('*')
+                .eq('id', id)
+                .eq('workspaceId', workspaceId)
+                .eq('clientId', clientId)
+                .is('deletedAt', null)
+                .single();
+
+
+            if (workflowError) throw new Error(`Fetch failed: ${workflowError.message}`);
+
+            // Get all nodes
+            const { data: nodes, error: nodesError } = await this.supabase
+                .from('workflownode')
+                .select('*')
+                .eq('workflowId', id);
+
+            if (nodesError) throw new Error(`Fetch failed: ${nodesError.message}`);
+
+
+            // Get all edges
+            const { data: edges, error: edgesError } = await this.supabase
+                .from('workflowedge')
+                .select('*')
+                .eq('workflowId', id);
+
+            if (edgesError) throw new Error(`Fetch failed: ${edgesError.message}`);
+
             // Add all the node types in an array
             const nodeTypes = nodes.map(node => node.type);
 
@@ -836,37 +864,7 @@ class WorkflowService extends BaseService {
 
     async activateWorkflow({ id, workspaceId, clientId }) {
         try {
-            // Get the workflow
-            const { data: workflow, error: workflowError } = await this.supabase
-                .from('workflow')
-                .select('*')
-                .eq('id', id)
-                .eq('workspaceId', workspaceId)
-                .eq('clientId', clientId)
-                .is('deletedAt', null)
-                .single();
-
-
-            if (workflowError) throw new Error(`Fetch failed: ${workflowError.message}`);
-
-            // Get all nodes
-            const { data: nodes, error: nodesError } = await this.supabase
-                .from('workflownode')
-                .select('*')
-                .eq('workflowId', id);
-
-            if (nodesError) throw new Error(`Fetch failed: ${nodesError.message}`);
-
-
-            // Get all edges
-            const { data: edges, error: edgesError } = await this.supabase
-                .from('workflowedge')
-                .select('*')
-                .eq('workflowId', id);
-
-            if (edgesError) throw new Error(`Fetch failed: ${edgesError.message}`);
-
-            const isValid = await this.validateWorkflow(nodes, edges);
+            const isValid = await this.validateWorkflow(id, workspaceId, clientId);
 
             if (!isValid) throw new Error("Workflow is not valid");
 
@@ -892,6 +890,61 @@ class WorkflowService extends BaseService {
                 httpCode: 400,
                 code: "WORKFLOW_ACTIVATION_FAILED"
             });
+        }
+    }
+
+    async handleNewTicket(payload) {
+        try {
+            const ticketId = payload.new.id;
+            const workspaceId = payload.new.workspaceId;
+            const clientId = payload.new.clientId;
+
+            if (!ticketId || !workspaceId || !clientId) {
+                console.log("Invalid payload");
+                return;
+            }
+
+            // Check the workspace for the client and workspace if any workflows are active for ticket_created trigger node
+            const { data: workflows, error: workflowsError } = await this.supabase
+                .from('workflow')
+                .select('*')
+                .eq('workspaceId', workspaceId)
+                .eq('clientId', clientId)
+                .eq('status', 'live');
+
+            if (workflowsError) throw new Error(`Fetch failed: ${workflowsError.message}`);
+
+            if (workflows.length === 0) {
+                console.log("No active workflows found");
+                return;
+            }
+
+            for (const workflow of workflows) {
+                const { data: node, error: nodesError } = await this.supabase
+                    .from('workflownode')
+                    .select('*')
+                    .eq('workflowId', workflow.id)
+                    .eq('type', 'ticket_created')
+                    .is("isTrigger", true)
+                    .single();
+
+                if (node) {
+                    // Validate the workflow
+                    const isValid = await this.validateWorkflow(workflow.id, workspaceId, clientId);
+
+                    if (!isValid) {
+                        console.log("Workflow is not valid, skipping");
+                        continue;
+                    }
+
+                    console.log("Found a active workflow, send to temporal")
+                }
+            }
+
+            return;
+        } catch (e) {
+            console.log("Error in handleNewTicket()", e);
+            return;
         }
     }
 }
