@@ -11,7 +11,6 @@ class CannedResponseService extends BaseService {
         this.entityName = 'cannedresponses';
         this.listingFields = ["id", "name", "message", "numberOfTimesUsed", "shortcut", "category", "isShared"];
         this.updatableFields = ["name", "shortcut", "message", "category", "isShared", "sharedTeams", "archiveAt", "updatedAt"];
-        this.supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
     }
 
     async createCannedResponse(cannedResponseData) {

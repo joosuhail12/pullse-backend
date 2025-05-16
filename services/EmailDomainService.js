@@ -20,7 +20,6 @@ class EmailDomainService extends BaseService {
         super();
         this.utilityInst = new EmailDomainUtility();
         this.entityName = 'companies';
-        this.supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
         this.entityName = 'emaildomains';
         this.listingFields = ["id", "domain", "createdAt", "updatedAt", "description", "isVerified"];
         this.updatableFields = ["name", "domain", "description", "isVerified", "mailgunRouteId", "dnsRecords"];
