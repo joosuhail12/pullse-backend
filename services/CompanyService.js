@@ -136,6 +136,7 @@ class CompanyService extends BaseService {
 
             console.log("🔍 INCOMING UPDATE VALUES:", JSON.stringify(updateValues));
 
+            // 1. Check if the company exists
             let company = await this.getDetails(id, workspaceId, clientId);
             console.log("📂 EXISTING COMPANY DATA:", {
                 id: company.id,
@@ -235,36 +236,68 @@ class CompanyService extends BaseService {
 
             console.log("✅ FINAL UPDATES OBJECT:", JSON.stringify(updates));
 
-            // Check if there's an actual update to make
-            if (Object.keys(updates).length === 0) {
-                console.log("⚠️ NO UPDATES TO APPLY");
-            }
-
-            await this.update({ id: company.id }, updates);
-            console.log("✅ UPDATE COMPLETED");
-
-            // update tag history only if tags are updated
+            // Handle tags updates separately
             if (updates.tags) {
                 console.log("🏷️ UPDATING TAGS");
+                // Extract tags and remove from main updates object
+                const tags = [...updates.tags];
+                delete updates.tags;
+
+                // Delete existing tags
                 await this.supabase.from('companyTags').delete().eq('companyId', id);
-                const tagEntries = updates.tags.map(tag => ({ companyId: id, tagId: tag.id, workspaceId, clientId }));
+
+                // Insert new tags
+                const tagEntries = tags.map(tag => ({
+                    companyId: id,
+                    tagId: tag.id,
+                    workspaceId,
+                    clientId
+                }));
+
                 await this.supabase.from('companyTags').insert(tagEntries);
 
-                // Only iterate through tags if they exist
-                updates.tags.forEach(async (tag) => {
+                // Update tag history
+                tags.forEach(async (tag) => {
                     await tagHistoryService.updateTagHistory(tag.id, "company");
                 });
+
+                // Only update company data if there are other fields to update
+                if (Object.keys(updates).length > 0) {
+                    console.log("🏢 UPDATING COMPANY WITH:", JSON.stringify(updates));
+                    await this.update({ id: company.id }, updates);
+                } else {
+                    console.log("⚠️ NO COMPANY FIELDS TO UPDATE, ONLY TAGS WERE UPDATED");
+                }
+
+                // Fetch and return updated company details with tags
+                let updatedCompany = await this.getDetails(id, workspaceId, clientId);
+                console.log("📄 RETURNED COMPANY DATA:", {
+                    id: updatedCompany.id,
+                    location: updatedCompany.location,
+                    socialMedia: updatedCompany.socialMedia,
+                    tags: updatedCompany.tags
+                });
+
+                return updatedCompany;
+            } else {
+                // If no tags to update, proceed with normal company update
+                if (Object.keys(updates).length > 0) {
+                    console.log("🏢 UPDATING COMPANY WITH:", JSON.stringify(updates));
+                    await this.update({ id: company.id }, updates);
+                } else {
+                    console.log("⚠️ NO UPDATES TO APPLY");
+                }
+
+                // Fetch and return updated company details
+                let updatedCompany = await this.getDetails(id, workspaceId, clientId);
+                console.log("📄 RETURNED COMPANY DATA:", {
+                    id: updatedCompany.id,
+                    location: updatedCompany.location,
+                    socialMedia: updatedCompany.socialMedia
+                });
+
+                return updatedCompany;
             }
-
-            // Fetch and return updated company details
-            let updatedCompany = await this.getDetails(id, workspaceId, clientId);
-            console.log("📄 RETURNED COMPANY DATA:", {
-                id: updatedCompany.id,
-                location: updatedCompany.location,
-                socialMedia: updatedCompany.socialMedia
-            });
-
-            return updatedCompany;
         } catch (e) {
             console.error("❌ ERROR IN updateCompany:", e);
             return this.handleError(e);
