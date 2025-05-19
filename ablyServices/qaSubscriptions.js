@@ -37,3 +37,7 @@ export const ensureQaSubscription = async (ticketId, sessionId) => {
 
   qaResultSubscriptions.add(ticketId);
 }
+
+module.exports = {
+  ensureQaSubscription,
+};

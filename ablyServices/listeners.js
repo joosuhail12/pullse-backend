@@ -40,7 +40,7 @@ const widgetSessionSubscriptions = new Set();
 //   console.log('Ably listeners initialised.');
 // }
 
-export const initializeWidgetSession = (sessionId, clientId, workspaceId) => {
+const initializeWidgetSession = (sessionId, clientId, workspaceId) => {
     try {
   if (widgetSessionSubscriptions.has(sessionId)) return;
   widgetSessionSubscriptions.add(sessionId);
@@ -68,7 +68,7 @@ export const initializeWidgetSession = (sessionId, clientId, workspaceId) => {
   }
 }
 
-export const subscribeToConversationChannels = (ticketId, sessionId) => {
+const subscribeToConversationChannels = (ticketId, sessionId) => {
   const widgetCh = ably.channels.get(`widget:conversation:ticket-${ticketId}`);
   widgetCh.subscribe("message", (msg) =>
     handleWidgetConversationEvent(ticketId, msg.data, sessionId)
@@ -91,3 +91,8 @@ export const subscribeToConversationChannels = (ticketId, sessionId) => {
 //     await handleAgentConversationEvent(ticketId, msg, 'agent');
 //   });
 // }
+
+module.exports = {
+  initializeWidgetSession,
+  subscribeToConversationChannels,
+};

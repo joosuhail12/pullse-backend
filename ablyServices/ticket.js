@@ -2,7 +2,6 @@
 const { safeUUID } = require('./utils.js');
 const InternalService = require('./internalService.js');
 const {createClient} = require('@supabase/supabase-js');
-const { handleDocumentQAResult } = require('./routing.js');
 const { ensureQaSubscription } = require('./qaSubscriptions.js');
 const Ably = require('ably');
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
@@ -114,3 +113,7 @@ export const handleNewTicket = async ({ workspaceId, sessionId, firstMessage, us
   return { id: newTicketId };
 }
 
+module.exports = {
+  handleNewTicket,
+  initTicket,
+};

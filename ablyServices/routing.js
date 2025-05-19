@@ -201,3 +201,9 @@ export const handleDocumentQAResult = async (ticketId, resultData, users, sessio
     console.error('Error in handleDocumentQAResult:', err);
   }
 }
+
+module.exports = {
+  handleWidgetConversationEvent,
+  handleAgentConversationEvent,
+  handleDocumentQAResult,
+};
