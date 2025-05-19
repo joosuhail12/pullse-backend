@@ -250,6 +250,47 @@ async function activate(app) {
             return handler.getCustomFieldDataByIds(req, reply);
         },
     });
+
+    // Get custom field data by array of IDs with filtering
+    app.route({
+        url: base_url + "/batch/filter",
+        method: "POST",
+        name: "GetCustomFieldDataBatch",
+        preHandler: authMiddlewares.checkToken(AuthType.user),
+        schema: {
+            tags: ["CustomFieldData"],
+            summary: "Get Custom Field Data By IDs with Filtering",
+            description: "API to get custom field data for an array of IDs with optional entity type and ID filtering",
+            required: ["customFieldIds"],
+            body: {
+                additionalProperties: false,
+                type: "object",
+                properties: {
+                    customFieldIds: {
+                        type: "array",
+                        items: {
+                            type: "string"
+                        },
+                        minItems: 1
+                    }
+                }
+            },
+            query: {
+                entity_type: {
+                    type: "string",
+                    enum: ["contact", "company", "ticket", "customer"],
+                    description: "Filter by entity type"
+                },
+                entity_id: {
+                    type: "string",
+                    description: "Filter by entity ID (requires entity_type to be set)"
+                }
+            }
+        },
+        handler: async (req, reply) => {
+            return handler.getCustomFieldDataBatch(req, reply);
+        },
+    });
 }
 
 module.exports = {
