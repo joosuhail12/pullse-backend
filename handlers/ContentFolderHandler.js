@@ -1,13 +1,10 @@
 const BaseHandler = require('./BaseHandler');
-
-// ⬇️ note the “.default”
-const ContentFolderService = require('../services/ContentFolderService').default;
+const ContentFolderService = require('../services/ContentFolderService');
 
 class ContentFolderHandler extends BaseHandler {
   constructor() {
     super();
     // you don’t need dependencies here; just keep one instance
-    this.folderSvc = new ContentFolderService();
   }
 
   async createFolder(req, reply) {
@@ -15,7 +12,8 @@ class ContentFolderHandler extends BaseHandler {
       const userId = req.authUser.id;
       const clientId = req.authUser.clientId;
       const workspaceId = req.query.workspace_id;
-      return this.responder(req, reply, this.folderSvc.createFolder({name: req.body.name, parentId: req.body.parentId, clientId, workspaceId}));
+      let inst = new ContentFolderService();
+      return this.responder(req, reply, inst.createFolder({name: req.body.name, parentId: req.body.parentId, clientId, workspaceId}));
     } catch (error) {
       console.log(error);
       return this.responder(req, reply, error);
@@ -26,10 +24,11 @@ class ContentFolderHandler extends BaseHandler {
     try {
       const { clientId } = req.authUser;
       const workspaceId  = req.query.workspace_id;
-    return this.responder(
-      req,
-      reply,
-        this.folderSvc.listFoldersWithCounts({ clientId, workspaceId })
+      let inst = new ContentFolderService();
+      return this.responder(
+        req,
+        reply,
+        inst.listFoldersWithCounts({ clientId, workspaceId })
       );
     } catch (error) {
       console.log(error);
