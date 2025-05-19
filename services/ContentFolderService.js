@@ -8,7 +8,7 @@ const supabase = createClient(
   process.env.SUPABASE_KEY
 );
 
-export default class ContentFolderService extends BaseService {
+class ContentFolderService extends BaseService {
     constructor() {
         super();
         this.entityName     = 'ContentFolder';
@@ -90,3 +90,5 @@ export default class ContentFolderService extends BaseService {
     }
   }
 }
+
+module.exports = ContentFolderService;
