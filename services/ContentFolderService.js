@@ -1,7 +1,7 @@
 /* services/ContentFolderService.js (excerpt) */
-import { v4 as uuid } from 'uuid';
-import { createClient } from '@supabase/supabase-js';
-import BaseService from './BaseService.js';
+const { v4: uuid }   = require('uuid');
+const { createClient } = require('@supabase/supabase-js');
+const BaseService     = require('./BaseService.js');
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
