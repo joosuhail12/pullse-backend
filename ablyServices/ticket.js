@@ -1,10 +1,10 @@
 // ticket.js
-import { safeUUID } from './utils.js';
-import InternalService from './internalService.js';
-import {createClient} from '@supabase/supabase-js';
-import { handleDocumentQAResult } from './routing.js';
-import { ensureQaSubscription } from './qaSubscriptions.js';
-import Ably from 'ably';
+const { safeUUID } = require('./utils.js');
+const InternalService = require('./internalService.js');
+const {createClient} = require('@supabase/supabase-js');
+const { handleDocumentQAResult } = require('./routing.js');
+const { ensureQaSubscription } = require('./qaSubscriptions.js');
+const Ably = require('ably');
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
 const ably = new Ably.Realtime(process.env.ABLY_API_KEY);
 let routing, internalService;

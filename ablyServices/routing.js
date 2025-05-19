@@ -1,9 +1,9 @@
 // routing.js
-import { safeUUID } from './utils.js';
-import { createClient } from '@supabase/supabase-js';
-import Ably from 'ably';
-import InternalService from './internalService.js';
-import { ensureQaSubscription } from './qaSubscriptions.js';
+const { safeUUID } = require('./utils.js');
+const { createClient } = require('@supabase/supabase-js');
+const Ably = require('ably');
+const InternalService = require('./internalService.js');
+const { ensureQaSubscription } = require('./qaSubscriptions.js');
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
 const ably = new Ably.Realtime(process.env.ABLY_API_KEY);
 /** Initialize dependencies for routing module */

@@ -1,6 +1,6 @@
-import Ably from 'ably';
-import { createClient } from '@supabase/supabase-js';
-import InternalService from './internalService.js';
+const Ably = require('ably');
+const { createClient } = require('@supabase/supabase-js');
+const InternalService = require('./internalService.js');
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
 

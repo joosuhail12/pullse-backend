@@ -1,8 +1,8 @@
 // listeners.js
-import { handleNewTicket, initTicket } from './ticket.js';
-import { handleAgentConversationEvent, handleWidgetConversationEvent } from './routing.js';
-import Ably from 'ably';
-import { createClient } from '@supabase/supabase-js';
+const { handleNewTicket, initTicket } = require('./ticket.js');
+const { handleAgentConversationEvent, handleWidgetConversationEvent } = require('./routing.js');
+const Ably = require('ably');
+const { createClient } = require('@supabase/supabase-js');
 
 const ABLY_API_KEY = process.env.ABLY_API_KEY;// service role key for full DB access
 
