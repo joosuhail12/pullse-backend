@@ -11,6 +11,8 @@ const AzureStorageService = require('../StorageService/AzureStorageService');
 const { sendTaskMessage } = require('../serviceBusService/AzureServiceBus');
 const fs = require('fs').promises;
 const { S3Client, PutObjectCommand } = require("@aws-sdk/client-s3");
+const { createClient } = require('@supabase/supabase-js');
+const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
 class ChatbotDocumentService extends BaseService {
     constructor(fields = null, dependencies = null) {
         super();
@@ -29,12 +31,17 @@ class ChatbotDocumentService extends BaseService {
         });
     }
 
-    async addCreateSnippet({ title,content,category,tags,isLive,description: description,status, contentType, uesrId, clientId, workspaceId}){
+    async addCreateSnippet({ title,content,category,tags,isLive,description: description,status, contentType, folderId }, uesrId, clientId, workspaceId){
         try {
             const azureService = new AzureStorageService()
             await azureService.init()
             const url = await azureService.uploadSnippet(title, description, content)
-            await sendTaskMessage(url, title, description, content, 'text', uesrId, clientId, workspaceId)
+            const { data: client, error: clientError } = await supabase
+            .from('clients')
+            .select('name')
+            .eq('id', clientId)
+            .maybeSingle();
+            await sendTaskMessage(url, title, description, content, 'text', uesrId, clientId, workspaceId, client.name, "snippet", folderId)
             return url
         } catch (err) {
             console.log(err)
@@ -42,9 +49,8 @@ class ChatbotDocumentService extends BaseService {
         }
     }
 
-    async addCreateDocument({ title,file,category,tags,isLive,description: description,status, contentType, workspaceId,}){
+    async addCreateDocument({ title,file,category,tags,isLive,description: description,status, contentType, folderId }, uesrId, clientId, workspaceId){
         try {
-
             const bucketName = "pullse";
 
             // Generate unique key for the file
@@ -67,7 +73,14 @@ class ChatbotDocumentService extends BaseService {
             // Public url https://pub-1db3dea75deb4e36a362d30e3f67bb76.r2.dev
             // Private url https://98d50eb9172903f66dfd5573801dc8b6.r2.cloudflarestorage.com
             const fileUrl = `${process.env.CLOUDFLARE_R2_PUBLIC_URL}/${process.env.CLOUDFLARE_R2_BUCKET}/${key}`;
-            await sendTaskMessage(fileUrl, title, description, file.mimetype, 'pdf')
+
+            
+            const { data: client, error: clientError } = await supabase
+            .from('clients')
+            .select('name')
+            .eq('id', clientId)
+            .maybeSingle();
+            await sendTaskMessage(fileUrl, title, description, file.mimetype, 'pdf', uesrId, clientId, workspaceId, client.name, "file", folderId)
 
             return {
                 fileUrl
@@ -78,19 +91,75 @@ class ChatbotDocumentService extends BaseService {
         }
     }
 
-    async addCreateLink({ title,content,category,tags,isLive,description: description,status, contentType}){
+    async addCreateLink({ title,content,category,tags,isLive,description: description,status, contentType   , folderId }, uesrId, clientId, workspaceId){
         try {
-            console.log("addCreateLink",title,content,category,tags,isLive,description,status, contentType)
             const azureService = new AzureStorageService()
             await azureService.init()
             const url = await azureService.uploadSnippet(title, description, content)
-            await sendTaskMessage(url, title, description, content, 'url')
+            const { data: client, error: clientError } = await supabase
+            .from('clients')
+            .select('name')
+            .eq('id', clientId)
+            .maybeSingle();
+            await sendTaskMessage(url, title, description, content, 'url', uesrId, clientId, workspaceId, client.name, "website", folderId)
             return url
         } catch (err) {
             console.log(err)
             return this.handleError(err);
         }
     }
+
+    async fetchContents({ clientId, workspaceId }) {
+        try {
+          /* ── 1. query ─────────────────────────────────────────────── */
+          const { data, error } = await supabase
+            .from('ingestion_events')
+            .select(`
+              id,
+              doc_id,
+              doc_title,
+              doc_type,
+              status,
+              doc_url,
+              ingested_at,
+              updated_at,
+              message_count,
+              folder_id,
+              users:user_id ( id, name, avatar ),
+              ingestion_events_chatbots,
+              content_type
+            `)
+            .eq('client_id', clientId)
+            .eq('workspace_id', workspaceId);
+      
+          if (error) throw error;
+          /* ── 2. reshape ───────────────────────────────────────────── */
+
+          const result = (data || []).map((row) => ({
+            id: row.doc_id,
+            title: row.doc_title,
+            description: row.doc_url || '',               // put something useful here
+            status: row.status === 'success' ? 'active' : row.status,
+            contentType: row.content_type,
+            category: 'Documentation',                    // adjust if you have a field
+            createdAt: row.ingested_at,
+            lastUpdated: row.updated_at || row.ingested_at,
+            folderId: row.folder_id,
+            author: {
+              id: row.users?.id || row.user_id,
+              name: row.users?.name || 'Unknown',
+              avatar: row.users?.avatar || null,
+            },
+            messageCount: row.message_count || 0,
+            chatbots:[]
+          }));
+          return result
+        } catch (err) {
+          console.error('[fetchContents] failed:', err);
+          throw err;                  // or handleError(err) if you have one
+        }
+      }
+
 
     async addChatbotDocument({ title, type, chatbotIds, link, content, workspaceId, clientId, createdBy }, fileInst = null) {
         try {

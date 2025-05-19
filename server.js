@@ -12,14 +12,13 @@ const cookie = require('@fastify/cookie');
 const Socket = require('./Socket')();
 const DecisionEngine = require('./DecisionEngine');
 const path = require('node:path');
-
+const Ably = require('ably');
 
 // const db = require('./db');
 const swagger = require('./middlewares/swagger');
 const routes = require('./routes');
 const caslPlugin = require('./ability/casl');
 const supabase = require('./db/supabaseClient');
-// const { handleWidgetContactEvent, handleWidgetConversationEvent } = require('./ExternalService/ablyListener');
 let app;
 const start = async () => {
   try {
@@ -65,10 +64,6 @@ const start = async () => {
       // limitHandler: (req, res, next) => { next(); }
     });
 
-    // handleWidgetContactEvent("3e742e62-1041-4a2b-a85a-8e6a17d60565", "e63d6f79-3966-4716-9231-f4a312e247e1", "6c22b22f-7bdf-43db-b7c1-9c5884125c63");
-    // handleWidgetConversationEvent("805d4503-94ce-45d9-bcba-7e4c89bc7120", "e63d6f79-3966-4716-9231-f4a312e247e1", "6c22b22f-7bdf-43db-b7c1-9c5884125c63")
-
-    // name
     await routes.activate(app);
     app.addHook('onResponse', (request, reply, done) => {
       // console.log(reply, ".reply reply reply reply..",);
@@ -77,8 +72,13 @@ const start = async () => {
       // console.log(Object.keys(request), ".route route route route..",);
       done()
     })
+    const ably = new Ably.Realtime(process.env.ABLY_API_KEY);
+    ably.connection.on('connected', () => {
+      console.log('Ably connected, starting listeners...');
+      // init(ably, supabase, InternalService);
+    });
 
-
+    
 
     app.listen({ port: config.server.port, host: config.server.host });
     await app.ready()

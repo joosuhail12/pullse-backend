@@ -3,7 +3,8 @@ const BaseService = require("./BaseService");
 const _ = require("lodash");
 const AuthService = require("./AuthService");
 const ConversationEventPublisher = require("../Events/ConversationEvent/ConversationEventPublisher");
-const { handleWidgetContactEvent, handleWidgetConversationEvent, setAblyTicketChatListener } = require("../ExternalService/ablyListener");
+const { handleWidgetConversationEvent } = require("../ExternalService/ablyListener");
+const { initializeWidgetSession, subscribeToConversationChannels } = require("../ablyServices/listeners");
 const { S3Client, PutObjectCommand } = require("@aws-sdk/client-s3");
 const fs = require('fs').promises;
 
@@ -31,7 +32,6 @@ class WidgetService extends BaseService {
                 widgetfield!widgetfield_widgetId_fkey1(*),
                 widgetapikeyrelation!widgetapikeyrelation_widgetId_fkey(apiKey)
             `).eq("workspaceId", workspaceId).eq("clientId", clientId).is("deletedAt", null).single();
-            console.log(data, error);
             if (error) {
                 throw new errors.InternalServerError(error.message);
             }
@@ -410,7 +410,6 @@ class WidgetService extends BaseService {
 
     async getWidgetConfig({ apiKey, workspaceId, publicIpAddress, timezone, domain, authUser = null }) {
         try {
-            console.log(apiKey, workspaceId, publicIpAddress, timezone, domain, authUser);
             const { data, error } = await this.supabase.from("widgetapikeyrelation").select("*").eq("apiKey", apiKey).is("deletedAt", null).single();
 
             if (error) {
@@ -531,10 +530,10 @@ class WidgetService extends BaseService {
                     throw new errors.Internal(updateSessionError.message);
                 }
 
-                handleWidgetContactEvent(updatedSessionData.id, widgetData.clientId, widgetData.workspaceId)
+                initializeWidgetSession(updatedSessionData.id, widgetData.clientId, widgetData.workspaceId)
                 if (updatedSessionData && updatedSessionData.contactId) {
                     const { data: contactData, error: contactError } = await this.supabase.from("customers").select("*").eq("id", updatedSessionData.contactId).is("deletedAt", null).single();
-                    handleWidgetContactEvent(updatedSessionData.id, widgetData.clientId, widgetData.workspaceId);
+                    initializeWidgetSession(updatedSessionData.id, widgetData.clientId, widgetData.workspaceId);
                     return {
                         ...widgetData,
                         accessToken: updatedSessionData.token,
@@ -542,7 +541,7 @@ class WidgetService extends BaseService {
                         sessionId: updatedSessionData.id
                     };
                 } else {
-                    handleWidgetContactEvent(updatedSessionData.id, widgetData.clientId, widgetData.workspaceId);
+                    initializeWidgetSession(updatedSessionData.id, widgetData.clientId, widgetData.workspaceId);
                     return {
                         ...widgetData,
                         accessToken: updatedSessionData.token,
@@ -572,14 +571,14 @@ class WidgetService extends BaseService {
                     throw new errors.Internal(updateSessionError.message);
                 }
 
-                handleWidgetContactEvent(sessionData.id, widgetData.clientId, widgetData.workspaceId)
+                initializeWidgetSession(sessionData.id, widgetData.clientId, widgetData.workspaceId)
                 return {
                     ...widgetData,
                     accessToken: updatedSessionData.token,
                     sessionId: sessionData.id
                 };
             }
-            handleWidgetContactEvent(sessionData.id, widgetData.clientId, widgetData.workspaceId);
+                initializeWidgetSession(sessionData.id, widgetData.clientId, widgetData.workspaceId);
 
         } catch (error) {
             console.error(error);
@@ -593,7 +592,6 @@ class WidgetService extends BaseService {
             if ((!device && !operatingSystem) || !publicIpAddress) {
                 throw new errors.BadRequest("Device, operatingSystem and publicIpAddress are required");
             }
-            console.log("requestBody", device, operatingSystem, publicIpAddress, apiKey, name, authUser, contact, company, ticket, customfield, customobjectfield);
             // Check widget api key
             let { data: widgetApiKeyData, error: widgetApiKeyError } = await this.supabase.from("widgetapikeyrelation").select("*").eq("apiKey", apiKey).is("deletedAt", null).single();
             if (widgetApiKeyError || !widgetApiKeyData) {
@@ -784,7 +782,6 @@ class WidgetService extends BaseService {
             if (!authUser && !authUser.sessionId) {
                 throw new errors.Unauthorized("Unauthorized");
             }
-            console.log("authUser", authUser);
             const { data: sessionData, error: sessionError } = await this.supabase.from("widgetsessions").select("*").eq("id", authUser.sessionId).is("deletedAt", null).single();
 
             if (sessionError) {
@@ -842,7 +839,6 @@ class WidgetService extends BaseService {
                 throw new errors.BadRequest("Widget session is not active");
             }
 
-            console.log("widgetSession", workspaceId, clientId);
 
             // Check if ticket exists
             const { data: ticket, error: ticketError } = await this.supabase.from("tickets").select("*").eq("id", ticketId).eq("workspaceId", workspaceId).eq("clientId", clientId).eq("deviceId", widgetSession.contactDeviceId).is("deletedAt", null).single();
@@ -873,7 +869,8 @@ class WidgetService extends BaseService {
             // });
 
             //now listen to ably channel for customer msg
-            handleWidgetConversationEvent(ticketId, clientId, workspaceId, sessionId)
+            // handleWidgetConversationEvent(ticketId, clientId, workspaceId, sessionId)
+            subscribeToConversationChannels(ticketId, sessionId)
 
             return conversations;
 
