@@ -16,7 +16,7 @@ function init(depInternalService) {
  * Handle incoming message from the user widget.
  * This will persist the message, forward it to agents, and trigger AI if enabled.
  */
-export  const handleWidgetConversationEvent =  async (ticketId, messageData, sessionId) => {
+const handleWidgetConversationEvent =  async (ticketId, messageData, sessionId) => {
     const internalService = new InternalService();
   try {
     // Validate ticketId format
@@ -85,7 +85,7 @@ export  const handleWidgetConversationEvent =  async (ticketId, messageData, ses
  * Handle incoming message from an agent.
  * Persists the message, forwards it to the user's widget, and handles ticket updates and offline user notification.
  */
-export const handleAgentConversationEvent = async (ticketId, messageData) => {
+const handleAgentConversationEvent = async (ticketId, messageData) => {
 
   const internalService = new InternalService();
   console.log("handleAgentConversationEvent", ticketId, messageData)
@@ -158,7 +158,7 @@ export const handleAgentConversationEvent = async (ticketId, messageData) => {
  * Handle AI assistant's reply from the document-qa-results channel.
  * Forwards the AI's reply to the customer's widget and stores it in the conversation history.
  */
-export const handleDocumentQAResult = async (ticketId, resultData, users, sessionId) => {
+const handleDocumentQAResult = async (ticketId, resultData, users, sessionId) => {
     const internalService = new InternalService();
   try {
     const answerText = resultData.text || resultData.answer || resultData.content;

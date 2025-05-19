@@ -11,7 +11,7 @@ let routing, internalService;
 /**
  * Inject shared singletons (called once from listeners.init).
  */
-export const initTicket = (depSupabase, depAbly, depRouting, depInternalService) => {
+const initTicket = (depSupabase, depAbly, depRouting, depInternalService) => {
   routing = depRouting;
   internalService = depInternalService;
 }
@@ -22,7 +22,7 @@ export const initTicket = (depSupabase, depAbly, depRouting, depInternalService)
  *   subscribeToConversationChannels(ticketId)
  *   once this resolves.
  */
-export const handleNewTicket = async ({ workspaceId, sessionId, firstMessage, userType }) => {
+const handleNewTicket = async ({ workspaceId, sessionId, firstMessage, userType }) => {
   const internalService = new InternalService();
 
     // 1. insert ticket

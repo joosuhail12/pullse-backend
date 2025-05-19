@@ -8,7 +8,7 @@ const ably = new Ably.Realtime(process.env.ABLY_API_KEY);
 const qaResultSubscriptions = new Set();   // store ticketIds we already wired
 const qaResultSubscriptionsTime = {};
 
-export const ensureQaSubscription = async (ticketId, sessionId) => {
+const ensureQaSubscription = async (ticketId, sessionId) => {
   const internalService = new InternalService();
   if (qaResultSubscriptions.has(ticketId)){
     return;
