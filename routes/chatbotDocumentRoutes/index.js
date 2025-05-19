@@ -79,6 +79,16 @@ async function activate(app) {
   });
 
   app.route({
+    url: base_url + "/content",
+    method: 'GET',
+    name: "FetchContents",
+    preHandler: authMiddlewares.checkToken(AuthType.user),
+    handler: async (req, reply) => {
+      return handler.fetchContents(req, reply);
+    }
+  });
+
+  app.route({
     url: base_url + "/link",
     method: 'POST',
     name: "CreateLink",

@@ -1,10 +1,11 @@
 // serviceBusClient.js
 const { ServiceBusClient } = require("@azure/service-bus");
+const { cli } = require("winston/lib/winston/config");
 
-const connectionString = "Endpoint=sb://pullse-ai-service-bus.servicebus.windows.net/;SharedAccessKeyName=RootManageSharedAccessKey;SharedAccessKey=dmXSEjQkwewIfk1VdmF2HK3DTyWobgc+u+ASbAQTouw=";
-const queueName = 'embedding-pipeline-dev';
+const connectionString = process.env.AZURE_SERVICE_BUS_KEY;
+const queueName = process.env.AZURE_SERVICE_BUS_NAME;
 
-  async function sendTaskMessage(blobUrl, title, description, content, type, userId, clientId, workspaceId) {
+  async function sendTaskMessage(blobUrl, title, description, content, type, userId, clientId, workspaceId, clientName, contentType, folderId) {
   const sbClient = new ServiceBusClient(connectionString);
   const sender = sbClient.createSender(queueName);
 
@@ -12,18 +13,18 @@ const queueName = 'embedding-pipeline-dev';
   // 3. Prepare your message payload
   //    - org_id and filename as strings
   //    - file_base64: base64‐encoded file contents
- 
   const messagePayload = {
     type        : type,   
     title    : title,
     content   : content,
     uri   : blobUrl,
-    doc_id         : "pullse",
+    doc_id         : clientName,
     userId,
     clientId,
-    workspaceId
+    workspaceId,
+    contentType,
+    folderId
   };
-
   try {
     // 4. Send a single message whose body is your JSON payload
     await sender.sendMessages({ body: JSON.stringify(messagePayload) });
