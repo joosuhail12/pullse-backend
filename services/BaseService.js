@@ -211,7 +211,23 @@ class BaseService {
     }
 
     handleError(err) {
-        this.log({ level: "error", data: { err } });
+        // Log the full error details for debugging
+        console.error("Error in service:", {
+            service: this.entityName,
+            error: err,
+            message: err.message,
+            stack: err.stack
+        });
+
+        this.log({
+            level: "error", message: "Service error", data: {
+                err,
+                entityName: this.entityName,
+                errorMessage: err.message,
+                errorType: err.constructor.name
+            }
+        });
+
         return Promise.reject(err);
     }
 
