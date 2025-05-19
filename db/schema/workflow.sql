@@ -1,22 +1,17 @@
-CREATE TABLE workflows (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+CREATE TABLE workflow (
+    id UUID PRIMARY KEY,
     name TEXT NOT NULL,
-    summary TEXT,
     description TEXT,
-    ruleIds TEXT[] NOT NULL,
-    operator TEXT CHECK (operator IN ('and', 'or')) DEFAULT 'and',
-    actionIds TEXT[],
-    position INT NOT NULL,
-    status TEXT CHECK (status IN ('draft', 'active', 'inactive', 'outdated')) DEFAULT 'active',
-    lastUpdatedBy TEXT,
-    affectedTicketsCount INT DEFAULT 0,
-    workspaceId TEXT NOT NULL,
-    clientId TEXT NOT NULL,
-    createdBy TEXT NOT NULL,
-    deletedAt TIMESTAMP,
-    created_at TIMESTAMP DEFAULT NOW(),
-    updated_at TIMESTAMP DEFAULT NOW()
+    triggerNodeId UUID, -- FK to nodes.id
+    workflowFolderId UUID, --FK to workflow folder
+    tags TEXT[],
+    status TEXT CHECK (status IN ('active', 'draft')),
+    numberOfExecutions INTEGER,
+    successRate FLOAT,
+        clientId UUID, -- FK to clients
+    workspaceId UUID, -- FK to workspace
+    createdBy UUID,
+    createdAt TIMESTAMPZ DEFAULT now(),
+    updatedAt TIMESTAMPZ DEFAULT now(),
+    deletedAt TIMESTAMPZ,
 );
-
-CREATE UNIQUE INDEX workflows_id_deletedAt_idx 
-ON workflows (id, deletedAt);

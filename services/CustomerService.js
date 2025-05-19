@@ -132,46 +132,68 @@ class CustomerService extends BaseService {
                 await this.supabase.from('customerTags').delete().eq('customerId', id);
 
                 // Insert new tags
-                const tagEntries = updateValues.tags.map(tag => ({ customerId: id, tagId: tag.id, workspaceId: workspaceId, clientId: clientId }));
+                const tagEntries = updateValues.tags.map(tag => ({
+                    customerId: id,
+                    tagId: tag.id,
+                    workspaceId: workspaceId,
+                    clientId: clientId
+                }));
                 await this.supabase.from('customerTags').insert(tagEntries);
                 updateValues.tags.forEach(async (tag) => {
                     await tagHistoryService.updateTagHistory(tag.id, "customer");
                 });
 
+                // Store a copy of tags before deleting
+                const tags = [...updateValues.tags];
                 delete updateValues.tags; // Remove tags from the update object
+
+                // 4. Check if there are any actual updates to the customer data
+                console.log("Final update values being sent to database:", updateValues);
+
+                // Only attempt customer update if there are other fields to update
+                if (Object.keys(updateValues).length > 0) {
+                    const { data, error } = await this.supabase
+                        .from(this.entityName)
+                        .update(updateValues)
+                        .match({ id, workspaceId, clientId })
+                        .select("*")
+                        .maybeSingle();
+
+                    if (error) throw error;
+                }
+
+                // 5. Fetch updated customer details including tags with names
+                const { data: updatedCustomer, error: fetchUpdatedError } = await this.supabase
+                    .from(this.entityName)
+                    .select("*, customerTags(tag: tags(id, name)), companies(name)")
+                    .eq("id", id)
+                    .eq("workspaceId", workspaceId)
+                    .eq("clientId", clientId)
+                    .single();
+
+                if (fetchUpdatedError) throw fetchUpdatedError;
+
+                return {
+                    ...updatedCustomer,
+                    tags: updatedCustomer.customerTags ? updatedCustomer.customerTags.map(tag => ({
+                        id: tag.tag.id,
+                        name: tag.tag.name
+                    })) : []
+                };
+            } else {
+                // If no tags to update, proceed with normal customer update
+                const { data, error } = await this.supabase
+                    .from(this.entityName)
+                    .update(updateValues)
+                    .match({ id, workspaceId, clientId })
+                    .select("*")
+                    .maybeSingle();
+
+                if (error) throw error;
+                if (!data) throw new Error("No updates were made. Ensure the data is different from existing values.");
+
+                return data;
             }
-
-            // 4. Check if there are any actual updates to the customer data
-            console.log("Final update values being sent to database:", updateValues);
-
-            const { data, error } = await this.supabase
-                .from(this.entityName)
-                .update(updateValues)
-                .match({ id, workspaceId, clientId })
-                .select("*")
-                .maybeSingle();
-
-            if (error) throw error;
-            if (!data) throw new Error("No updates were made. Ensure the data is different from existing values.");
-
-            // 5. Fetch updated customer details including tags with names
-            const { data: updatedCustomer, error: fetchUpdatedError } = await this.supabase
-                .from(this.entityName)
-                .select("*, customerTags(tag: tags(id, name)), companies(name)")
-                .eq("id", id)
-                .eq("workspaceId", workspaceId)
-                .eq("clientId", clientId)
-                .single();
-
-            if (fetchUpdatedError) throw fetchUpdatedError;
-
-            // let inst = new CustomerEventPublisher();
-            // inst.updated(updatedCustomer, updateValues).catch(err => console.error("Event error:", err));
-
-            return {
-                ...updatedCustomer,
-                tags: updatedCustomer.customerTags ? updatedCustomer.customerTags.map(tag => ({ id: tag.tag.id, name: tag.tag.name })) : []
-            };
         } catch (err) {
             return this.handleError(err);
         }
@@ -186,7 +208,7 @@ class CustomerService extends BaseService {
                         id, firstname, lastname, email, phone, type, title, department, timezone,
                         linkedin, twitter, language, source, assignedTo, accountValue, notes,
                         lastContacted, created_at, updated_at, street, city, state, postalCode, country,
-                        company: companies(name),
+                        company: companies(name), companyId,
                         customerTags(tag: tags(id, name))
                     `)
                 .eq("id", customer_id)
@@ -206,6 +228,7 @@ class CustomerService extends BaseService {
                 email: data.email,
                 phone: data.phone || null,
                 company: data.company ? data.company.name : null, // Extract company name
+                companyId: data.companyId,
                 status: data.status || "active",
                 type: data.type,
                 title: data.title,

@@ -7,7 +7,114 @@ async function activate(app) {
 
   let handler = new Handler();
 
-  let base_url = '/api/workflow'
+  let base_url = '/api/workflow';
+
+  app.route({
+    url: base_url + '/folder',
+    method: 'POST',
+    name: "CreateWorkflowFolder",
+    preHandler: authMiddlewares.checkToken(AuthType.user),
+    schema: {
+      tags: ['Workflow'],
+      summary: 'Create Workflow Folder',
+      description: 'API to create workflow folder.',
+      body: {
+        type: 'object',
+        required: ['name'],
+        properties: {
+          name: { type: 'string', minLength: 2 },
+          description: { type: 'string', minLength: 2 },
+        },
+      },
+      query: {
+        type: 'object',
+        required: ['workspace_id'],
+        properties: {
+          workspace_id: { type: 'string' },
+        },
+      },
+    },
+    handler: async (req, reply) => {
+      return handler.createWorkflowFolder(req, reply);
+    }
+  });
+
+
+  app.route({
+    url: base_url + '/folder',
+    method: 'GET',
+    name: "GetWorkflowFolders",
+    preHandler: authMiddlewares.checkToken(AuthType.user),
+    schema: {
+      tags: ['Workflow'],
+      summary: 'Get Workflow Folders',
+      description: 'API to get workflow folders.',
+      query: {
+        type: 'object',
+        required: ['workspace_id'],
+        properties: {
+          workspace_id: { type: 'string' },
+        },
+      },
+    },
+    handler: async (req, reply) => {
+      return handler.getWorkflowFolders(req, reply);
+    }
+  });
+
+
+  app.route({
+    url: base_url + '/folder/:id',
+    method: 'DELETE',
+    name: "DeleteWorkflowFolder",
+    preHandler: authMiddlewares.checkToken(AuthType.user),
+    schema: {
+      tags: ['Workflow'],
+      summary: 'Delete Workflow Folder',
+      description: 'API to delete workflow folder.',
+      params: {
+        type: 'object',
+        required: ['id'],
+        properties: {
+          id: { type: 'string' },
+        },
+      },
+    },
+    handler: async (req, reply) => {
+      return handler.deleteWorkflowFolder(req, reply);
+    }
+  });
+
+  app.route({
+    url: base_url + '/folder/:id',
+    method: 'PATCH',
+    name: "UpdateWorkflowFolder",
+    preHandler: authMiddlewares.checkToken(AuthType.user),
+    schema: {
+      tags: ['Workflow'],
+      summary: 'Update Workflow Folder',
+      description: 'API to update workflow folder.',
+      params: {
+        type: 'object',
+        required: ['id'],
+        properties: {
+          id: { type: 'string' },
+        },
+      },
+      body: {
+        type: 'object',
+        minProperties: 1,
+        properties: {
+          name: { type: 'string', minLength: 2 },
+          description: { type: 'string', minLength: 2 },
+        },
+      },
+    },
+    handler: async (req, reply) => {
+      return handler.updateWorkflowFolder(req, reply);
+    }
+  });
+
   app.route({
     url: base_url,
     method: 'POST',
@@ -17,46 +124,29 @@ async function activate(app) {
       tags: ['Workflow'],
       summary: 'Create Workflow',
       description: 'API to create workflow.',
-      required: ['name', 'workspace_id'],
-      body: {
-        additionalProperties: false,
-        type: 'object',
-        properties: {
-          name:  {
-            type: 'string',
-            minLength: 2
-          },
-          summary:  {
-            type: 'string',
-          },
-          description:  {
-            type: 'string',
-          },
-          rules: {
-            type: 'array',
-            items: {
-              type: 'object'
-            }
-          },
-          actions: {
-            type: 'array',
-            items: {
-              type: 'object'
-            }
-          },
-          position: {
-            type: 'number',
-          },
-          status: {
-            type: 'string',
-          },
-        }
-      },
       query: {
-        workspace_id:  {
-          type: 'string',
+        type: 'object',
+        required: ['workspace_id'],
+        properties: {
+          workspace_id: { type: 'string' },
         },
-      }
+      },
+      body: {
+        type: 'object',
+        required: ['triggerType', 'triggerPosition', 'nodeId'],
+        properties: {
+          triggerType: { type: 'string', minLength: 2 },
+          triggerPosition: {
+            type: 'object',
+            required: ['positionX', 'positionY'],
+            properties: {
+              positionX: { type: 'number' },
+              positionY: { type: 'number' },
+            },
+          },
+          nodeId: { type: 'string' },
+        },
+      },
     },
     handler: async (req, reply) => {
       return handler.createWorkflow(req, reply);
@@ -66,134 +156,175 @@ async function activate(app) {
   app.route({
     url: base_url,
     method: 'GET',
-    name: "ListWorkflows",
+    name: "GetAllWorkflows",
     preHandler: authMiddlewares.checkToken(AuthType.user),
     schema: {
       tags: ['Workflow'],
-      summary: 'List Workflows',
-      description: 'API to list all Workflows.',
-      required: ['workspace_id'],
+      summary: 'Get All Workflows',
+      description: 'API to get all workflows.',
       query: {
-        name:  {
-          type: 'string',
-          minLength: 2
+        type: 'object',
+        required: ['workspace_id'],
+        properties: {
+          workspace_id: { type: 'string' },
         },
-        status:  {
-          type: 'string',
-        },
-        workspace_id:  {
-          type: 'string',
-        },
-        page: {
-          type: 'string',
-        },
-        skip: {
-          type: 'number'
-        },
-        limit: {
-          type: 'number'
-        },
-        sort_by: {
-          type: 'string',
-        },
-        sort_order: {
-          type: 'string',
-        }
-      }
+      },
     },
     handler: async (req, reply) => {
-      return handler.listWorkflow(req, reply);
+      return handler.getAllWorkflows(req, reply);
     }
   });
 
   app.route({
-    url: base_url + "/entity",
+    url: base_url + '/:id',
     method: 'GET',
-    name: "GetWorkflowEntities",
+    name: "GetWorkflowById",
     preHandler: authMiddlewares.checkToken(AuthType.user),
     schema: {
       tags: ['Workflow'],
-      summary: 'Get Workflow Entities',
-      description: 'API to Get Workflow Entities.',
-      required: ['workspace_id'],
-      query: {
-      }
-    },
-    handler: async (req, reply) => {
-      return handler.getWorkflowEntities(req, reply);
-    }
-  });
-
-
-  app.route({
-    url: base_url + "/events",
-    method: 'GET',
-    name: "ListWorkflowEvents",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
-    schema: {
-      tags: ['Workflow', 'Event'],
-      summary: 'List Workflow Events',
-      description: 'API to list workflow events.',
-      required: ['workspace_id'],
-      query: {
-        workspace_id:  {
-          type: 'string',
+      summary: 'Get Workflow By Id',
+      description: 'API to get workflow by id.',
+      params: {
+        type: 'object',
+        required: ['id'],
+        properties: {
+          id: { type: 'string' },
         },
-      }
+      },
+      query: {
+        type: 'object',
+        required: ['workspace_id'],
+        properties: {
+          workspace_id: { type: 'string' },
+        },
+      },
     },
     handler: async (req, reply) => {
-      return handler.getWorkflowEvents(req, reply);
+      return handler.getWorkflowById(req, reply);
     }
   });
 
   app.route({
-    url: base_url + "/:workflow_id",
-    method: 'GET',
-    name: "ShowWorkflowDetail",
+    url: base_url + '/:id',
+    method: 'DELETE',
+    name: "DeleteWorkflow",
     preHandler: authMiddlewares.checkToken(AuthType.user),
     schema: {
       tags: ['Workflow'],
-      summary: 'Show Workflow Detail',
-      description: 'API to show detail of a Workflow.',
-      required: ['workspace_id'],
-      query: {
-        workspace_id:  {
-          type: 'string',
+      summary: 'Delete Workflow',
+      description: 'API to delete workflow.',
+      params: {
+        type: 'object',
+        required: ['id'],
+        properties: {
+          id: { type: 'string' },
         },
-      }
+      },
+      query: {
+        type: 'object',
+        required: ['workspace_id'],
+        properties: {
+          workspace_id: { type: 'string' },
+        },
+      },
     },
     handler: async (req, reply) => {
-      return handler.showWorkflowDetail(req, reply);
+      return handler.deleteWorkflow(req, reply);
+    }
+  });
+
+
+  app.route({
+    url: base_url + '/tags/:id',
+    method: 'PATCH',
+    name: "UpdateWorkflowTags",
+    preHandler: authMiddlewares.checkToken(AuthType.user),
+    schema: {
+      tags: ['Workflow'],
+      summary: 'Update Workflow Tags',
+      description: 'API to update workflow tags.',
+      params: {
+        type: 'object',
+        required: ['id'],
+        properties: {
+          id: { type: 'string' },
+        },
+      },
+      body: {
+        type: 'object',
+        required: ['tags'],
+        properties: {
+          tags: { type: 'array', items: { type: 'string' } },
+        },
+      },
+    },
+    handler: async (req, reply) => {
+      return handler.updateWorkflowTags(req, reply);
     }
   });
 
   app.route({
-    url: base_url + "/:workflow_id",
-    method: 'PUT',
+    url: base_url + '/:id',
+    method: 'POST',
     name: "UpdateWorkflow",
     preHandler: authMiddlewares.checkToken(AuthType.user),
     schema: {
       tags: ['Workflow'],
       summary: 'Update Workflow',
-      description: 'API to update a Workflow.',
-      required: ['workspace_id'],
-      body: {
-        name:  {
-          type: 'string',
-          minLength: 2
-        },
-        description:  {
-          type: 'string',
-        },
-        status:  {
-          type: 'string',
+      description: 'API to update workflow.',
+      params: {
+        type: 'object',
+        required: ['id'],
+        properties: {
+          id: { type: 'string' },
         },
       },
       query: {
-        workspace_id:  {
-          type: 'string',
+        type: 'object',
+        required: ['workspace_id'],
+        properties: {
+          workspace_id: { type: 'string' },
         },
-      }
+      },
+      body: {
+        type: 'object',
+        required: ['nodes', 'edges', 'workflowConfig'],
+        properties: {
+          workflowConfig: {
+            type: 'object',
+            required: ['name'],
+            properties: {
+              name: { type: 'string' },
+            },
+          },
+          nodes: {
+            type: 'array', items: {
+              type: 'object', required: ['type', 'position', 'data', 'id'], properties: {
+                id: { type: 'string' },
+                dbId: { type: 'string' },
+                type: { type: 'string' },
+                position: { type: 'object', required: ['x', 'y'] },
+                data: {
+                  type: 'object',
+                  additionalProperties: true,
+                },
+              }
+            }
+          },
+          edges: {
+            type: 'array', items: {
+              type: 'object', required: ['source', 'sourceHandle', 'target', 'targetHandle', 'id'], properties: {
+                source: { type: 'string' },
+                sourceHandle: { type: 'string' },
+                target: { type: 'string' },
+                targetHandle: { type: 'string' },
+                id: { type: 'string' },
+                dbId: { type: 'string' },
+              }
+            }
+          },
+        },
+      },
     },
     handler: async (req, reply) => {
       return handler.updateWorkflow(req, reply);
@@ -201,30 +332,30 @@ async function activate(app) {
   });
 
   app.route({
-    url: base_url+ "/:workflow_id",
-    method: 'DELETE',
-    name: "DeleteWorkflow",
+    url: base_url + '/:id/activate',
+    method: 'POST',
+    name: "ActivateWorkflow",
     preHandler: authMiddlewares.checkToken(AuthType.user),
     schema: {
-      tags: ['Workflow'],
-      summary: 'Delete Workflow',
-      description: 'API to delete a Workflow.',
-      required: ['workspace_id'],
-      body: {
-      },
       query: {
-        workspace_id:  {
-          type: 'string',
+        type: 'object',
+        required: ['workspace_id'],
+        properties: {
+          workspace_id: { type: 'string' },
         },
-      }
+      },
+      params: {
+        type: 'object',
+        required: ['id'],
+        properties: {
+          id: { type: 'string' },
+        },
+      },
     },
     handler: async (req, reply) => {
-      return handler.deleteWorkflow(req, reply);
+      return handler.activateWorkflow(req, reply);
     }
-  });
-
+  })
 }
 
-module.exports = {
-  activate
-};
+module.exports = { activate };
