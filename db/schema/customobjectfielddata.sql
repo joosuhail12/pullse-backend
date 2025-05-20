@@ -2,11 +2,11 @@ CREATE TABLE customobjectfielddata (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     customObjectFieldId UUID NOT NULL,
     data TEXT NOT NULL,
-    entityType ENUM('contact', 'company', 'ticket') NOT NULL,
+    entityType ENUM('contact', 'company', 'ticket') NULL,
     ticketId UUID,
     contactId UUID,
     companyId UUID,
     createdAt TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updatedAt TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    deletedAt TIMESTAMP,
+    deletedAt TIMESTAMP
 );
