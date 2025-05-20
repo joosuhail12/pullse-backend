@@ -717,6 +717,7 @@ class WorkflowService extends BaseService {
                 .eq('workspaceId', workspaceId)
                 .eq('clientId', clientId)
                 .is('deletedAt', null)
+                .eq('status', 'live')
                 .single();
 
 
@@ -945,6 +946,530 @@ class WorkflowService extends BaseService {
         } catch (e) {
             console.log("Error in handleNewTicket()", e);
             return;
+        }
+    }
+
+    getRuleBodyBasedOnField(rule, parentGroupId, workflowId) {
+        const { entityType, operator, value, id } = rule;
+
+        const ruleBody = {
+            entityType,
+            operator: operator.toLowerCase(),
+            value,
+            workflowRuleGroupId: parentGroupId,
+            workflowId
+        };
+
+        if (id) ruleBody.id = id;
+
+        switch (entityType) {
+            case 'contact':
+            case 'company':
+            case 'ticket':
+                ruleBody.standardFieldName = rule.standardFieldName;
+                break;
+            case 'custom_field':
+                ruleBody.customFieldId = rule.customFieldId;
+                break;
+            case 'custom_object_field':
+                ruleBody.customObjectId = rule.customObjectId;
+                ruleBody.customObjectFieldId = rule.customObjectFieldId;
+                break;
+            default:
+                throw new Error(`Unsupported entity type: ${entityType}`);
+        }
+
+        return ruleBody;
+    }
+
+    diffEntitiesById(frontendList, dbList) {
+        const toCreate = frontendList.filter(f => !dbList.some(d => d.id === f.id));
+        const toDelete = dbList.filter(d => !frontendList.some(f => f.id === d.id));
+        const toUpdate = frontendList.filter(f => dbList.some(d => d.id === f.id));
+        return { toCreate, toDelete, toUpdate };
+    }
+
+
+    async syncWorkflowRules(workflowRules, parentGroupId, workflowId) {
+        try {
+            const { data: existingRules, error: fetchError } = await this.supabase
+                .from("workflowrule")
+                .select("*")
+                .eq("workflowId", workflowId)
+                .eq("workflowRuleGroupId", parentGroupId)
+                .is("deletedAt", null);
+
+            if (fetchError) throw new Error(`Fetch rules failed: ${fetchError.message}`);
+
+            const { toCreate, toDelete, toUpdate } = this.diffEntitiesById(workflowRules, existingRules);
+
+            if (toDelete.length > 0) {
+                await this.supabase
+                    .from("workflowrule")
+                    .delete()
+                    .in("id", toDelete.map(r => r.id));
+            }
+
+            if (toCreate.length > 0) {
+                const ruleBodies = toCreate.map(r => this.getRuleBodyBasedOnField(r, parentGroupId, workflowId));
+                const { data: createdRules, error: createError } = await this.supabase.from("workflowrule").insert(ruleBodies);
+                if (createError) throw new Error(`Create rules failed: ${createError.message}`);
+            }
+
+            if (toUpdate.length > 0) {
+                await Promise.all(toUpdate.map(async rule => {
+                    const ruleBody = this.getRuleBodyBasedOnField(rule, parentGroupId, workflowId);
+                    const { error: updateError } = await this.supabase.from("workflowrule").update(ruleBody).eq("id", rule.id);
+                    if (updateError) throw new Error(`Update rules failed: ${updateError.message}`);
+                }));
+            }
+
+            return { message: "Rules synced" };
+        } catch (e) {
+            return this.handleError({
+                error: true,
+                message: "Rule sync failed",
+                data: e,
+                code: "RULE_SYNC_ERROR"
+            });
+        }
+    }
+
+    async syncChannels(workflowChannels, workspaceId, workflowId, clientId, createdBy) {
+        try {
+            const { data: existingChannels, error } = await this.supabase
+                .from("workflowchannel")
+                .select("*")
+                .eq("workflowId", workflowId)
+                .is("deletedAt", null);
+
+            if (error) throw new Error(`Fetch channels failed: ${error.message}`);
+
+            const existingEmailChannels = existingChannels.filter(c => c.channelType === "email");
+            const channelsToCreate = [];
+
+            const emailToKeep = new Set();
+            for (const ch of (workflowChannels.emailChannels || [])) {
+                const existing = existingEmailChannels.find(c => c.id === ch.id);
+                if (existing) {
+                    emailToKeep.add(ch.id);
+                    if (existing.emailChannelId !== ch.emailChannelId) {
+                        const { error: updateError } = await this.supabase.from("workflowchannel").update({ emailChannelId: ch.emailChannelId }).eq("id", ch.id);
+                        console.log("updateChannel Error", updateError);
+                        if (updateError) throw new Error(`Update email channel failed: ${updateError.message}`);
+                    }
+                } else {
+                    channelsToCreate.push({
+                        channelType: "email",
+                        emailChannelId: ch.emailChannelId,
+                        workflowId
+                    });
+                }
+            }
+
+            const emailToDelete = existingEmailChannels
+                .filter(c => !emailToKeep.has(c.id))
+                .map(c => c.id);
+
+            if (emailToDelete.length > 0) {
+                const { error: deleteError } = await this.supabase.from("workflowchannel").delete().in("id", emailToDelete);
+                console.log("delete Channel Error", deleteError);
+                if (deleteError) throw new Error(`Delete email channel failed: ${deleteError.message}`);
+            }
+
+            const existingChat = existingChannels.find(c => c.channelType === "chat");
+            if (workflowChannels.chatWidgetChannel) {
+                if (!existingChat) {
+                    const { data: widget, error: widgetError } = await this.supabase
+                        .from("widget")
+                        .select("*")
+                        .eq("workspaceId", workspaceId)
+                        .eq("clientId", clientId)
+                        .is("deletedAt", null)
+                        .single();
+
+                    if (widgetError) throw new Error(`Fetch widget failed: ${widgetError.message}`);
+
+                    channelsToCreate.push({
+                        channelType: "chat",
+                        widgetId: widget.id,
+                        workflowId,
+                    });
+                }
+            } else if (existingChat) {
+                const { error: deleteError } = await this.supabase.from("workflowchannel").delete().eq("id", existingChat.id);
+                console.log("delete Channel Error", deleteError);
+                if (deleteError) throw new Error(`Delete chat channel failed: ${deleteError.message}`);
+            }
+            if (channelsToCreate.length > 0) {
+                const { error: createError } = await this.supabase.from("workflowchannel").insert(channelsToCreate);
+                console.log("create Channel Error", createError);
+                if (createError) throw new Error(`Create channels failed: ${createError.message}`);
+                return { message: "Channels synced" };
+            }
+        } catch (e) {
+            console.error("Error in syncChannels()", e);
+            return this.handleError({
+                error: true,
+                message: "Channel sync failed",
+                data: e,
+                httpCode: 400,
+                code: "CHANNEL_SYNC_ERROR"
+            });
+        }
+    }
+
+    async updateWorkflowConfiguration({ id, workspaceId, clientId, createdBy, workflowConfig }) {
+        try {
+            const workflowId = id;
+            const { workflowChannels, workflowRuleParentGroup } = workflowConfig;
+            const { operator: parentGroupOperator, workflowRules, workflowChildGroups, id: parentGroupIdFromReq } = workflowRuleParentGroup;
+
+            await this.syncChannels(workflowChannels, workspaceId, workflowId, clientId, createdBy);
+
+            let parentGroupId = parentGroupIdFromReq;
+
+            if (!parentGroupId) {
+                const { error: deleteError } = await this.supabase.from("workflowrulegroup").delete().eq("workflowId", workflowId);
+                if (deleteError) throw new Error(`Delete parent group failed: ${deleteError.message}`);
+
+                const { data: parentGroup, error: parentGroupError } = await this.supabase
+                    .from("workflowrulegroup")
+                    .insert({ workflowId, operator: parentGroupOperator, createdBy, parentGroupId: null })
+                    .select("id").single();
+
+                if (parentGroupError) throw new Error(`Create parent group failed: ${parentGroupError.message}`);
+
+                parentGroupId = parentGroup.id;
+            }
+
+            await this.syncWorkflowRules(workflowRules, parentGroupId, workflowId);
+
+            // Get existing child groups
+            const { data: existingGroups } = await this.supabase
+                .from("workflowrulegroup")
+                .select("*")
+                .eq("workflowId", workflowId)
+                .is("deletedAt", null);
+
+            const childGroups = existingGroups.filter(g => g.parentGroupId === parentGroupId);
+
+            // Check if we have any child groups with IDs in the request
+            const hasChildGroupIds = workflowChildGroups.some(g => g.id);
+
+            if (hasChildGroupIds) {
+                // If we have IDs, use diff to determine what to create/update/delete
+                const { toCreate, toDelete, toUpdate } = this.diffEntitiesById(workflowChildGroups, childGroups);
+
+                if (toDelete.length > 0) {
+                    const deleteIds = toDelete.map(g => g.id);
+                    const { error: deleteError } = await this.supabase.from("workflowrulegroup").delete().in("id", deleteIds);
+                    if (deleteError) throw new Error(`Delete child groups failed: ${deleteError.message}`);
+                }
+
+                for (const group of toCreate) {
+                    const { data: createdGroup } = await this.supabase
+                        .from("workflowrulegroup")
+                        .insert({
+                            workflowId,
+                            operator: group.operator,
+                            createdBy,
+                            parentGroupId
+                        }).select("id").single();
+
+                    if (group.rules?.length) {
+                        await this.syncWorkflowRules(group.rules, createdGroup.id, workflowId);
+                    }
+                }
+
+                for (const group of toUpdate) {
+                    await this.supabase
+                        .from("workflowrulegroup")
+                        .update({
+                            operator: group.operator,
+                            updatedBy: createdBy,
+                            updatedAt: new Date()
+                        }).eq("id", group.id);
+
+                    if (group.rules?.length) {
+                        await this.syncWorkflowRules(group.rules, group.id, workflowId);
+                    }
+                }
+            } else {
+                // If we don't have IDs, delete all existing child groups
+                if (childGroups.length > 0) {
+                    const deleteIds = childGroups.map(g => g.id);
+                    const { error: deleteError } = await this.supabase.from("workflowrulegroup").delete().in("id", deleteIds);
+                    if (deleteError) throw new Error(`Delete child groups failed: ${deleteError.message}`);
+                }
+
+                // Create all new child groups
+                for (const group of workflowChildGroups) {
+                    const { data: createdGroup } = await this.supabase
+                        .from("workflowrulegroup")
+                        .insert({
+                            workflowId,
+                            operator: group.operator,
+                            createdBy,
+                            parentGroupId
+                        }).select("id").single();
+
+                    if (group.rules?.length) {
+                        await this.syncWorkflowRules(group.rules, createdGroup.id, workflowId);
+                    }
+                }
+            }
+
+            return { message: "Workflow configuration updated successfully" };
+        } catch (e) {
+            console.error("Error in updateWorkflowConfiguration()", e);
+            return this.handleError({
+                error: true,
+                message: "Workflow configuration update failed",
+                data: e,
+                httpCode: 400,
+                code: "WORKFLOW_CONFIGURATION_UPDATE_FAILED"
+            });
+        }
+    }
+
+    async getWorkflowConfiguration(id, workspaceId, clientId) {
+        try {
+            //  Get workflow details
+            const { data: workflow, error: workflowError } = await this.supabase.from("workflow").select("*").eq("workspaceId", workspaceId).eq("clientId", clientId).eq("id", id).is("deletedAt", null).single();
+            if (workflowError) throw new Error(`Fetch workflow failed: ${workflowError.message}`);
+
+            // Get the workflow channels
+            const { data: channels, error: channelsError } = await this.supabase.from("workflowchannel").select("*").eq("workflowId", workflow.id).is("deletedAt", null);
+
+            // Get the workflow groups
+            const { data: groups, error: groupsError } = await this.supabase.from("workflowrulegroup").select("*").eq("workflowId", workflow.id).is("deletedAt", null);
+
+            // Get the workflow rules
+            const { data: rules, error: rulesError } = await this.supabase.from("workflowrule").select("*").eq("workflowId", workflow.id).is("deletedAt", null);
+
+            // Group the childGroups within the parent group
+            const parentGroup = groups.filter(group => group.parentGroupId === null);
+            const childGroups = groups.filter(group => group.parentGroupId !== null);
+
+            let parsedRules = {
+                ...parentGroup[0],
+                rules: [
+                    ...rules.filter(rule => rule.workflowRuleGroupId === parentGroup[0].id),
+                    ...childGroups.map(group => ({
+                        ...group,
+                        rules: rules.filter(rule => rule.workflowRuleGroupId === group.id)
+                    }))
+                ]
+            }
+
+            return {
+                channels,
+                rules: parsedRules
+            }
+
+        } catch (error) {
+            console.error(error);
+            throw error;
+        }
+    }
+    async getWorkflowRuleFields(workspaceId, clientId) {
+        try {
+            const tables = [
+                {
+                    name: "Contact",
+                    fields: [{
+                        entityType: "contact",
+                        columnname: "firstname",
+                        label: "First Name",
+                        type: "text",
+                        placeholder: "Enter first name",
+                        table: "contact"
+                    },
+                    {
+                        entityType: "contact",
+                        columnname: "lastname",
+                        label: "Last Name",
+                        type: "text",
+                        placeholder: "Enter last name",
+                        table: "contact"
+                    },
+                    {
+                        entityType: "contact",
+                        columnname: "email",
+                        label: "Email",
+                        type: "text",
+                        placeholder: "Enter email",
+                        table: "contact"
+                    },
+                    {
+                        entityType: "contact",
+                        columnname: "phone",
+                        label: "Phone",
+                        type: "text",
+                        placeholder: "Enter phone",
+                        table: "contact"
+                    },
+                    {
+                        entityType: "contact",
+                        columnname: "twitter",
+                        label: "Twitter",
+                        type: "text",
+                        placeholder: "Enter twitter",
+                        table: "contact"
+                    },
+                    {
+                        entityType: "contact",
+                        columnname: "linkedin",
+                        label: "LinkedIn",
+                        type: "text",
+                        placeholder: "Enter linkedin",
+                        table: "contact"
+                    },
+                    {
+                        entityType: "contact",
+                        columnname: "address",
+                        label: "Address",
+                        type: "text",
+                        placeholder: "Enter address",
+                        table: "contact"
+                    }
+                    ]
+                },
+                {
+                    name: "Company",
+                    fields: [{
+                        entityType: "company",
+                        columnname: "name",
+                        label: "Name",
+                        type: "text",
+                        placeholder: "Enter company name",
+                        table: "company"
+                    },
+                    {
+                        entityType: "company",
+                        columnname: "description",
+                        label: "Description",
+                        type: "text",
+                        placeholder: "Enter company description",
+                        table: "company"
+                    },
+                    {
+                        columnname: "phone",
+                        label: "Phone",
+                        type: "text",
+                        placeholder: "Enter company phone",
+                        table: "company"
+                    },
+                    {
+                        entityType: "company",
+                        columnname: "website",
+                        label: "Website",
+                        type: "text",
+                        placeholder: "Enter company website",
+                        table: "company"
+                    }
+                    ]
+                },
+                {
+                    name: "Ticket",
+                    fields: [{
+                        entityType: "ticket",
+                        columnname: "subject",
+                        label: "Subject",
+                        type: "text",
+                        placeholder: "Enter subject",
+                        table: "ticket"
+                    }]
+                }
+            ];
+
+            // Fetch custom fields
+            const { data: customFields, error: customFieldsError } = await this.supabase.from("customfields").select("*").eq("workspaceId", workspaceId).eq("clientId", clientId).is("deletedAt", null);
+            if (customFieldsError) {
+                throw new errors.Internal(customFieldsError.message);
+            }
+
+            const customerCustomFields = customFields.filter(field => field.entityType === "customer");
+            const companyCustomFields = customFields.filter(field => field.entityType === "company");
+            const ticketCustomFields = customFields.filter(field => field.entityType === "ticket");
+
+            customerCustomFields.forEach(field => {
+                tables[0].fields.push({
+                    entityType: "custom_field",
+                    columnname: field.id,
+                    label: field.name,
+                    type: field.fieldType,
+                    options: field.options,
+                    placeholder: field.placeholder,
+                    table: "contact"
+                });
+            });
+
+            companyCustomFields.forEach(field => {
+                tables[1].fields.push({
+                    entityType: "custom_field",
+                    columnname: field.id,
+                    label: field.name,
+                    type: field.fieldType,
+                    options: field.options,
+                    placeholder: field.placeholder,
+                    table: "company"
+                });
+            });
+
+            ticketCustomFields.forEach(field => {
+                tables[2].fields.push({
+                    entityType: "custom_field",
+                    columnname: field.id,
+                    label: field.name,
+                    type: field.fieldType,
+                    options: field.options,
+                    placeholder: field.placeholder,
+                    table: "ticket"
+                });
+            });
+
+            // List all custom objects and send them as tables with  their custom object fields
+            const { data: customObjects, error: customObjectsError } = await this.supabase.from("customobjects").select("*").eq("workspaceId", workspaceId).eq("clientId", clientId).is("deletedAt", null).order("createdAt", { ascending: false });
+
+            if (customObjectsError) {
+                throw new errors.Internal(customObjectsError.message);
+            }
+
+            const promises = customObjects.map(async (customObject) => {
+                const customObjectFields = [];
+                const { data: customObjectFieldsData, error: customObjectFieldsError } = await this.supabase.from("customobjectfields").select("*").eq("workspaceId", workspaceId).eq("clientId", clientId).eq("customObjectId", customObject.id).is("deletedAt", null).order("createdAt", { ascending: false });
+
+                if (customObjectFieldsError) {
+                    throw new errors.Internal(customObjectFieldsError.message);
+                }
+                const fieldPromises = customObjectFieldsData.map(field => {
+                    customObjectFields.push({
+                        entityType: "custom_object_field",
+                        columnname: field.id,
+                        label: field.name,
+                        type: field.fieldType,
+                        options: field.options,
+                        placeholder: field.placeholder,
+                        table: customObject.name
+                    });
+                });
+                await Promise.all(fieldPromises);
+                tables.push({
+                    name: customObject.name,
+                    fields: customObjectFields
+                });
+            });
+
+            await Promise.all(promises);
+
+            return {
+                tables
+            }
+        } catch (error) {
+            console.error(error);
+            throw error;
         }
     }
 }
