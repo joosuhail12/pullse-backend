@@ -1,19 +1,15 @@
-CREATE TABLE workflowRules (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    name TEXT NOT NULL,
-    description TEXT,
-    summary TEXT,
-    matchType TEXT NOT NULL CHECK (matchType IN ('all', 'any')),
-    properties JSONB,
-    position INT NOT NULL,
-    status TEXT CHECK (status IN ('active', 'inactive', 'outdated')) DEFAULT 'active',
-    workspaceId TEXT NOT NULL,
-    clientId TEXT NOT NULL,
-    createdBy TEXT NOT NULL,
-    deletedAt TIMESTAMP,
-    created_at TIMESTAMP DEFAULT NOW(),
-    updated_at TIMESTAMP DEFAULT NOW()
+CREATE TABLE workflowrule (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    workflowId uuid NOT NULL,
+    workflowRuleGroupId uuid NOT NULL,
+    entityType workflowruleentity_types NOT NULL,
+    standardFieldName text,
+    customFieldId uuid,
+    customObjectId uuid,
+    customObjectFieldId uuid,
+    operator workflowrulesoperater_types NOT NULL,
+    value text,
+    sourceFieldType text,
+    createdAt timestamptz DEFAULT now(),
+    deletedAt timestamptz
 );
-
-CREATE UNIQUE INDEX workflowRules_id_deletedAt_idx 
-ON workflowRules (id, deletedAt);
