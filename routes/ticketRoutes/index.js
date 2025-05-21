@@ -391,6 +391,34 @@ async function activate(app) {
       return handler.assignTeam(req, reply);
     }
   });
+
+  // Bot ticket endpoint
+  app.route({
+    url: base_url + "/bot",
+    method: 'GET',
+    name: "ListBotTickets",
+    preHandler: authMiddlewares.checkToken(AuthType.user),
+    schema: {
+      tags: ['Ticket'],
+      summary: 'List Bot Tickets',
+      description: 'API to list all tickets assigned to bots.',
+      query: {
+        status: { type: 'string' },
+        team_id: { type: 'string' },
+        type_id: { type: 'string' },
+        priority: { type: 'string' },
+        workspace_id: { type: 'string' },
+        skip: { type: 'number' },
+        limit: { type: 'number' },
+        page: { type: 'string' },
+        sort_by: { type: 'string' },
+        sort_order: { type: 'string' },
+      }
+    },
+    handler: async (req, reply) => {
+      return handler.listBotTickets(req, reply);
+    }
+  });
 }
 
 // get conversation by ticket id
