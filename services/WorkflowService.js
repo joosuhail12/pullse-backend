@@ -1252,16 +1252,36 @@ class WorkflowService extends BaseService {
             const parentGroup = groups.filter(group => group.parentGroupId === null);
             const childGroups = groups.filter(group => group.parentGroupId !== null);
 
+            //  IF parsed rules contains custom_field or custom_object_field, then we need to get the custom fields and custom object fields
+            const customFields = rules.filter(rule => rule.entityType === "custom_field").map(rule => rule.customFieldId);
+            const customObjectFields = rules.filter(rule => rule.entityType === "custom_object_field").map(rule => rule.customObjectId);
+
+            //  Get the custom fields and custom object fields
+            const { data: customFieldsData, error: customFieldsError } = await this.supabase.from("customfields").select("*").in("id", customFields).is("deletedAt", null);
+            const { data: customObjectFieldsData, error: customObjectFieldsError } = await this.supabase.from("customobjectfields").select("*").in("id", customObjectFields).is("deletedAt", null);
+
+            // Add the custom fields and custom object field data to the mapped rules
+            const mappedRules = rules.map(rule => {
+                if (rule.entityType === "custom_field") {
+                    rule.customFieldData = customFieldsData.find(field => field.id === rule.customFieldId);
+                } else if (rule.entityType === "custom_object_field") {
+                    rule.customObjectFieldData = customObjectFieldsData.find(field => field.id === rule.customObjectId);
+                }
+                return rule;
+            });
+
             let parsedRules = {
                 ...parentGroup[0],
                 rules: [
-                    ...rules.filter(rule => rule.workflowRuleGroupId === parentGroup[0].id),
+                    ...mappedRules.filter(rule => rule.workflowRuleGroupId === parentGroup[0].id),
                     ...childGroups.map(group => ({
                         ...group,
-                        rules: rules.filter(rule => rule.workflowRuleGroupId === group.id)
+                        rules: mappedRules.filter(rule => rule.workflowRuleGroupId === group.id)
                     }))
                 ]
-            }
+            };
+
+
 
             return {
                 channels,
@@ -1277,7 +1297,7 @@ class WorkflowService extends BaseService {
         try {
             const tables = [
                 {
-                    name: "Contact",
+                    name: "contact",
                     fields: [{
                         entityType: "contact",
                         columnname: "firstname",
@@ -1337,7 +1357,7 @@ class WorkflowService extends BaseService {
                     ]
                 },
                 {
-                    name: "Company",
+                    name: "company",
                     fields: [{
                         entityType: "company",
                         columnname: "name",
@@ -1372,7 +1392,7 @@ class WorkflowService extends BaseService {
                     ]
                 },
                 {
-                    name: "Ticket",
+                    name: "ticket",
                     fields: [{
                         entityType: "ticket",
                         columnname: "subject",
@@ -1390,7 +1410,7 @@ class WorkflowService extends BaseService {
                 throw new errors.Internal(customFieldsError.message);
             }
 
-            const customerCustomFields = customFields.filter(field => field.entityType === "customer");
+            const customerCustomFields = customFields.filter(field => field.entityType === "contact");
             const companyCustomFields = customFields.filter(field => field.entityType === "company");
             const ticketCustomFields = customFields.filter(field => field.entityType === "ticket");
 
@@ -1457,7 +1477,8 @@ class WorkflowService extends BaseService {
                 });
                 await Promise.all(fieldPromises);
                 tables.push({
-                    name: customObject.name,
+                    name: customObject.name.toLowerCase(),
+                    id: customObject.id,
                     fields: customObjectFields
                 });
             });
