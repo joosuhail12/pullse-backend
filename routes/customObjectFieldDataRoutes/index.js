@@ -1,4 +1,4 @@
-const Handler = require("../../handlers/CustomFieldDataHandler");
+const Handler = require("../../handlers/CustomObjectFieldDataHandler");
 
 const authMiddlewares = require("../../middlewares/auth");
 const AuthType = require("../../constants/AuthType");
@@ -6,20 +6,20 @@ const AuthType = require("../../constants/AuthType");
 async function activate(app) {
     let handler = new Handler();
 
-    let base_url = "/api/custom-field-data";
+    let base_url = "/api/custom-object-field-data";
 
-    // Create custom field data
+    // Create custom object field data
     app.route({
         url: base_url,
         method: "POST",
-        name: "CreateCustomFieldData",
+        name: "CreateCustomObjectFieldData",
         preHandler: authMiddlewares.checkToken(AuthType.user),
         schema: {
-            tags: ["CustomFieldData"],
-            summary: "Create Custom Field Data",
-            description: "API to create custom field data.",
+            tags: ["CustomObjectFieldData"],
+            summary: "Create Custom Object Field Data",
+            description: "API to create custom object field data.",
             required: [
-                "customfieldId",
+                "customObjectFieldId",
                 "data",
                 "entityType",
                 "entityId"
@@ -28,7 +28,7 @@ async function activate(app) {
                 additionalProperties: false,
                 type: "object",
                 properties: {
-                    customfieldId: {
+                    customObjectFieldId: {
                         type: "string",
                     },
                     data: {
@@ -36,7 +36,7 @@ async function activate(app) {
                     },
                     entityType: {
                         type: "string",
-                        enum: ["contact", "company", "ticket", "customer"]
+                        enum: ["contact", "company", "ticket"]
                     },
                     entityId: {
                         type: "string",
@@ -45,27 +45,27 @@ async function activate(app) {
             }
         },
         handler: async (req, reply) => {
-            return handler.createCustomFieldData(req, reply);
+            return handler.createCustomObjectFieldData(req, reply);
         },
     });
 
-    // List custom field data
+    // List custom object field data
     app.route({
         url: base_url,
         method: "GET",
-        name: "ListCustomFieldData",
+        name: "ListCustomObjectFieldData",
         preHandler: authMiddlewares.checkToken(AuthType.user),
         schema: {
-            tags: ["CustomFieldData"],
-            summary: "List Custom Field Data",
-            description: "API to list all Custom Field Data.",
+            tags: ["CustomObjectFieldData"],
+            summary: "List Custom Object Field Data",
+            description: "API to list all Custom Object Field Data.",
             query: {
-                custom_field_id: {
+                custom_object_field_id: {
                     type: "string",
                 },
                 entity_type: {
                     type: "string",
-                    enum: ["contact", "company", "ticket", "customer"]
+                    enum: ["contact", "company", "ticket"]
                 },
                 entity_id: {
                     type: "string",
@@ -94,20 +94,20 @@ async function activate(app) {
             },
         },
         handler: async (req, reply) => {
-            return handler.listCustomFieldData(req, reply);
+            return handler.listCustomObjectFieldData(req, reply);
         },
     });
 
-    // Get custom field data for a specific entity
+    // Get custom object field data for a specific entity
     app.route({
         url: base_url + "/entity/:entity_type/:entity_id",
         method: "GET",
-        name: "GetCustomFieldDataByEntity",
+        name: "GetCustomObjectFieldDataByEntity",
         preHandler: authMiddlewares.checkToken(AuthType.user),
         schema: {
-            tags: ["CustomFieldData"],
-            summary: "Get Custom Field Data By Entity",
-            description: "API to get all custom field data for a specific entity.",
+            tags: ["CustomObjectFieldData"],
+            summary: "Get Custom Object Field Data By Entity",
+            description: "API to get all custom object field data for a specific entity.",
             params: {
                 entity_type: {
                     type: "string",
@@ -119,36 +119,36 @@ async function activate(app) {
             }
         },
         handler: async (req, reply) => {
-            return handler.getCustomFieldDataByEntity(req, reply);
+            return handler.getCustomObjectFieldDataByEntity(req, reply);
         },
     });
 
-    // Get custom field data detail
+    // Get custom object field data detail
     app.route({
-        url: base_url + "/:custom_field_data_id",
+        url: base_url + "/:custom_object_field_data_id",
         method: "GET",
-        name: "ShowCustomFieldDataDetail",
+        name: "ShowCustomObjectFieldDataDetail",
         preHandler: authMiddlewares.checkToken(AuthType.user),
         schema: {
-            tags: ["CustomFieldData"],
-            summary: "Show Custom Field Data Detail",
-            description: "API to show detail of a Custom Field Data."
+            tags: ["CustomObjectFieldData"],
+            summary: "Show Custom Object Field Data Detail",
+            description: "API to show detail of a Custom Object Field Data."
         },
         handler: async (req, reply) => {
-            return handler.showCustomFieldDataDetail(req, reply);
+            return handler.showCustomObjectFieldDataDetail(req, reply);
         },
     });
 
-    // Update custom field data
+    // Update custom object field data
     app.route({
-        url: base_url + "/:custom_field_data_id",
+        url: base_url + "/:custom_object_field_data_id",
         method: "PUT",
-        name: "UpdateCustomFieldData",
+        name: "UpdateCustomObjectFieldData",
         preHandler: authMiddlewares.checkToken(AuthType.user),
         schema: {
-            tags: ["CustomFieldData"],
-            summary: "Update Custom Field Data",
-            description: "API to update a Custom Field Data.",
+            tags: ["CustomObjectFieldData"],
+            summary: "Update Custom Object Field Data",
+            description: "API to update a Custom Object Field Data.",
             required: ["data"],
             body: {
                 additionalProperties: false,
@@ -166,7 +166,7 @@ async function activate(app) {
                     ticketId: {
                         type: "string",
                     },
-                    customfieldId: {
+                    customObjectFieldId: {
                         type: "string",
                     },
                     entityType: {
@@ -176,36 +176,36 @@ async function activate(app) {
             }
         },
         handler: async (req, reply) => {
-            return handler.updateCustomFieldData(req, reply);
+            return handler.updateCustomObjectFieldData(req, reply);
         },
     });
 
-    // Delete custom field data
+    // Delete custom object field data
     app.route({
-        url: base_url + "/:custom_field_data_id",
+        url: base_url + "/:custom_object_field_data_id",
         method: "DELETE",
-        name: "DeleteCustomFieldData",
+        name: "DeleteCustomObjectFieldData",
         preHandler: authMiddlewares.checkToken(AuthType.user),
         schema: {
-            tags: ["CustomFieldData"],
-            summary: "Delete Custom Field Data",
-            description: "API to delete a Custom Field Data."
+            tags: ["CustomObjectFieldData"],
+            summary: "Delete Custom Object Field Data",
+            description: "API to delete a Custom Object Field Data."
         },
         handler: async (req, reply) => {
-            return handler.deleteCustomFieldData(req, reply);
+            return handler.deleteCustomObjectFieldData(req, reply);
         },
     });
 
-    // Delete all custom field data for a specific entity
+    // Delete all custom object field data for a specific entity
     app.route({
         url: base_url + "/entity/:entity_type/:entity_id",
         method: "DELETE",
-        name: "DeleteCustomFieldDataByEntity",
+        name: "DeleteCustomObjectFieldDataByEntity",
         preHandler: authMiddlewares.checkToken(AuthType.user),
         schema: {
-            tags: ["CustomFieldData"],
-            summary: "Delete Custom Field Data By Entity",
-            description: "API to delete all custom field data for a specific entity.",
+            tags: ["CustomObjectFieldData"],
+            summary: "Delete Custom Object Field Data By Entity",
+            description: "API to delete all custom object field data for a specific entity.",
             params: {
                 entity_type: {
                     type: "string",
@@ -217,26 +217,26 @@ async function activate(app) {
             }
         },
         handler: async (req, reply) => {
-            return handler.deleteCustomFieldDataByEntity(req, reply);
+            return handler.deleteCustomObjectFieldDataByEntity(req, reply);
         },
     });
 
-    // Get custom field data by array of IDs
+    // Get custom object field data by array of IDs
     app.route({
         url: base_url + "/batch",
         method: "POST",
-        name: "GetCustomFieldDataByIds",
+        name: "GetCustomObjectFieldDataByIds",
         preHandler: authMiddlewares.checkToken(AuthType.user),
         schema: {
-            tags: ["CustomFieldData"],
-            summary: "Get Custom Field Data By IDs",
-            description: "API to get custom field data for an array of IDs",
-            required: ["customFieldIds"],
+            tags: ["CustomObjectFieldData"],
+            summary: "Get Custom Object Field Data By IDs",
+            description: "API to get custom object field data for an array of IDs",
+            required: ["customObjectFieldIds"],
             body: {
                 additionalProperties: false,
                 type: "object",
                 properties: {
-                    customFieldIds: {
+                    customObjectFieldIds: {
                         type: "array",
                         items: {
                             type: "string"
@@ -247,26 +247,26 @@ async function activate(app) {
             }
         },
         handler: async (req, reply) => {
-            return handler.getCustomFieldDataByIds(req, reply);
+            return handler.getCustomObjectFieldDataByIds(req, reply);
         },
     });
 
-    // Get custom field data by array of IDs with filtering
+    // Get custom object field data by array of IDs with filtering
     app.route({
         url: base_url + "/batch/filter",
         method: "POST",
-        name: "GetCustomFieldDataBatch",
+        name: "GetCustomObjectFieldDataBatch",
         preHandler: authMiddlewares.checkToken(AuthType.user),
         schema: {
-            tags: ["CustomFieldData"],
-            summary: "Get Custom Field Data By IDs with Filtering",
-            description: "API to get custom field data for an array of IDs with optional entity type and ID filtering",
-            required: ["customFieldIds"],
+            tags: ["CustomObjectFieldData"],
+            summary: "Get Custom Object Field Data By IDs with Filtering",
+            description: "API to get custom object field data for an array of IDs with optional entity type and ID filtering",
+            required: ["customObjectFieldIds"],
             body: {
                 additionalProperties: false,
                 type: "object",
                 properties: {
-                    customFieldIds: {
+                    customObjectFieldIds: {
                         type: "array",
                         items: {
                             type: "string"
@@ -278,7 +278,7 @@ async function activate(app) {
             query: {
                 entity_type: {
                     type: "string",
-                    enum: ["contact", "company", "ticket", "customer"],
+                    enum: ["contact", "company", "ticket"],
                     description: "Filter by entity type"
                 },
                 entity_id: {
@@ -288,7 +288,7 @@ async function activate(app) {
             }
         },
         handler: async (req, reply) => {
-            return handler.getCustomFieldDataBatch(req, reply);
+            return handler.getCustomObjectFieldDataBatch(req, reply);
         },
     });
 }

@@ -1576,6 +1576,255 @@ class TicketService {
             return Promise.reject(this.handleError(error));
         }
     }
+
+    async listBotTickets(req) {
+        try {
+            console.log("Fetching bot tickets with filters:", req);
+
+            // Get all users with bot_enabled=true
+            const { data: botUsers, error: botError } = await supabase
+                .from('users')
+                .select('id')
+                .eq('bot_enabled', true);
+
+            if (botError) {
+                console.error("Error fetching bot users:", botError);
+                throw new errors.DBError(botError.message);
+            }
+
+            if (!botUsers || botUsers.length === 0) {
+                console.log("No bot users found");
+                return [];
+            }
+
+            // Extract bot user IDs
+            const botUserIds = botUsers.map(user => user.id);
+            console.log(`Found ${botUserIds.length} bot users`);
+
+            // Get tickets assigned to bot users
+            let query = supabase
+                .from(this.entityName)
+                .select('*')
+                .in('assignedTo', botUserIds)
+                .match({ workspaceId: req.workspaceId, clientId: req.clientId });
+
+            // Apply additional filters if provided
+            if (req.status) query = query.eq('status', req.status);
+            if (req.priority) {
+                const priorityMap = { high: 2, medium: 1, low: 0 };
+                const priorityValue = priorityMap[req.priority];
+                if (priorityValue !== undefined) {
+                    query = query.eq('priority', priorityValue);
+                }
+            }
+            if (req.teamId) query = query.eq('teamId', req.teamId);
+            if (req.typeId) query = query.eq('typeId', req.typeId);
+
+            // Apply pagination
+            const skip = parseInt(req.skip) || 0;
+            const limit = parseInt(req.limit) || 10;
+
+            // Apply sorting
+            if (req.sort_by) {
+                const order = (req.sort_order === 'desc') ? { ascending: false } : { ascending: true };
+                query = query.order(req.sort_by, order);
+            } else {
+                // Default sort by createdAt descending
+                query = query.order('createdAt', { ascending: false });
+            }
+
+            // Apply range if pagination is requested
+            if (skip !== undefined && limit !== undefined) {
+                query = query.range(skip, skip + limit - 1);
+            }
+
+            const { data: tickets, error } = await query;
+
+            if (error) {
+                console.error("Error fetching bot tickets:", error);
+                throw new errors.DBError(error.message);
+            }
+
+            console.log(`Found ${tickets ? tickets.length : 0} tickets assigned to bots`);
+
+            // Use the same enrichment process as listTickets
+            const enrichedTickets = await Promise.map(tickets, async (ticket) => {
+                const { data: customers } = await supabase
+                    .from('ticketCustomers')
+                    .select(`
+                        customerId, 
+                        customers(
+                            id, 
+                            email, 
+                            firstname, 
+                            lastname, 
+                            phone
+                        )
+                    `)
+                    .eq('ticketId', ticket.id);
+
+                const { data: assignees } = await supabase
+                    .from('ticketAssignees')
+                    .select('userId, users(id, name, email, role)')
+                    .eq('ticketId', ticket.id);
+
+                const { data: mentions } = await supabase
+                    .from('ticketMentions')
+                    .select('userId, users(id, email, name)')
+                    .eq('ticketId', ticket.id);
+
+                const { data: companies } = await supabase
+                    .from('ticketCompanies')
+                    .select('companyId, companies(id, name, domain)')
+                    .eq('ticketId', ticket.id);
+
+                const { data: tagData } = await supabase
+                    .from('tags')
+                    .select('id, name, color')
+                    .in('id', ticket.tagIds || []);
+
+                // Fetch assignedTo user details if assignedTo exists
+                let assignedToUser = null;
+                if (ticket.assignedTo) {
+                    const { data: user } = await supabase
+                        .from('users')
+                        .select('id, name, email')
+                        .eq('id', ticket.assignedTo)
+                        .single();
+
+                    if (user) {
+                        assignedToUser = user;
+                    }
+                }
+
+                // Fetch team details if teamId exists
+                let teamData = null;
+                if (ticket.teamId) {
+                    const { data: team } = await supabase
+                        .from('teams')
+                        .select('id, name')
+                        .eq('id', ticket.teamId)
+                        .single();
+
+                    if (team) {
+                        teamData = team;
+                    }
+                }
+
+                // Fetch ticket type data if typeId exists
+                const ticketTypePromise = ticket.typeId
+                    ? supabase.from('ticketTypes').select('id, name, type').eq('id', ticket.typeId)
+                    : Promise.resolve({ data: null });
+
+                const { data: ticketType } = await ticketTypePromise;
+
+                const { count: messageCount } = await supabase
+                    .from('conversations')
+                    .select('*', { count: 'exact', head: true })
+                    .match({ ticket_id: ticket.id });
+
+                const primaryCustomer = customers?.[0]?.customers;
+                const primaryCompany = companies?.[0]?.companies ||
+                    (primaryCustomer?.company ? primaryCustomer.company : null);
+                const recipientEmails = mentions?.map(m => m.users?.email).filter(Boolean) || [];
+                const formattedTags = tagData?.map(tag => ({
+                    id: tag.id,
+                    name: tag.name,
+                    color: tag.color
+                })) || [];
+
+                return {
+                    id: ticket.id,
+                    sno: ticket.sno,
+                    subject: ticket.title,
+                    description: ticket.description,
+
+                    status: ticket.status,
+                    statusType: ticket.statusId,
+                    priority: ticket.priority === 2 ? 'high' : ticket.priority === 1 ? 'medium' : 'low',
+                    priorityRaw: ticket.priority,
+
+                    customerId: ticket.customerId,
+                    customer: {
+                        id: primaryCustomer?.id,
+                        name: `${primaryCustomer?.firstname || ''} ${primaryCustomer?.lastname || ''}`.trim() || primaryCustomer?.email || 'Unknown',
+                        email: primaryCustomer?.email,
+                        phone: primaryCustomer?.phone
+                    },
+
+                    companyId: ticket.companyId,
+                    company: primaryCompany ? {
+                        id: primaryCompany.id,
+                        name: primaryCompany.name,
+                        domain: primaryCompany.domain
+                    } : null,
+
+                    assigneeId: ticket.assigneeId,
+                    assignee: assignees?.[0]?.users ? {
+                        id: assignees[0].users.id,
+                        name: assignees[0].users.name,
+                        email: assignees[0].users.email,
+                        role: assignees[0].users.role
+                    } : null,
+                    assigneeStatus: assignees?.[0]?.users ? 'Assigned' : 'Unassigned',
+
+                    assignedTo: ticket.assignedTo,
+                    assignedToUser: assignedToUser ? {
+                        id: assignedToUser.id,
+                        name: assignedToUser.name,
+                        email: assignedToUser.email
+                    } : null,
+
+                    teamId: ticket.teamId,
+                    team: teamData ? {
+                        id: teamData.id,
+                        name: teamData.name
+                    } : null,
+
+                    lastMessage: ticket.lastMessage,
+                    lastMessageAt: ticket.lastMessageAt,
+                    lastMessageBy: ticket.lastMessageBy,
+                    messageCount: messageCount || 0,
+
+                    channel: ticket.channel,
+                    device: ticket.device,
+                    tags: formattedTags,
+                    intents: ticket.intents,
+                    sentiment: ticket.sentiment,
+
+                    // Add language field
+                    language: ticket.language || 'en',
+
+                    // Add type information
+                    type: ticketType?.[0]?.type || 'general',
+                    typeName: ticketType?.[0]?.name || 'General',
+
+                    createdAt: ticket.createdAt,
+                    updatedAt: ticket.updatedAt,
+                    closedAt: ticket.closedAt,
+
+                    isUnread: Boolean(ticket.unread),
+                    hasNotification: false,
+                    notificationType: null,
+                    recipients: recipientEmails,
+
+                    summary: ticket.summary,
+                    threadId: ticket.threadId,
+                    externalId: ticket.externalId,
+
+                    customFields: ticket.customFields || {},
+                    topicIds: ticket.topicIds || [],
+                    mentionIds: ticket.mentionIds || [],
+                    reopenInfo: ticket.reopen || null
+                };
+            });
+
+            return enrichedTickets;
+        } catch (err) {
+            console.error("Error in listBotTickets:", err);
+            throw err;
+        }
+    }
 }
 
 module.exports = TicketService;

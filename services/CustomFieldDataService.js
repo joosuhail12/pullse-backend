@@ -327,6 +327,63 @@ class CustomFieldDataService extends BaseService {
             return this.handleError(err);
         }
     }
+
+    async getCustomFieldDataBatch(customFieldIds, entityType, entityId) {
+        try {
+            this.log({ level: "info", message: "Fetching batch custom field data with filters", data: { customFieldIds, entityType, entityId } });
+
+            if (!Array.isArray(customFieldIds) || customFieldIds.length === 0) {
+                return Promise.reject(new errors.BadRequest("Valid array of custom field IDs is required"));
+            }
+
+            let query = this.supabase
+                .from("customfielddata")
+                .select("*, customfields(*)")
+                .in("customfieldId", customFieldIds)
+                .is("deletedAt", null);
+
+            // Apply entity type and ID filters if provided
+            if (entityType) {
+                // query = query.eq("entityType", entityType);
+
+                if (entityId) {
+                    if (entityType === 'ticket') {
+                        query = query.eq("ticketId", entityId);
+                    } else if (entityType === 'contact' || entityType === 'customer') {
+                        query = query.eq("contactId", entityId);
+                    } else if (entityType === 'company') {
+                        query = query.eq("companyId", entityId);
+                    }
+                }
+            }
+
+            let { data: customFieldDataList, error } = await query;
+
+            if (error) {
+                this.log({ level: "error", message: "Error fetching batch custom field data", data: { error, customFieldIds, entityType, entityId } });
+                throw error;
+            }
+
+            // Format the results as an array of objects with custom field data and nested custom field
+            const formattedResults = customFieldDataList?.map(item => {
+                // Extract the custom field object
+                const customField = item.customfields;
+                delete item.customfields;
+
+                // Return the structured object
+                return {
+                    ...item,
+                    customField
+                };
+            }) || [];
+
+            this.log({ level: "info", message: "Successfully fetched batch custom field data", data: { count: formattedResults.length } });
+            return formattedResults;
+        } catch (err) {
+            this.log({ level: "error", message: "Exception in getCustomFieldDataBatch", data: { err, customFieldIds, entityType, entityId } });
+            return this.handleError(err);
+        }
+    }
 }
 
 module.exports = CustomFieldDataService; 

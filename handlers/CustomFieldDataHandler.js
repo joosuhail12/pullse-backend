@@ -73,6 +73,15 @@ class CustomFieldDataHandler extends BaseHandler {
         let inst = new CustomFieldDataService();
         return this.responder(req, reply, inst.getCustomFieldDataByIds(customFieldIds));
     }
+
+    async getCustomFieldDataBatch(req, reply) {
+        const customFieldIds = req.body.customFieldIds;
+        const entityType = req.query.entity_type;
+        const entityId = req.query.entity_id;
+
+        let inst = new CustomFieldDataService();
+        return this.responder(req, reply, inst.getCustomFieldDataBatch(customFieldIds, entityType, entityId));
+    }
 }
 
 module.exports = CustomFieldDataHandler; 

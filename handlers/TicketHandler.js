@@ -209,6 +209,25 @@ class TicketHandler extends BaseHandler {
   async assignTeam(req, reply) {
     return this.assignTicketToTeam(req, reply);
   }
+
+  async listBotTickets(req, reply) {
+    let inst = this.ticketServiceInst;
+    req.query.workspace_id = req.query.workspace_id || req.authUser.workspaceId;
+    let filters = {
+      status: req.query.status,
+      teamId: req.query.team_id,
+      typeId: req.query.type_id,
+      priority: req.query.priority,
+      workspaceId: req.query.workspace_id,
+      skip: req.query.skip,
+      limit: req.query.limit,
+      page: req.query.page,
+      sort_by: req.query.sort_by,
+      sort_order: req.query.sort_order,
+      clientId: req.authUser.clientId
+    };
+    return this.responder(req, reply, inst.listBotTickets(filters));
+  }
 }
 
 module.exports = TicketHandler;
