@@ -23,12 +23,12 @@ const ensureQaSubscription = async (ticketId, sessionId) => {
     if ((qaResultSubscriptionsTime[msg.data.answer] && new Date() - qaResultSubscriptionsTime[msg.data.answer] < 10000) || msg.data.answer === "Sorry, an internal error occurred."){
       return;
     }
-    internalService.saveConversation(ticketId, msg.data.answer, users.id, 'agent', users.fname + " " + users.lname, users.clientId, users.defaultWorkspaceId);
+    internalService.saveConversation(ticketId, msg.data.answer, users.id, 'bot', users.fname + " " + users.lname, users.clientId, users.defaultWorkspaceId);
     const reCh = ably.channels.get(`widget:conversation:ticket-${ticketId}`);
     await reCh.publish('message_reply', {
       ticketId:ticketId,
       message:msg.data.answer,
-      from:'agent',
+      from:'bot',
       to:'customer',
       sessionId:sessionId
     });

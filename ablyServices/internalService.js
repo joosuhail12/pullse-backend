@@ -35,6 +35,148 @@ class InternalService {
     return agent?.id || null;
   }
 
+  async ticketRouting(ticketId) {
+    const { data: ticketData, error: ticketError } = await supabase
+      .from('tickets')
+      .select('teams(*)')
+      .eq('id', ticketId)
+      .limit(1);
+    const ticket = ticketData ? ticketData[0] : null;
+    console.log("ticket", ticket);
+    if (ticket.teams.routingStrategy === "manual") {
+        await supabase
+        .from('tickets')
+        .update({ assigneeId: null, assignedTo: null, aiEnabled: false })
+        .eq("id", ticketId)
+        return null;
+    } else if (ticket.teams.routingStrategy === "load-balanced") {
+      supabase
+        .from('tickets')
+        .select("*, assignedTo(*), teams(*)")
+        .eq("teamId", ticket.teams.id)
+        .eq("assignedTo.bot_enabled", false)
+        .not("teamId", "is", null)
+        .not("assignedTo", "is", null)
+        .select()
+        .then(({ data: tickets }) => {
+          const ticketCounts = {};
+    
+          tickets.forEach((t) => {
+            const agent = t.assignedTo;
+            if (agent && agent.id) {
+              if (!ticketCounts[agent.id]) {
+                ticketCounts[agent.id] = { agent, count: 0 };
+              }
+              ticketCounts[agent.id].count += 1;
+            }
+          });
+    
+          const agentList = Object.values(ticketCounts).sort((a, b) => a.count - b.count);
+          const leastLoadedAgent = agentList.length > 0 ? agentList[0].agent : null;
+    
+          if (leastLoadedAgent) {
+             supabase
+              .from("tickets")
+              .update({ aiEnabled: false, assignedTo: leastLoadedAgent.id })
+              .eq("id", ticketId)
+              .then(console.log);
+          }
+        });
+        return leastLoadedAgent.id ;
+    } else if (ticket.teams.routingStrategy === "round-robin") {
+    
+      supabase
+        .from("tickets")
+        .select("id, teamId")
+        .eq("id", ticketId)
+        .then(({ data: tickets }) => {
+          const ticket = tickets[0];
+          const teamId = ticket.teamId;
+    
+          supabase
+            .from("teamMembers")
+            .select("user_id, users(*)")
+            .eq("team_id", teamId)
+            .then(({ data: teamMembers }) => {
+              const agents = teamMembers
+                .map((tm) => tm.users)
+                .filter((u) => u && !u.bot_enabled)
+                .sort((a, b) => a.id.localeCompare(b.id));
+    
+              const agentIds = agents.map((a) => a.id);
+    
+              if (agentIds.length === 0) {
+                console.error("No valid agents found in team.");
+                throw new Error("No human agents available in this team.");
+              }
+    
+              supabase
+                .from("tickets")
+                .select("*, assignedTo(*)")
+                .eq("teamId", teamId)
+                .is("assigneeId", null)
+                .not("assignedTo", "is", null)
+                .eq("assignedTo.bot_enabled", false)
+                .order("createdAt", { ascending: false })
+                .limit(1)
+                .then(({ data: latestTickets }) => {
+                  let lastAssignedUserId = null;
+                  if (latestTickets.length > 0 && latestTickets[0].assignedTo) {
+                    lastAssignedUserId = latestTickets[0].assignedTo.id;
+                  }
+    
+                  let nextIndex = 0;
+                  if (lastAssignedUserId && agentIds.includes(lastAssignedUserId)) {
+                    const lastIndex = agentIds.indexOf(lastAssignedUserId);
+                    nextIndex = (lastIndex + 1) % agentIds.length;
+                  }
+    
+                  const nextAssigneeId = agentIds[nextIndex];
+    
+                  supabase
+                    .from("tickets")
+                    .update({
+                      assignedTo: nextAssigneeId,
+                      aiEnabled: false
+                    })
+                    .eq("id", ticketId)
+                    .then((updateResponse) => {
+                      console.log("Ticket assigned to:", nextAssigneeId);
+                      console.log("Update response:", updateResponse);
+                    });
+                });
+            });
+        });
+        return nextAssigneeId;
+    }
+    
+  }
+
+  async getAssignedAgentByTeamId(teamId) {
+    const { data: agentData, error: agentError } = await supabase
+      .from('users')
+      .select('*')
+      .eq('teamId', teamId)
+      .eq('bot_enabled', false)
+      .limit(1);
+    const agent = agentData ? agentData[0] : null;
+    return agent?.id || null;
+  }
+
+
+  async doManualAssignment(ticketId, agentId) {
+    const { data: ticketData, error: ticketError } = await supabase
+      .from('tickets')
+      .update({ assignedTo: agentId })
+      .eq('id', ticketId)
+      .limit(1);
+    if (ticketError) {
+      console.error('Error updating ticket:', ticketError);
+    }
+    return ticketData ? ticketData[0] : null;
+  }
+  
+
   /** Check if a given agent is online */
   isAgentOnline(agentId) {
     return this.onlineAgents.has(agentId);

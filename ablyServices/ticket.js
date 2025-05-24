@@ -1,119 +1,120 @@
-// ticket.js
-const { safeUUID } = require('./utils.js');
-const InternalService = require('./internalService.js');
-const {createClient} = require('@supabase/supabase-js');
-const { ensureQaSubscription } = require('./qaSubscriptions.js');
-const Ably = require('ably');
+const { createClient } = require('@supabase/supabase-js');
+const AblyRest = require('ably').Rest;
+const InternalService = require('./internalService');
+const Notifications = require('./notificationsService');
+const { safeUUID } = require('./utils');
+const { ensureQaSubscription } = require('./qaSubscriptions');
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
-const ably = new Ably.Realtime(process.env.ABLY_API_KEY);
-let routing, internalService;
+const ablyRest = new AblyRest(process.env.ABLY_API_KEY);
 
-/**
- * Inject shared singletons (called once from listeners.init).
- */
-const initTicket = (depSupabase, depAbly, depRouting, depInternalService) => {
-  routing = depRouting;
-  internalService = depInternalService;
-}
-
-/**
- * Create a new ticket and (optionally) forward first question to the LLM.
- * The caller (listeners.js) is responsible for
- *   subscribeToConversationChannels(ticketId)
- *   once this resolves.
- */
-const handleNewTicket = async ({ workspaceId, sessionId, firstMessage, userType }) => {
-  const internalService = new InternalService();
-
-    // 1. insert ticket
-    const { data: sessionData, error: sessionError } = await supabase
+exports.handleNewTicket = async function handleNewTicket ({ workspaceId, sessionId, firstMessage, userType }) {
+  // parallel fetches
+  const [sessionRow, chatChannelRow] = await Promise.all([
+    supabase
       .from('widgetsessions')
-      .select('customers: contactId(id, firstname, lastname, email), contactDeviceId, clients: clientId(id, ticket_ai_enabled), widgetId')
-      .eq('id', sessionId);
+      .select(`customers:contactId(id, firstname, lastname, email),
+               contactDeviceId,
+               clients:clientId(id, ticket_ai_enabled),
+               widgetId`)
+      .eq('id', sessionId)
+      .single(),
+    supabase.from('channels').select('id').eq('name', 'chat').single()
+  ]);
+  if (sessionRow.error) throw sessionRow.error;
+  if (chatChannelRow.error) throw chatChannelRow.error;
 
-    if (sessionError || !sessionData[0]) throw sessionError || new Error('No session found');
-    const session = sessionData[0];
-    const customerId = safeUUID(session.customers.id);
-    const clientId = safeUUID(session.clients.id);
-    const deviceId = safeUUID(session.contactDeviceId);
+  const session = sessionRow.data;
+  const chatChannelId = chatChannelRow.data.id;
 
-    const { data: channelData } = await supabase
-      .from('channels')
-      .select('id')
-      .eq('name', 'chat')
-      .single();
-    console.log(channelData,"channelData")
-    const { data: teamData } = await supabase
-      .from('teamChannels')
-      .select('teamId')
-      .eq('chatChannelId', channelData.id);
-    console.log(teamData,"teamData")
-    const teamId = safeUUID(teamData?.[0]?.teamId);
-    const ticketAiEnabled = session.clients.ticket_ai_enabled;
-    const aiEnabled = ticketAiEnabled ? true : false;
-    let assignedAgentId = null;
-    if (aiEnabled) {
-      assignedAgentId = await internalService.getAssignedAgent(clientId);
-    }
-    const { data: ticketResult, error: ticketError } = await supabase
+  // team from channel mapping
+  const { data: teamRow, error: teamErr } = await supabase
+    .from('teamChannels')
+    .select('teams:teamId(id, routingStrategy)')
+    .eq('chatChannelId', chatChannelId)
+    .single();
+  if (teamErr) throw teamErr;
+  console.log("session", session);
+  const {
+    contactDeviceId: deviceId,
+    clients: { id: clientId, ticket_ai_enabled: aiEnabled },
+    customers: { id: customerId, firstname, lastname, email },
+    widgetId
+  } = session;
+  const teamId = safeUUID(teamRow?.teams?.id);
+  const routingType = teamRow?.teams?.routingStrategy;
+  console.log("teamId", teamId, "clientId", clientId, "aiEnabled", aiEnabled, "customerId", customerId, "deviceId", deviceId, "widgetId", widgetId);
+  // insert ticket
+  const { data: ticket, error: tErr } = await supabase
     .from('tickets')
     .insert({
-        customerId,
-        clientId,
-        workspaceId,
-        lastMessage: firstMessage,
-        teamId,
-        title: firstMessage,
-        deviceId,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        assignedTo: assignedAgentId,
-        assigneeId: assignedAgentId,
-        aiEnabled: aiEnabled,
-        status: 'open'
+      customerId,
+      clientId,
+      workspaceId,
+      lastMessage: firstMessage,
+      teamId,
+      title: firstMessage,
+      deviceId,
+      aiEnabled,
+      status: 'open'
     })
-    .select();
-    const newTicketId = ticketResult?.[0]?.id;
-    if (!newTicketId) throw new Error('Ticket creation failed');
-    const { data: widgetTheme } = await supabase
-    .from('widgettheme')
-    .select('*')
-    .eq('widgetId', session.widgetId)
+    .select()
     .single();
-    const welcomeMessage = widgetTheme.labels?.welcomeMessage || 'Hello!';
-    const assignedAgent = await supabase
-    .from('users')
-    .select('id, firstname, lastname')
-    .eq('id', assignedAgentId)
-    .single();
-    await internalService.saveConversation(newTicketId, welcomeMessage, assignedAgent?.id, 'agent', assignedAgent?.firstname + " " + assignedAgent?.lastname, clientId, workspaceId);
-    await internalService.saveConversation(newTicketId, firstMessage, customerId, userType, session.customers.firstname + " " + session.customers.lastname, clientId, workspaceId);
+  if (tErr) throw tErr;
+  const ticketId = ticket.id;
 
-  // 3. send welcome message
-//   const welcomeText = aiEnabled
-//     ? 'Hello! Our AI assistant is reviewing your question and will reply shortly.'
-//     : 'Hello! Thank you for contacting support. An agent will be with you soon.';
+  // routing decision
+  const IS = new InternalService();
+  let assigneeId;
+  if (aiEnabled) {
+    assigneeId = await IS.getAssignedAgent(clientId);
+  } else {
+    assigneeId = await IS.ticketRouting(ticketId, teamId);
+  }
+  console.log("assigneeId", assigneeId, "routingType", routingType);
+  // prepare welcome / save conv parallel
+  const agentNamePromise = assigneeId
+    ? supabase.from('users').select('firstname, lastname').eq('id', assigneeId).single()
+    : Promise.resolve({ data: null });
+  const themePromise = supabase.from('widgettheme').select('labels').eq('widgetId', widgetId).single();
+  const [agentRow, themeRow] = await Promise.all([agentNamePromise, themePromise]);
 
+  const welcome = themeRow.data?.labels?.welcomeMessage || 'Hello!';
+  const agentName = agentRow.data ? `${agentRow.data.firstname} ${agentRow.data.lastname}` : null;
 
+  await IS.saveConversation(ticketId, welcome, assigneeId, 'agent', agentName, clientId, workspaceId);
+  await IS.saveConversation(ticketId, firstMessage, customerId, userType, `${firstname} ${lastname}`, clientId, workspaceId);
 
-  // 4. If AI is enabled, forward first question
-  const contactCh = ably.channels.get(`widget:contactevent:${sessionId}`);
+  // notify widget
+  ablyRest.channels.get(`widget:contactevent:${sessionId}`)
+          .publish('new_ticket_reply', { ticketId });
 
-  await contactCh.publish('new_ticket_reply', { ticketId: newTicketId });
-  
-  if (aiEnabled && firstMessage?.trim()) {
-    const qaCh = ably.channels.get(`document-qa`);
-    ensureQaSubscription(newTicketId, sessionId, clientId);
-    qaCh.publish('message', { query:firstMessage, id:newTicketId });
+  // notifications for humans (skip if goes to bot inbox)
+  console.log("aiEnabled", aiEnabled);
+  if (!aiEnabled) {
+    let recipients = [];
+    if (routingType === 'manual' || routingType === 'unassigned') {
+      const { data } = await supabase.from('teamMembers').select('user_id').eq('team_id', teamId);
+      recipients = data.map(r => r.user_id);
+    } else if (assigneeId) {
+      recipients = [assigneeId];
+    }
+
+    // decide broadcast channel
+    const broadcast = routingType === 'manual' ? [`notifications:org:${clientId}:unassigned`] : [];
+
+    await Notifications.createAndBroadcast({
+      type: 'NEW_TICKET',
+      entityId: ticketId,
+      actorId: customerId,
+      recipientIds: recipients,
+      payload: { title: firstMessage.slice(0, 120), routingType },
+      broadcastChannels: broadcast
+    });
+  }else{
+    ensureQaSubscription(ticketId, sessionId);
+    const qaCh = ablyRest.channels.get(`document-qa`);
+    qaCh.publish('message', { query: firstMessage, id:ticketId, clientId:clientId });
   }
 
-//   // 5. notify team (offline alert, etc.)
-//   internalService.notifyNewTicket(newTicketId, firstMessage, customerId);
-
-  return { id: newTicketId };
-}
-
-module.exports = {
-  handleNewTicket,
-  initTicket,
+  return { id: ticketId };
 };
