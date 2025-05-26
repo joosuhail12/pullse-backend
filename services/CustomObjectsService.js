@@ -72,7 +72,7 @@ class CustomObjectService extends BaseService {
             const customObject = {
                 name,
                 description,
-                connectiontype,
+                connectionType: connectiontype,
                 clientId,
                 workspaceId,
                 createdBy
