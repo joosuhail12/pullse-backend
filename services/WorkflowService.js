@@ -1045,6 +1045,13 @@ class WorkflowService extends BaseService {
 
             if (error) throw new Error(`Fetch channels failed: ${error.message}`);
 
+            if (workflowChannels === null) {
+                // Delete all channels in db
+                await this.supabase.from("workflowchannel").delete().eq("workflowId", workflowId);
+                return { message: "Channels deleted" };
+            }
+
+
             const existingEmailChannels = existingChannels.filter(c => c.channelType === "email");
             const channelsToCreate = [];
 
@@ -1123,9 +1130,16 @@ class WorkflowService extends BaseService {
         try {
             const workflowId = id;
             const { workflowChannels, workflowRuleParentGroup } = workflowConfig;
-            const { operator: parentGroupOperator, workflowRules, workflowChildGroups, id: parentGroupIdFromReq } = workflowRuleParentGroup;
+            const { operator: parentGroupOperator, workflowRules, workflowChildGroups, id: parentGroupIdFromReq } = workflowRuleParentGroup || {};
 
             await this.syncChannels(workflowChannels, workspaceId, workflowId, clientId, createdBy);
+
+            if (workflowRuleParentGroup === null) {
+                // Delete all rule groups and rules in db
+                await this.supabase.from("workflowrulegroup").delete().eq("workflowId", workflowId);
+                await this.supabase.from("workflowrule").delete().eq("workflowId", workflowId);
+                return { message: "Workflow configuration updated successfully" };
+            }
 
             let parentGroupId = parentGroupIdFromReq;
 
@@ -1245,8 +1259,17 @@ class WorkflowService extends BaseService {
             // Get the workflow groups
             const { data: groups, error: groupsError } = await this.supabase.from("workflowrulegroup").select("*").eq("workflowId", workflow.id).is("deletedAt", null);
 
+            if (groupsError) throw new Error(`Fetch groups failed: ${groupsError.message}`);
+            if (groups.length === 0) {
+                return {
+                    channels,
+                    rules: []
+                }
+            }
+
             // Get the workflow rules
             const { data: rules, error: rulesError } = await this.supabase.from("workflowrule").select("*").eq("workflowId", workflow.id).is("deletedAt", null);
+            if (rulesError) throw new Error(`Fetch rules failed: ${rulesError.message}`);
 
             // Group the childGroups within the parent group
             const parentGroup = groups.filter(group => group.parentGroupId === null);
@@ -1270,7 +1293,7 @@ class WorkflowService extends BaseService {
                 return rule;
             });
 
-            let parsedRules = {
+            const parsedRules = {
                 ...parentGroup[0],
                 rules: [
                     ...mappedRules.filter(rule => rule.workflowRuleGroupId === parentGroup[0].id),
