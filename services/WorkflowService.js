@@ -124,6 +124,39 @@ class WorkflowService extends BaseService {
         }
     }
 
+    generateEmptyObjectFromSchema(schema) {
+        if (Object.keys(schema).length === 0) return {};
+        if (!schema || typeof schema !== 'object') return {};
+
+        switch (schema.type) {
+            case 'object':
+                const obj = {};
+                if (schema.properties) {
+                    for (const key of Object.keys(schema.properties)) {
+                        obj[key] = this.generateEmptyObjectFromSchema(schema.properties[key]);
+                    }
+                }
+                return obj;
+
+            case 'array':
+                return [];
+
+            case 'string':
+                return schema.default ?? '';
+
+            case 'number':
+            case 'integer':
+                return schema.default ?? null;
+
+            case 'boolean':
+                return schema.default ?? false;
+
+            default:
+                return {};
+        }
+    }
+
+
     async createWorkflow(data) {
         try {
             const { clientId, workspaceId, createdBy, triggerType, triggerPosition, nodeId } = data;
@@ -167,10 +200,13 @@ class WorkflowService extends BaseService {
                 throw new errors.InternalServerError(getTriggerNodeSchemaError.message);
             }
 
+            // Create a new json object with empty config based on the schema
+            const emptyConfig = this.generateEmptyObjectFromSchema(getTriggerNodeSchema.schema);
+
             // Create entry in workflownode table
             const { data: workflownodeData, error: workflownodeError } = await this.supabase
                 .from('workflownode')
-                .insert({ workflowId: workflowId, type: triggerType, isTrigger: true, positionX: triggerPosition.positionX, positionY: triggerPosition.positionY, reactFlowId: nodeId, schemaVersion: getTriggerNodeSchema.schemaVersion, config: {} })
+                .insert({ workflowId: workflowId, type: triggerType, isTrigger: true, positionX: triggerPosition.positionX, positionY: triggerPosition.positionY, reactFlowId: nodeId, schemaVersion: getTriggerNodeSchema.schemaVersion, config: emptyConfig })
                 .select()
                 .single();
 
