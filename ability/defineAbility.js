@@ -5,114 +5,96 @@ const customConditionsMatcher = (conditions, resource) => {
   return Object.keys(conditions).every(key => conditions[key] === resource[key]);
 };
 
+// Enhanced backend defineAbility function
 function defineAbilityFor(user) {
   const { can, cannot, build } = new AbilityBuilder(PureAbility);
-
-  console.log(`user: ${JSON.stringify(user)}`);
-
 
   if (user.role === UserRoles.superAdmin) {
     can('manage', 'all');
   }
 
   if (user.role === UserRoles.organizationAdmin) {
-    can(['create', 'update', 'read'], 'Ticket', { clineId: user.clientId });
-    can('manage', 'Profile');
-    can('manage', 'ChatbotManagement', { clineId: user.clientId });
-    can('manage', 'Workflow', { clineId: user.clientId });
-    can('manage', 'Workspace', { clineId: user.clientId });
-    can(['create', 'read', 'update'], 'Customer', { clineId: user.clientId });
-    can(['create', 'read', 'update', 'archive'], 'Tag', { clineId: user.clientId });
-    can(['create', 'read', 'update', 'archive'], 'Topic', { clineId: user.clientId });
-    can('manage', 'Teams', { clineId: user.clientId });
-    can('manage', 'User', { clineId: user.clientId });
-    can('manage', 'DataModelling', { clineId: user.clientId });
-    can(['create', 'read', 'update'], 'Sentiments', { clineId: user.clientId });
-    can(['create', 'read', 'update'], 'Performance', { clineId: user.clientId });
-    can(['create', 'read', 'update', 'delete'], 'Marcos', { clineId: user.clientId });
-    can(['create', 'read', 'update', 'delete'], 'Reports', { clineId: user.clientId });
-    can('manage', 'WorkspacePermission', { clineId: user.clientId });
-    can('manage', 'DomainManagement', { clineId: user.clientId });
+    // In your backend defineAbilityFor function, update organizationAdmin section:
 
-    // Inbox specific permissions
-    can('read', 'InboxYour', { clineId: user.clientId });
-    can('read', 'InboxMentions', { clineId: user.clientId });
-    can('read', 'InboxAll', { clineId: user.clientId });
-    can('read', 'InboxUnassigned', { clineId: user.clientId });
-    can('read', 'InboxTeams', { clineId: user.clientId });
-    can('read', 'InboxTeammates', { clineId: user.clientId });
+    can(['create', 'update', 'read'], 'Ticket', { clientId: user.clientId });
+
+    // ADD THESE MISSING INBOX PERMISSIONS:
+    can('read', 'InboxAll', { clientId: user.clientId });
+    can('read', 'InboxYour', { clientId: user.clientId });
+    can('read', 'InboxMentions', { clientId: user.clientId });
+    can('read', 'InboxUnassigned', { clientId: user.clientId });
+    can('read', 'InboxTeams', { clientId: user.clientId });
+    can('read', 'InboxTeammates', { clientId: user.clientId });
+
+    can('manage', 'Profile');
+    can('manage', 'ChatbotManagement', { clientId: user.clientId });
+    can('manage', 'Workflow', { clientId: user.clientId });
+    can('manage', 'Workspace', { clientId: user.clientId });
+    can(['create', 'read', 'update'], 'Customer', { clientId: user.clientId });
+    can(['create', 'read', 'update', 'archive'], 'Tag', { clientId: user.clientId });
+    can(['create', 'read', 'update', 'archive'], 'Topic', { clientId: user.clientId });
+    can('manage', 'Teams', { clientId: user.clientId });
+    can('manage', 'User', { clientId: user.clientId });
+    can('manage', 'DataModelling', { clientId: user.clientId });
+    can(['create', 'read', 'update'], 'Sentiments', { clientId: user.clientId });
+    can(['create', 'read', 'update'], 'Performance', { clientId: user.clientId });
+    can(['create', 'read', 'update', 'delete'], 'Marcos', { clientId: user.clientId });
+    can(['create', 'read', 'update', 'delete'], 'Reports', { clientId: user.clientId });
+    can(['create', 'read'], 'Workspace', { clientId: user.clientId });
+    can('manage', 'WorkspacePermission', { clientId: user.clientId });
   }
 
   if (user.role === UserRoles.workspaceAdmin) {
-    can(['create', 'read'], 'Workspace', { clineId: user.clientId });
+    can(['create', 'read'], 'Workspace', { clientId: user.clientId });
     can('manage', 'Profile');
-    can(['create', 'update', 'read'], 'Ticket', { clineId: user.clientId, workspaceId: user.defaultWorkspaceId });
-    can('manage', 'ChatbotManagement', { clineId: user.clientId, workspaceId: user.defaultWorkspaceId });
-    can('manage', 'Workflow', { clineId: user.clientId, workspaceId: user.defaultWorkspaceId });
-    can(['create', 'read', 'update'], 'Customer', { clineId: user.clientId, workspaceId: user.defaultWorkspaceId });
-    can(['create', 'read', 'update', 'archive'], 'Tag', { clineId: user.clientId, workspaceId: user.defaultWorkspaceId });
-    can(['create', 'read', 'update', 'archive'], 'Topic', { clineId: user.clientId, workspaceId: user.defaultWorkspaceId });
-    can('manage', 'Teams', { clineId: user.clientId, workspaceId: user.defaultWorkspaceId });
-    can(['create', 'update', 'read'], 'User', { clineId: user.clientId, workspaceId: user.defaultWorkspaceId });
-    can('manage', 'DataModelling', { clineId: user.clientId, workspaceId: user.defaultWorkspaceId });
-    can(['create', 'read', 'update'], 'Sentiments', { clineId: user.clientId, workspaceId: user.defaultWorkspaceId });
-    can(['create', 'read', 'update'], 'Performance', { clineId: user.clientId, workspaceId: user.defaultWorkspaceId });
-    can(['create', 'read', 'update', 'delete'], 'Marcos', { clineId: user.clientId, workspaceId: user.defaultWorkspaceId });
-    can(['create', 'read', 'update', 'delete'], 'Reports', { clineId: user.clientId, workspaceId: user.defaultWorkspaceId });
-    can(['create', 'read', 'update', 'delete'], 'DomainManagement', { clineId: user.clientId, workspaceId: user.defaultWorkspaceId });
-
-    // Inbox specific permissions
-    can('read', 'InboxYour', { clineId: user.clientId, workspaceId: user.defaultWorkspaceId });
-    can('read', 'InboxMentions', { clineId: user.clientId, workspaceId: user.defaultWorkspaceId });
-    can('read', 'InboxAll', { clineId: user.clientId, workspaceId: user.defaultWorkspaceId });
-    can('read', 'InboxUnassigned', { clineId: user.clientId, workspaceId: user.defaultWorkspaceId });
-    can('read', 'InboxTeams', { clineId: user.clientId, workspaceId: user.defaultWorkspaceId });
-    can('read', 'InboxTeammates', { clineId: user.clientId, workspaceId: user.defaultWorkspaceId });
+    can(['create', 'update', 'read'], 'Ticket', { clientId: user.clientId, workspaceId: user.defaultWorkspaceId });
+    can('manage', 'ChatbotManagement', { clientId: user.clientId, workspaceId: user.defaultWorkspaceId });
+    can('manage', 'Workflow', { clientId: user.clientId, workspaceId: user.defaultWorkspaceId });
+    can(['create', 'read', 'update'], 'Customer', { clientId: user.clientId, workspaceId: user.defaultWorkspaceId });
+    can(['create', 'read', 'update', 'archive'], 'Tag', { clientId: user.clientId, workspaceId: user.defaultWorkspaceId });
+    can(['create', 'read', 'update', 'archive'], 'Topic', { clientId: user.clientId, workspaceId: user.defaultWorkspaceId });
+    can('manage', 'Teams', { clientId: user.clientId, workspaceId: user.defaultWorkspaceId });
+    can(['create', 'update', 'read'], 'User', { clientId: user.clientId, workspaceId: user.defaultWorkspaceId });
+    can('manage', 'DataModelling', { clientId: user.clientId, workspaceId: user.defaultWorkspaceId });
+    can(['create', 'read', 'update'], 'Sentiments', { clientId: user.clientId, workspaceId: user.defaultWorkspaceId });
+    can(['create', 'read', 'update'], 'Performance', { clientId: user.clientId, workspaceId: user.defaultWorkspaceId });
+    can(['create', 'read', 'update', 'delete'], 'Marcos', { clientId: user.clientId, workspaceId: user.defaultWorkspaceId });
+    can(['create', 'read', 'update', 'delete'], 'Reports', { clientId: user.clientId, workspaceId: user.defaultWorkspaceId });
+    can(['create', 'read'], 'Workspace', { clientId: user.clientId, workspaceId: user.defaultWorkspaceId });
+    can('manage', 'WorkspacePermission', { clientId: user.clientId, workspaceId: user.defaultWorkspaceId });
   }
 
   if (user.role === UserRoles.workspaceAgent) {
-    // 🎯 AGENT SPECIFIC PERMISSIONS - Very Narrow Scope
-
-    // Basic ticket access for agent's work
-    can(['create', 'update', 'read'], 'Ticket', { clineId: user.clientId, workspaceId: user.defaultWorkspaceId });
-    can(['create', 'read', 'update'], 'Customer', { clineId: user.clientId, workspaceId: user.defaultWorkspaceId });
-
-    // Profile management
     can(['read', 'update'], 'Profile');
+    can(['create', 'update', 'read'], 'Ticket', { clientId: user.clientId, workspaceId: user.defaultWorkspaceId, userId: user.id });
+    can('read', 'Workspace', { clientId: user.clientId, workspaceId: user.defaultWorkspaceId });
+    can('read', 'InboxYour', { clientId: user.clientId, workspaceId: user.defaultWorkspaceId, userId: user.id });
+    can('read', 'InboxMentions', { clientId: user.clientId, workspaceId: user.defaultWorkspaceId, userId: user.id });
 
-    // Basic workspace read access
-    can('read', 'Workspace');
+    // only for testing
+    // can('read', 'InboxAll', { clientId: user.clientId, workspaceId: user.defaultWorkspaceId });
+    // 🚫 EXPLICITLY DENY contact creation for agents
+    cannot(['create', 'update', 'delete', 'archive'], 'Customer');
+    // Only allow reading contacts
+    can('read', 'Customer', { clientId: user.clientId, workspaceId: user.defaultWorkspaceId });
 
-    // 🎯 SPECIFIC INBOX PERMISSIONS - Only Mentions and Your Inbox
-    can('read', 'InboxYour', { clineId: user.clientId, workspaceId: user.defaultWorkspaceId, userId: user.id });
-    can('read', 'InboxMentions', { clineId: user.clientId, workspaceId: user.defaultWorkspaceId, userId: user.id });
-
-    // 🚫 EXPLICITLY DENY OTHER INBOX FEATURES
-    // cannot('read', 'InboxAll');
-    // cannot('read', 'InboxUnassigned');
-    // cannot('read', 'InboxTeams');
-    // cannot('read', 'InboxTeammates');
-
-    // 🚫 DENY ALL OTHER MAJOR FEATURES
+    // Deny other management actions
     cannot(['create', 'update', 'delete', 'manage'], 'ChatbotManagement');
     cannot(['create', 'update', 'delete', 'manage'], 'Workflow');
     cannot(['create', 'update', 'delete', 'manage'], 'User');
     cannot(['create', 'update', 'delete', 'manage'], 'DomainManagement');
     cannot(['create', 'update', 'delete'], 'Tag');
     cannot(['create', 'update', 'delete'], 'Topic');
+    cannot(['create', 'update', 'delete'], 'Teams');
+    cannot(['create', 'update', 'delete'], 'DataModelling');
+    cannot(['create', 'update', 'delete'], 'Sentiments');
+    cannot(['create', 'update', 'delete'], 'Performance');
     cannot(['create', 'update', 'delete'], 'Marcos');
     cannot(['create', 'update', 'delete'], 'Reports');
-    cannot('manage', 'Workspace');
-    cannot('read', 'Teams');
-    cannot('read', 'DataModelling');
-    cannot('read', 'Sentiments');
-    cannot('read', 'Performance');
-    cannot('read', 'Reports');
+    cannot(['create', 'update', 'delete', 'manage'], 'WorkspacePermission');
   }
 
-  return build({
-    conditionsMatcher: customConditionsMatcher,
-  });
+  return build({ conditionsMatcher: customConditionsMatcher });
 }
 
 module.exports = { defineAbilityFor };
