@@ -33,7 +33,7 @@ function defineAbilityFor(user) {
     cannot('archive', 'Workflow');
 
     // Workspace permissions
-    can(['create', 'update', 'read', 'delete'], 'Workspace', { clientId: user.clientId });
+    can(['create', 'update', 'read', 'delete', 'manage'], 'Workspace', { clientId: user.clientId });
     cannot('archive', 'Workspace');
 
     // Customer permissions
