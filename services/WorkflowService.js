@@ -124,6 +124,39 @@ class WorkflowService extends BaseService {
         }
     }
 
+    generateEmptyObjectFromSchema(schema) {
+        if (Object.keys(schema).length === 0) return {};
+        if (!schema || typeof schema !== 'object') return {};
+
+        switch (schema.type) {
+            case 'object':
+                const obj = {};
+                if (schema.properties) {
+                    for (const key of Object.keys(schema.properties)) {
+                        obj[key] = this.generateEmptyObjectFromSchema(schema.properties[key]);
+                    }
+                }
+                return obj;
+
+            case 'array':
+                return [];
+
+            case 'string':
+                return schema.default ?? '';
+
+            case 'number':
+            case 'integer':
+                return schema.default ?? null;
+
+            case 'boolean':
+                return schema.default ?? false;
+
+            default:
+                return {};
+        }
+    }
+
+
     async createWorkflow(data) {
         try {
             const { clientId, workspaceId, createdBy, triggerType, triggerPosition, nodeId } = data;
@@ -167,10 +200,13 @@ class WorkflowService extends BaseService {
                 throw new errors.InternalServerError(getTriggerNodeSchemaError.message);
             }
 
+            // Create a new json object with empty config based on the schema
+            const emptyConfig = this.generateEmptyObjectFromSchema(getTriggerNodeSchema.schema);
+
             // Create entry in workflownode table
             const { data: workflownodeData, error: workflownodeError } = await this.supabase
                 .from('workflownode')
-                .insert({ workflowId: workflowId, type: triggerType, isTrigger: true, positionX: triggerPosition.positionX, positionY: triggerPosition.positionY, reactFlowId: nodeId, schemaVersion: getTriggerNodeSchema.schemaVersion, config: {} })
+                .insert({ workflowId: workflowId, type: triggerType, isTrigger: true, positionX: triggerPosition.positionX, positionY: triggerPosition.positionY, reactFlowId: nodeId, schemaVersion: getTriggerNodeSchema.schemaVersion, config: emptyConfig })
                 .select()
                 .single();
 
@@ -1539,6 +1575,76 @@ class WorkflowService extends BaseService {
             throw error;
         }
     }
+
+    async getWorkflowReusableNodes(workspaceId, clientId) {
+        try {
+            // Get all workflows for the workspace
+            const {
+                data: workflows,
+                error: workflowsError
+            } = await this.supabase.from("workflow").select("*").eq("workspaceId", workspaceId).eq("clientId", clientId).is("deletedAt", null);
+
+            if (workflowsError) {
+                throw new errors.Internal(workflowsError.message);
+            }
+
+            // Map the workflow ids in an array
+            const workflowIds = workflows.map(workflow => workflow.id);
+
+            // Get all reusable nodes for the workspace
+            const {
+                data: reusableNodes,
+                error: reusableNodesError
+            } = await this.supabase.from("workflownode").select("*").eq("type", "reusable_workflow").in("workflowId", workflowIds);
+
+            if (reusableNodesError) {
+                throw new errors.Internal(reusableNodesError.message);
+            };
+
+            // Get schema for reusable_workflow node
+            const { data: getTriggerNodeSchema, error: getTriggerNodeSchemaError } = await this.supabase
+                .from('workflownodeschema')
+                .select('*')
+                .eq('nodeType', "reusable_workflow")
+                .eq('type', 'live')
+                .single();
+
+            if (getTriggerNodeSchemaError) {
+                throw new errors.Internal(getTriggerNodeSchemaError.message);
+            }
+
+            let validNodes = [];
+
+            // Validate all the nodes using ajv
+            const ajv = new Ajv();
+            for (const node of reusableNodes) {
+                const schema = getTriggerNodeSchema;
+                if (!schema) throw new Error(`Schema not found for node type: ${node.type}`);
+
+                const validate = ajv.compile(schema.schema);
+                const valid = validate(node?.config);
+                if (valid) {
+                    validNodes.push({
+                        id: node.id,
+                        branchName: node?.config?.branchName
+                    });
+                }
+            }
+
+            return validNodes;
+
+        } catch (e) {
+            console.error("Error in getWorkflowReusableNodes:", e);
+            return this.handleError({
+                error: true,
+                message: "Error in getWorkflowReusableNodes",
+                data: e,
+                httpCode: 500,
+                code: "WORKFLOW_REUSABLE_NODES_ERROR"
+            });
+        }
+    }
+
 }
 
 module.exports = WorkflowService;
