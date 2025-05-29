@@ -568,7 +568,26 @@ async function activate(app) {
     handler: async (req, reply) => {
       return handler.getWorkflowRuleFields(req, reply);
     }
-  })
+  });
+
+  app.route({
+    url: base_url + '/getWorkflowReusableNodes',
+    method: 'GET',
+    name: "GetWorkflowReusableNodes",
+    preHandler: authMiddlewares.checkToken(AuthType.user),
+    schema: {
+      query: {
+        type: 'object',
+        required: ['workspace_id'],
+        properties: {
+          workspace_id: { type: 'string' },
+        },
+      },
+    },
+    handler: async (req, reply) => {
+      return handler.getWorkflowReusableNodes(req, reply);
+    }
+  });
 }
 
 module.exports = { activate };
