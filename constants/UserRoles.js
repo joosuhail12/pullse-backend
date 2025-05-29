@@ -12,9 +12,9 @@ class UserRoles {
         return "SUPER_ADMIN";
     }
 
-        static get organizationAdmin() {
-            return "ORGANIZATION_ADMIN";
-        }
+    static get organizationAdmin() {
+        return "ORGANIZATION_ADMIN";
+    }
 
     static get workspaceAdmin() {
         return "WORKSPACE_ADMIN";
@@ -22,6 +22,10 @@ class UserRoles {
 
     static get workspaceAgent() {
         return "WORKSPACE_AGENT";
+    }
+
+    static get visitor() {
+        return "VISITOR";
     }
 }
 
