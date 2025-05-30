@@ -33,7 +33,6 @@ exports.handleNewTicket = async function handleNewTicket ({ workspaceId, session
     .eq('chatChannelId', chatChannelId)
     .single();
   if (teamErr) throw teamErr;
-  console.log("session", session);
   const {
     contactDeviceId: deviceId,
     clients: { id: clientId, ticket_ai_enabled: aiEnabled },
@@ -42,7 +41,6 @@ exports.handleNewTicket = async function handleNewTicket ({ workspaceId, session
   } = session;
   const teamId = safeUUID(teamRow?.teams?.id);
   const routingType = teamRow?.teams?.routingStrategy;
-  console.log("teamId", teamId, "clientId", clientId, "aiEnabled", aiEnabled, "customerId", customerId, "deviceId", deviceId, "widgetId", widgetId);
   // insert ticket
   const { data: ticket, error: tErr } = await supabase
     .from('tickets')
@@ -70,7 +68,6 @@ exports.handleNewTicket = async function handleNewTicket ({ workspaceId, session
   } else {
     assigneeId = await IS.ticketRouting(ticketId, teamId);
   }
-  console.log("assigneeId", assigneeId, "routingType", routingType);
   // prepare welcome / save conv parallel
   const agentNamePromise = assigneeId
     ? supabase.from('users').select('firstname, lastname').eq('id', assigneeId).single()
@@ -89,7 +86,6 @@ exports.handleNewTicket = async function handleNewTicket ({ workspaceId, session
           .publish('new_ticket_reply', { ticketId });
 
   // notifications for humans (skip if goes to bot inbox)
-  console.log("aiEnabled", aiEnabled);
   if (!aiEnabled) {
     let recipients = [];
     if (routingType === 'manual' || routingType === 'unassigned') {

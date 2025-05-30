@@ -32,6 +32,9 @@ class TicketHandler extends BaseHandler {
 
   async listTickets(req, reply) {
     let inst = this.ticketServiceInst;
+    req.query.customer_id = req.authUser.id;
+    req.query.session_id = req.authUser.sessionId;
+    req.query.client_id = req.authUser.clientId;
     let filters = {
       status: req.query.status,
       teamId: req.query.team_id,
@@ -54,7 +57,7 @@ class TicketHandler extends BaseHandler {
       page: req.query.page,
       sort_by: req.query.sort_by,
       sort_order: req.query.sort_order,
-      clientId: req.authUser.clientId
+      clientId: req.query.client_id
     };
     return this.responder(req, reply, inst.listTickets(filters));
   }
@@ -80,7 +83,6 @@ class TicketHandler extends BaseHandler {
       return this.responder(req, reply, Promise.reject(new Error('Ticket ID or SNO is required')));
     }
 
-    console.log(`Updating ticket ${id ? `with ID ${id}` : `with SNO ${sno}`}`);
 
     let toUpdate = req.body;
     let inst = this.ticketServiceInst;
@@ -129,7 +131,6 @@ class TicketHandler extends BaseHandler {
       return this.responder(req, reply, Promise.reject(new Error('User ID is required. Please provide userId, assignTo, or assignedTo.')));
     }
 
-    console.log(`Assigning ticket ${id ? `with ID ${id}` : `with SNO ${sno}`} to user ${userId}`);
 
     let inst = this.ticketServiceInst;
     return this.responder(req, reply, inst.assignTicketToUser(id, sno, userId, workspaceId, clientId));
@@ -199,7 +200,6 @@ class TicketHandler extends BaseHandler {
       return this.responder(req, reply, Promise.reject(new Error('Team ID is required')));
     }
 
-    console.log(`Assigning ticket ${id ? `with ID ${id}` : `with SNO ${sno}`} to team ${teamId}`);
 
     let inst = this.ticketServiceInst;
     return this.responder(req, reply, inst.assignTicketToTeam(id, sno, teamId, workspaceId, clientId));

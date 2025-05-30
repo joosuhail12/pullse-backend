@@ -79,6 +79,16 @@ async function activate(app) {
   });
 
   app.route({
+    url: "/api/action-center/create",
+    method: 'POST',
+    name: "CreateActionCenter",
+    preHandler: authMiddlewares.checkToken(AuthType.user),
+    handler: async (req, reply) => {
+      return handler.createActionCenter(req, reply);
+    }
+  })
+
+  app.route({
     url: base_url + "/content",
     method: 'GET',
     name: "FetchContents",
@@ -275,7 +285,6 @@ async function activate(app) {
       }
     },
     handler: async (req, reply) => {
-      console.log(req.body);
       return { "status": "success", };
       // return handler.deleteChatbotDocument(req, reply);
     }

@@ -42,7 +42,15 @@ class ChatbotDocumentService extends BaseService {
             .eq('id', clientId)
             .maybeSingle();
             await sendTaskMessage(url, title, description, content, 'text', uesrId, clientId, workspaceId, client.name, "snippet", folderId)
-            return url
+        } catch (err) {
+            console.log(err)
+            return this.handleError(err);
+        }
+    }
+
+    async addCreateActionCenter({ title,content,category,tags,isLive,description: description,status, contentType, folderId }, uesrId, clientId, workspaceId){
+        try {
+            const bucketName = "pullse";
         } catch (err) {
             console.log(err)
             return this.handleError(err);

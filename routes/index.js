@@ -21,6 +21,7 @@ const chatbotProfileRoute = require('./chatbotProfileRoutes');
 const chatbotDocumentRoute = require('./chatbotDocumentRoutes');
 const contentFolderRoute = require('./contentFolderRoutes');
 const mentionRoutes = require('./mentionRoutes');
+const notificationRoute = require('./notificationRoutes');
 
 const customFieldRoute = require('./customFieldRoutes');
 const customFieldDataRoute = require('./customFieldDataRoutes');
@@ -40,6 +41,7 @@ const emailChannelsRoute = require('./emailChannelsRoutes');
 const widgetRoute = require('./widgetRoutes');
 const analyticsRoute = require('./analyticsRoutes');
 const ablyRoute = require('./ablyRoutes');
+const actionCenterRoute = require('./actionCenterRoutes');
 
 module.exports = {
   async activate(app) {
@@ -83,5 +85,7 @@ module.exports = {
     await widgetRoute.activate(app);
     await analyticsRoute.activate(app);
     await ablyRoute.activate(app);
+    await notificationRoute.activate(app);
+    await actionCenterRoute.activate(app);
   }
 };

@@ -18,7 +18,7 @@ async function activate(app) {
       summary: 'Create User Chatbot',
       description: 'API to create user chatbot.',
       body: {
-        required: [ "name", "status", "channels", "audience" ],
+        required: [ "name", "status", "channels", "audienceRules" ],
         additionalProperties: false,
         type: 'object',
         properties: {
@@ -35,41 +35,66 @@ async function activate(app) {
               type: 'string',
             }
           },
-          audience: {
-            type: 'array',
-            items: {
-              type: 'string',
+          audienceRules: {
+            type: 'object',
+            properties: {
+              id: {
+                type: 'string'
+              },
+              combinator: {
+                type: 'string'
+              },
+              rules: {
+                type: 'array',
+                items: {
+                  type: 'object'
+                }
+              }
             }
           },
-          rules: {
-            type: 'array',
-            items: {
-              type: 'object'
+          welcomeMessage: {
+            type: 'string',
+          },
+          humanHandoffMessage: {
+            type: 'string',
+          },
+          behavior: {
+            type: 'object',
+            properties: {
+              queryHandling: {
+                type: 'string'
+              },
+              postAnswerAction: {
+                type: 'string'
+              },
+              inactivityTimeout: {
+                type: 'number'
+              },
+              inactivityAction: {
+                type: 'string'
+              },
+              enableHumanHandoff: {
+                type: 'boolean'
+              }
             }
           },
-          introMessages: {
+          knowledgeBaseIds: {
             type: 'array',
             items: {
               type: 'string'
             }
           },
-          handoverMessages: {
-            type: 'array',
-            items: {
-              type: 'string'
-            }
+          tone: {
+            type: 'string'
           },
-          answerMode: {
-            type: 'string',
-            enum: ["once", "loop"]
+          customInstructions: {
+            type: 'string'
           },
-          afterAnswer: {
-            type: 'string',
-            enum: ["close", "route"]
+          persona: {  
+            type: 'string'
           },
-          ifCantAnswer: {
-            type: 'string',
-            enum: ["close", "route"]
+          avatarUrl: {
+            type: 'string'
           },
         }
       },
@@ -87,7 +112,7 @@ async function activate(app) {
     handler: async (req, reply) => {
       return handler.createBotProfile(req, reply);
     }
-  });
+  }); 
 
   app.route({
     url: base_url,
@@ -278,7 +303,17 @@ async function activate(app) {
     }
   });
 
+  app.route({
+    url: base_url + '/rule-fields',
+    method: 'GET',
+    name: "GetChatbotRuleFields",
+    preHandler: authMiddlewares.checkToken(AuthType.user),
+    handler: async (req, reply) => {
+      return handler.getChatbotRuleFields(req, reply);
+    }
+  });
 }
+
 
 module.exports = {
   activate

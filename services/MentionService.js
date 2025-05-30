@@ -1,6 +1,8 @@
 const Promise = require("bluebird");
 const errors = require("../errors");
 const { createClient } = require("@supabase/supabase-js");
+const Notifications = require('../ablyServices/notificationsService');
+
 
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
 
@@ -23,7 +25,14 @@ class MentionService {
                 .select();
 
             if (error) throw error;
-
+            //create a notification for the user
+            await Notifications.createAndBroadcast({
+                type: 'TICKET_MENTION',
+                entityId: ticketId,
+                actorId: mentionedBy,
+                recipientIds: [userId],
+                payload: { title: content }
+            });
             return data;
         } catch (error) {
             console.error('Error adding mention:', error);
@@ -35,7 +44,6 @@ class MentionService {
         try {
             const { ticketId, userId, clientId, status, isRead, skip = 0, limit = 10, workspaceId } = filters;
 
-            console.log("Filtering with params:", { ticketId, userId, clientId, status, isRead, workspaceId });
 
             // Build the query to get mentions
             let query = supabase
@@ -46,17 +54,14 @@ class MentionService {
             if (userId) {
                 // This is filtering for mentions where the specified user is mentioned
                 query = query.eq('userId', userId);
-                console.log(`Filtering by userId: ${userId}`);
             }
 
             if (ticketId) {
                 query = query.eq('ticketId', ticketId);
-                console.log(`Filtering by ticketId: ${ticketId}`);
             }
 
             if (isRead !== undefined) {
                 query = query.eq('isRead', isRead);
-                console.log(`Filtering by isRead: ${isRead}`);
             }
 
             const { data: mentions, error } = await query
@@ -68,7 +73,6 @@ class MentionService {
                 throw error;
             }
 
-            console.log(`Found ${mentions ? mentions.length : 0} mentions`);
 
             if (!mentions || mentions.length === 0) {
                 return [];
@@ -103,7 +107,6 @@ class MentionService {
                 throw ticketsError;
             }
 
-            console.log(`Found ${tickets ? tickets.length : 0} associated tickets`);
 
             // Extract customer IDs to fetch customer details
             const customerIds = tickets
@@ -396,7 +399,6 @@ class MentionService {
                 };
             }).filter(mention => mention.ticket !== null); // Only return mentions with valid tickets
 
-            console.log(`Returning ${enrichedMentions.length} enriched mentions`);
             return enrichedMentions;
         } catch (error) {
             console.error('Error fetching user mentions:', error);
@@ -438,7 +440,6 @@ class MentionService {
             // Add updated_at timestamp
             updateObj.updated_at = new Date();
 
-            console.log(`Updating mention ${mentionId} with fields:`, updateObj);
 
             // Update the mention
             const { data, error } = await supabase

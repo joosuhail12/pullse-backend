@@ -10,47 +10,38 @@ class ChatBotProfileHandler extends BaseHandler {
   }
 
   async createBotProfile(req, reply) {
-    let inst = new ChatBotProfileService();
-    let createdBy = req.authUser.id;
-    let clientId = req.authUser.clientId;
-    let workspaceId = req.query.workspace_id;
-    let data = {
+    const inst = new ChatBotProfileService();
+    const createdBy = req.authUser.id;
+    const clientId = req.authUser.clientId;
+    const workspaceId = req.query.workspace_id;
+  
+    const data = {
       name: req.body.name,
       status: req.body.status,
-      channels: req.body.channels,
-      audience: req.body.audience,
-      rules: req.body.rules,
-      introMessages: req.body.introMessages,
-      handoverMessages: req.body.handoverMessages,
-      answerMode: req.body.answerMode,
-      afterAnswer: req.body.afterAnswer,
-      ifCantAnswer: req.body.ifCantAnswer,
+      tone: req.body.tone,
+      welcomeMessage: req.body.welcomeMessage,
+      humanHandoffMessage: req.body.humanHandoffMessage,
+      knowledgeBaseIds: req.body.knowledgeBaseIds,
+      assistant_id: req.body.assistant_id,
+      behavior: req.body.behavior,
+      audienceRules: req.body.audienceRules,
+      customInstructions: req.body.customInstructions,
+      persona: req.body.persona,
+      avatarUrl: req.body.avatarUrl,
       workspaceId,
       clientId,
-      createdBy
+      createdBy,
     };
-    let res = await this.responder(req, reply, inst.createBotProfile(data));
+  
+    const res = await this.responder(req, reply, inst.createBotProfile(data));
     return res;
   }
 
   async listChatbotProfiles(req, reply) {
-    let query = req.query;
+    const inst = new ChatBotProfileService();
+    let workspaceId = req.query.workspace_id;
     let clientId = req.authUser.clientId;
-    let inst = new ChatBotProfileService();
-    let filters = {
-      name: query.name,
-      status: query.status,
-      channel: query.channel,
-      audience: query.audience,
-      answerMode: query.answer_mode,
-      afterAnswer: query.after_answer,
-      ifCantAnswer: req.body.if_cant_answer,
-      workspaceId: query.workspace_id,
-      createdFrom: query.created_from,
-      createdTo: query.created_to,
-      clientId,
-    };
-    let res = await this.responder(req, reply, inst.paginate(filters));
+    let res = await this.responder(req, reply, inst.fetchChatbotProfiles({ workspaceId, clientId }));
     return res;
   }
 
@@ -89,6 +80,12 @@ class ChatBotProfileHandler extends BaseHandler {
     return res;
   }
 
+  async getChatbotRuleFields(req, reply) {
+    let workspaceId = req.query.workspace_id;
+    let clientId = req.authUser.clientId;
+    let inst = new ChatBotProfileService();
+    return this.responder(req, reply, inst.getChatbotRuleFields(workspaceId, clientId));
+  }
 };
 
 module.exports = ChatBotProfileHandler;

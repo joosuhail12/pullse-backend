@@ -147,10 +147,18 @@ class TicketService {
 
     async listTickets(req) {
         try {
+            const {clientId, workspaceId} = req;
+            const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+            if (!uuidRegex.test(clientId)) {
+                throw new errors.ValidationFailed(`Invalid clientId: ${clientId}`);
+            }
+            if (!uuidRegex.test(workspaceId)) {
+                throw new errors.ValidationFailed(`Invalid workspaceId: ${workspaceId}`);
+            }
             const { data: tickets, error } = await supabase
                 .from(this.entityName)
                 .select('*')
-                .match({ workspaceId: req.workspaceId, clientId: req.clientId });
+                .match({ workspaceId, clientId });
 
             if (error) {
                 throw new errors.DBError(error.message);
@@ -411,7 +419,6 @@ class TicketService {
                 }
             }
 
-            console.log("Updating ticket with data:", JSON.stringify(ticketUpdateData));
 
             // Update ticket
             const { data: updatedTicket, error: updateError } = await supabase
@@ -525,7 +532,6 @@ class TicketService {
 
     async getDetails(identifier, workspaceId, clientId, includeDetails = false) {
         try {
-            console.log(`getDetails: Starting for identifier ${identifier}`);
 
             // Determine if identifier is a uuid or sno (serial number)
             const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(identifier);
@@ -534,17 +540,14 @@ class TicketService {
             let query = supabase.from(this.entityName).select('*');
 
             if (isUuid) {
-                console.log(`getDetails: Using UUID ${identifier}`);
                 query = query.eq('id', identifier);
             } else {
-                console.log(`getDetails: Using SNO ${identifier}`);
                 query = query.eq('sno', identifier);
             }
 
             // FIXED: Use camelCase column names as per the database schema
             query = query.eq('workspaceId', workspaceId).eq('clientId', clientId);
 
-            console.log(`getDetails: Executing query for ${isUuid ? 'UUID' : 'SNO'} ${identifier}`);
 
             // Execute the query
             const { data: ticket, error } = await query.single();
@@ -558,7 +561,6 @@ class TicketService {
                 throw new errors.NotFound("Ticket not found");
             }
 
-            console.log(`getDetails: Ticket found with ID ${ticket.id}`);
 
             // Create a simplified base response first in case the queries below fail
             const baseResponse = {
@@ -598,7 +600,6 @@ class TicketService {
             // Set a timeout to ensure we return something even if queries hang
             const timeoutPromise = new Promise(resolve => {
                 setTimeout(() => {
-                    console.log(`getDetails: Timeout reached, returning base response for ${ticket.id}`);
                     resolve({
                         timedOut: true,
                         data: baseResponse
@@ -608,7 +609,6 @@ class TicketService {
 
             // Create the promise for the full data fetch
             const fullDataPromise = (async () => {
-                console.log(`getDetails: Fetching related data for ticket ${ticket.id}`);
                 try {
                     // Fetch related data with proper error handling for each query
                     const fetchWithErrorHandling = async (promise) => {
@@ -690,7 +690,6 @@ class TicketService {
                         )
                         : Promise.resolve({ count: 0 });
 
-                    console.log(`getDetails: Waiting for all queries to complete for ticket ${ticket.id}`);
 
                     // Wait for all queries to complete with a timeout
                     const [
@@ -713,7 +712,6 @@ class TicketService {
                         teamPromise
                     ]);
 
-                    console.log(`getDetails: All queries completed for ticket ${ticket.id}`);
 
                     // Process the results
                     const primaryCustomer = customers?.[0]?.customers;
@@ -766,7 +764,6 @@ class TicketService {
                         notificationType: null
                     };
 
-                    console.log(`getDetails: Response built successfully for ticket ${ticket.id}`);
                     return {
                         timedOut: false,
                         data: response
@@ -784,7 +781,6 @@ class TicketService {
             // Race the timeout against the full data promise
             const result = await Promise.race([timeoutPromise, fullDataPromise]);
 
-            console.log(`getDetails: Returning ${result.timedOut ? 'partial (timeout)' : 'complete'} response for ticket ${ticket.id}`);
 
             return result.data;
         } catch (err) {
@@ -799,7 +795,6 @@ class TicketService {
     async listTicketsByTeam(filters) {
         try {
             const { teamId, clientId, workspaceId, status, priority, skip = 0, limit = 10 } = filters;
-            console.log("listTicketsByTeam filters:", filters);
 
             if (!teamId) {
                 return Promise.reject(new errors.BadRequest("Team ID is required"));
@@ -1015,7 +1010,6 @@ class TicketService {
      */
     async assignTicketToTeam(id, sno, teamId, workspaceId, clientId) {
         try {
-            console.log(`Assigning ticket ${id ? `with ID ${id}` : `with SNO ${sno}`} to team ${teamId}`);
 
             if (!teamId) {
                 throw new errors.ValidationFailed("Team ID is required");
@@ -1062,8 +1056,6 @@ class TicketService {
             if (!ticket || !ticket.id) {
                 throw new errors.NotFound(`Ticket ${id ? `with ID ${id}` : `with SNO ${sno}`} not found`);
             }
-
-            console.log(`Found ticket with ID ${ticket.id}, assigning to team ${teamId} (${team.name})`);
 
             // Update ticket with teamId
             const { data: updatedTicket, error: updateError } = await supabase
@@ -1115,7 +1107,6 @@ class TicketService {
      */
     async assignTicketToUser(id, sno, assigneeId, assignedTo, workspaceId, clientId) {
         try {
-            console.log(`Assigning ticket ${id ? `with ID ${id}` : `with SNO ${sno}`} to assignee ${assigneeId} and assignedTo ${assignedTo}`);
 
             if (!assigneeId && !assignedTo) {
                 throw new errors.ValidationFailed("Either assigneeId or assignedTo is required");
@@ -1145,7 +1136,6 @@ class TicketService {
                 throw new errors.NotFound(`Ticket ${id ? `with ID ${id}` : `with SNO ${sno}`} not found`);
             }
 
-            console.log(`Found ticket with ID ${ticket.id}, now checking if users exist`);
 
             // Verify the users exist if provided
             const userIds = [assigneeId, assignedTo].filter(Boolean);
@@ -1161,7 +1151,6 @@ class TicketService {
                 }
 
                 if (!usersExist || usersExist.length === 0) {
-                    console.log(`No users found with IDs ${userIds.join(', ')}, trying direct RPC call`);
 
                     // Try a direct query as fallback to check if users exist
                     const { data: directUsers, error: directUserError } = await supabase.rpc('get_users_by_ids', {
@@ -1173,7 +1162,6 @@ class TicketService {
                         throw new errors.NotFound(`Users with IDs ${userIds.join(', ')} not found`);
                     }
 
-                    console.log(`Found users via direct query: ${directUsers.map(u => u.id).join(', ')}`);
                 }
             }
 
@@ -1189,10 +1177,8 @@ class TicketService {
             // If assignedTo is provided but not assigneeId, also set assigneeId to the same value
             if (assignedTo && !assigneeId) {
                 updateData.assigneeId = assignedTo;
-                console.log('Setting assigneeId to match assignedTo:', assignedTo);
             }
 
-            console.log('Updating ticket with data:', updateData);
 
             // Update ticket with assigneeId and/or assignedTo fields
             const { data: updatedTicket, error: updateError } = await supabase
@@ -1304,7 +1290,6 @@ class TicketService {
     async getAssignedTickets(userId, filters = {}) {
         try {
             const { status, workspaceId, clientId, priority, skip = 0, limit = 10 } = filters;
-            console.log(`Getting tickets assigned to user ${userId} with filters:`, filters);
 
             // Get tickets assigned to the user using assignedTo field
             let query = supabase
@@ -1331,7 +1316,6 @@ class TicketService {
                 throw error;
             }
 
-            console.log(`Found ${tickets ? tickets.length : 0} tickets assigned to user ${userId}`);
 
             if (!tickets || tickets.length === 0) {
                 return [];
@@ -1342,12 +1326,10 @@ class TicketService {
                 .map(ticket => ticket.customerId)
                 .filter(id => id);
 
-            console.log(`Extracted ${customerIds.length} customer IDs:`, customerIds);
 
             // Fetch customer details
             let customerMap = {};
             if (customerIds.length > 0) {
-                console.log(`Fetching customer details for ${customerIds.length} customers`);
 
                 const { data: customers, error: customersError } = await supabase
                     .from('customers')
@@ -1359,7 +1341,6 @@ class TicketService {
                     throw customersError;
                 }
 
-                console.log(`Found ${customers ? customers.length : 0} customers`);
 
                 customerMap = customers.reduce((map, customer) => {
                     map[customer.id] = customer;
@@ -1437,7 +1418,6 @@ class TicketService {
                 };
             });
 
-            console.log(`Returning ${result.length} formatted tickets`);
             return result;
         } catch (error) {
             console.error('Error listing assigned tickets:', error);
@@ -1448,7 +1428,6 @@ class TicketService {
     async getUnassignedTickets(filters = {}) {
         try {
             const { status, workspaceId, clientId, priority, skip = 0, limit = 10 } = filters;
-            console.log(`Getting unassigned tickets with filters:`, filters);
 
             // Get tickets with no assignedTo value
             let query = supabase
@@ -1475,7 +1454,6 @@ class TicketService {
                 throw error;
             }
 
-            console.log(`Found ${tickets ? tickets.length : 0} unassigned tickets`);
 
             if (!tickets || tickets.length === 0) {
                 return [];
@@ -1486,12 +1464,10 @@ class TicketService {
                 .map(ticket => ticket.customerId)
                 .filter(id => id);
 
-            console.log(`Extracted ${customerIds.length} customer IDs:`, customerIds);
 
             // Fetch customer details
             let customerMap = {};
             if (customerIds.length > 0) {
-                console.log(`Fetching customer details for ${customerIds.length} customers`);
 
                 const { data: customers, error: customersError } = await supabase
                     .from('customers')
@@ -1503,7 +1479,6 @@ class TicketService {
                     throw customersError;
                 }
 
-                console.log(`Found ${customers ? customers.length : 0} customers`);
 
                 customerMap = customers.reduce((map, customer) => {
                     map[customer.id] = customer;
@@ -1569,7 +1544,6 @@ class TicketService {
                 };
             });
 
-            console.log(`Returning ${result.length} formatted tickets`);
             return result;
         } catch (error) {
             console.error('Error listing unassigned tickets:', error);
@@ -1579,7 +1553,6 @@ class TicketService {
 
     async listBotTickets(req) {
         try {
-            console.log("Fetching bot tickets with filters:", req);
 
             // Get all users with bot_enabled=true
             const { data: botUsers, error: botError } = await supabase
@@ -1599,7 +1572,6 @@ class TicketService {
 
             // Extract bot user IDs
             const botUserIds = botUsers.map(user => user.id);
-            console.log(`Found ${botUserIds.length} bot users`);
 
             // Get tickets assigned to bot users
             let query = supabase
@@ -1645,7 +1617,6 @@ class TicketService {
                 throw new errors.DBError(error.message);
             }
 
-            console.log(`Found ${tickets ? tickets.length : 0} tickets assigned to bots`);
 
             // Use the same enrichment process as listTickets
             const enrichedTickets = await Promise.map(tickets, async (ticket) => {

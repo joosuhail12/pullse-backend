@@ -27,6 +27,7 @@ function defineAbilityFor(user) {
     can(['create','read','update','delete'], 'Reports', { clineId: user.clientId }); 
     can(['create','read'], 'Workspace', { clineId: user.clientId }); 
     can('manage', 'WorkspacePermission', { clineId: user.clientId }); 
+    can('manage', 'Notifications', { clineId: user.clientId }); 
   }
   if (user.role === UserRoles.workspaceAdmin) {
     can(['create','read'], 'Workspace', { clineId: user.clientId });

@@ -28,9 +28,7 @@ exports.createAndBroadcast = async function createAndBroadcast (opts) {
     payload = {},
     broadcastChannels = []
   } = opts;
-
   if (!recipientIds.length && !broadcastChannels.length) return null;
-  console.log("createAndBroadcast", opts);
   // ── sanity‑check actorId belongs to public.users; if not, skip it ──
   let insertCols = { type, entity_id: entityId, payload };
   if (actorId) {
@@ -43,7 +41,6 @@ exports.createAndBroadcast = async function createAndBroadcast (opts) {
   }
 
   // 1️⃣  insert notification
-  console.log("insertCols", insertCols);
   const { data: notif, error: nErr } = await supabase
     .from('notifications')
     .insert(insertCols)
