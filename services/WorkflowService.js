@@ -124,6 +124,39 @@ class WorkflowService extends BaseService {
         }
     }
 
+    generateEmptyObjectFromSchema(schema) {
+        if (Object.keys(schema).length === 0) return {};
+        if (!schema || typeof schema !== 'object') return {};
+
+        switch (schema.type) {
+            case 'object':
+                const obj = {};
+                if (schema.properties) {
+                    for (const key of Object.keys(schema.properties)) {
+                        obj[key] = this.generateEmptyObjectFromSchema(schema.properties[key]);
+                    }
+                }
+                return obj;
+
+            case 'array':
+                return [];
+
+            case 'string':
+                return schema.default ?? '';
+
+            case 'number':
+            case 'integer':
+                return schema.default ?? null;
+
+            case 'boolean':
+                return schema.default ?? false;
+
+            default:
+                return {};
+        }
+    }
+
+
     async createWorkflow(data) {
         try {
             const { clientId, workspaceId, createdBy, triggerType, triggerPosition, nodeId } = data;
@@ -167,10 +200,13 @@ class WorkflowService extends BaseService {
                 throw new errors.InternalServerError(getTriggerNodeSchemaError.message);
             }
 
+            // Create a new json object with empty config based on the schema
+            const emptyConfig = this.generateEmptyObjectFromSchema(getTriggerNodeSchema.schema);
+
             // Create entry in workflownode table
             const { data: workflownodeData, error: workflownodeError } = await this.supabase
                 .from('workflownode')
-                .insert({ workflowId: workflowId, type: triggerType, isTrigger: true, positionX: triggerPosition.positionX, positionY: triggerPosition.positionY, reactFlowId: nodeId, schemaVersion: getTriggerNodeSchema.schemaVersion, config: {} })
+                .insert({ workflowId: workflowId, type: triggerType, isTrigger: true, positionX: triggerPosition.positionX, positionY: triggerPosition.positionY, reactFlowId: nodeId, schemaVersion: getTriggerNodeSchema.schemaVersion, config: emptyConfig })
                 .select()
                 .single();
 
@@ -1045,6 +1081,13 @@ class WorkflowService extends BaseService {
 
             if (error) throw new Error(`Fetch channels failed: ${error.message}`);
 
+            if (workflowChannels === null) {
+                // Delete all channels in db
+                await this.supabase.from("workflowchannel").delete().eq("workflowId", workflowId);
+                return { message: "Channels deleted" };
+            }
+
+
             const existingEmailChannels = existingChannels.filter(c => c.channelType === "email");
             const channelsToCreate = [];
 
@@ -1123,9 +1166,16 @@ class WorkflowService extends BaseService {
         try {
             const workflowId = id;
             const { workflowChannels, workflowRuleParentGroup } = workflowConfig;
-            const { operator: parentGroupOperator, workflowRules, workflowChildGroups, id: parentGroupIdFromReq } = workflowRuleParentGroup;
+            const { operator: parentGroupOperator, workflowRules, workflowChildGroups, id: parentGroupIdFromReq } = workflowRuleParentGroup || {};
 
             await this.syncChannels(workflowChannels, workspaceId, workflowId, clientId, createdBy);
+
+            if (workflowRuleParentGroup === null) {
+                // Delete all rule groups and rules in db
+                await this.supabase.from("workflowrulegroup").delete().eq("workflowId", workflowId);
+                await this.supabase.from("workflowrule").delete().eq("workflowId", workflowId);
+                return { message: "Workflow configuration updated successfully" };
+            }
 
             let parentGroupId = parentGroupIdFromReq;
 
@@ -1245,23 +1295,52 @@ class WorkflowService extends BaseService {
             // Get the workflow groups
             const { data: groups, error: groupsError } = await this.supabase.from("workflowrulegroup").select("*").eq("workflowId", workflow.id).is("deletedAt", null);
 
+            if (groupsError) throw new Error(`Fetch groups failed: ${groupsError.message}`);
+            if (groups.length === 0) {
+                return {
+                    channels,
+                    rules: []
+                }
+            }
+
             // Get the workflow rules
             const { data: rules, error: rulesError } = await this.supabase.from("workflowrule").select("*").eq("workflowId", workflow.id).is("deletedAt", null);
+            if (rulesError) throw new Error(`Fetch rules failed: ${rulesError.message}`);
 
             // Group the childGroups within the parent group
             const parentGroup = groups.filter(group => group.parentGroupId === null);
             const childGroups = groups.filter(group => group.parentGroupId !== null);
 
-            let parsedRules = {
+            //  IF parsed rules contains custom_field or custom_object_field, then we need to get the custom fields and custom object fields
+            const customFields = rules.filter(rule => rule.entityType === "custom_field").map(rule => rule.customFieldId);
+            const customObjectFields = rules.filter(rule => rule.entityType === "custom_object_field").map(rule => rule.customObjectId);
+
+            //  Get the custom fields and custom object fields
+            const { data: customFieldsData, error: customFieldsError } = await this.supabase.from("customfields").select("*").in("id", customFields).is("deletedAt", null);
+            const { data: customObjectFieldsData, error: customObjectFieldsError } = await this.supabase.from("customobjectfields").select("*").in("id", customObjectFields).is("deletedAt", null);
+
+            // Add the custom fields and custom object field data to the mapped rules
+            const mappedRules = rules.map(rule => {
+                if (rule.entityType === "custom_field") {
+                    rule.customFieldData = customFieldsData.find(field => field.id === rule.customFieldId);
+                } else if (rule.entityType === "custom_object_field") {
+                    rule.customObjectFieldData = customObjectFieldsData.find(field => field.id === rule.customObjectId);
+                }
+                return rule;
+            });
+
+            const parsedRules = {
                 ...parentGroup[0],
                 rules: [
-                    ...rules.filter(rule => rule.workflowRuleGroupId === parentGroup[0].id),
+                    ...mappedRules.filter(rule => rule.workflowRuleGroupId === parentGroup[0].id),
                     ...childGroups.map(group => ({
                         ...group,
-                        rules: rules.filter(rule => rule.workflowRuleGroupId === group.id)
+                        rules: mappedRules.filter(rule => rule.workflowRuleGroupId === group.id)
                     }))
                 ]
-            }
+            };
+
+
 
             return {
                 channels,
@@ -1275,203 +1354,297 @@ class WorkflowService extends BaseService {
     }
     async getWorkflowRuleFields(workspaceId, clientId) {
         try {
-            const tables = [
+            // Define standard tables and their fields
+            const standardTables = [
                 {
-                    name: "Contact",
-                    fields: [{
-                        entityType: "contact",
-                        columnname: "firstname",
-                        label: "First Name",
-                        type: "text",
-                        placeholder: "Enter first name",
-                        table: "contact"
-                    },
-                    {
-                        entityType: "contact",
-                        columnname: "lastname",
-                        label: "Last Name",
-                        type: "text",
-                        placeholder: "Enter last name",
-                        table: "contact"
-                    },
-                    {
-                        entityType: "contact",
-                        columnname: "email",
-                        label: "Email",
-                        type: "text",
-                        placeholder: "Enter email",
-                        table: "contact"
-                    },
-                    {
-                        entityType: "contact",
-                        columnname: "phone",
-                        label: "Phone",
-                        type: "text",
-                        placeholder: "Enter phone",
-                        table: "contact"
-                    },
-                    {
-                        entityType: "contact",
-                        columnname: "twitter",
-                        label: "Twitter",
-                        type: "text",
-                        placeholder: "Enter twitter",
-                        table: "contact"
-                    },
-                    {
-                        entityType: "contact",
-                        columnname: "linkedin",
-                        label: "LinkedIn",
-                        type: "text",
-                        placeholder: "Enter linkedin",
-                        table: "contact"
-                    },
-                    {
-                        entityType: "contact",
-                        columnname: "address",
-                        label: "Address",
-                        type: "text",
-                        placeholder: "Enter address",
-                        table: "contact"
-                    }
+                    name: "contact",
+                    fields: [
+                        {
+                            entityType: "contact",
+                            columnname: "firstname",
+                            label: "First Name",
+                            type: "text",
+                            placeholder: "Enter first name",
+                            table: "contact"
+                        },
+                        {
+                            entityType: "contact",
+                            columnname: "lastname",
+                            label: "Last Name",
+                            type: "text",
+                            placeholder: "Enter last name",
+                            table: "contact"
+                        },
+                        {
+                            entityType: "contact",
+                            columnname: "email",
+                            label: "Email",
+                            type: "text",
+                            placeholder: "Enter email",
+                            table: "contact"
+                        },
+                        {
+                            entityType: "contact",
+                            columnname: "phone",
+                            label: "Phone",
+                            type: "text",
+                            placeholder: "Enter phone",
+                            table: "contact"
+                        },
+                        {
+                            entityType: "contact",
+                            columnname: "twitter",
+                            label: "Twitter",
+                            type: "text",
+                            placeholder: "Enter twitter",
+                            table: "contact"
+                        },
+                        {
+                            entityType: "contact",
+                            columnname: "linkedin",
+                            label: "LinkedIn",
+                            type: "text",
+                            placeholder: "Enter linkedin",
+                            table: "contact"
+                        },
+                        {
+                            entityType: "contact",
+                            columnname: "address",
+                            label: "Address",
+                            type: "text",
+                            placeholder: "Enter address",
+                            table: "contact"
+                        }
                     ]
                 },
                 {
-                    name: "Company",
-                    fields: [{
-                        entityType: "company",
-                        columnname: "name",
-                        label: "Name",
-                        type: "text",
-                        placeholder: "Enter company name",
-                        table: "company"
-                    },
-                    {
-                        entityType: "company",
-                        columnname: "description",
-                        label: "Description",
-                        type: "text",
-                        placeholder: "Enter company description",
-                        table: "company"
-                    },
-                    {
-                        columnname: "phone",
-                        label: "Phone",
-                        type: "text",
-                        placeholder: "Enter company phone",
-                        table: "company"
-                    },
-                    {
-                        entityType: "company",
-                        columnname: "website",
-                        label: "Website",
-                        type: "text",
-                        placeholder: "Enter company website",
-                        table: "company"
-                    }
+                    name: "company",
+                    fields: [
+                        {
+                            entityType: "company",
+                            columnname: "name",
+                            label: "Name",
+                            type: "text",
+                            placeholder: "Enter company name",
+                            table: "company"
+                        },
+                        {
+                            entityType: "company",
+                            columnname: "description",
+                            label: "Description",
+                            type: "text",
+                            placeholder: "Enter company description",
+                            table: "company"
+                        },
+                        {
+                            entityType: "company",
+                            columnname: "phone",
+                            label: "Phone",
+                            type: "text",
+                            placeholder: "Enter company phone",
+                            table: "company"
+                        },
+                        {
+                            entityType: "company",
+                            columnname: "website",
+                            label: "Website",
+                            type: "text",
+                            placeholder: "Enter company website",
+                            table: "company"
+                        }
                     ]
                 },
                 {
-                    name: "Ticket",
-                    fields: [{
-                        entityType: "ticket",
-                        columnname: "subject",
-                        label: "Subject",
-                        type: "text",
-                        placeholder: "Enter subject",
-                        table: "ticket"
-                    }]
+                    name: "ticket",
+                    fields: [
+                        {
+                            entityType: "ticket",
+                            columnname: "subject",
+                            label: "Subject",
+                            type: "text",
+                            placeholder: "Enter subject",
+                            table: "ticket"
+                        }
+                    ]
                 }
             ];
 
-            // Fetch custom fields
-            const { data: customFields, error: customFieldsError } = await this.supabase.from("customfields").select("*").eq("workspaceId", workspaceId).eq("clientId", clientId).is("deletedAt", null);
+            // Fetch and process custom fields
+            const { data: customFields, error: customFieldsError } = await this.supabase
+                .from("customfields")
+                .select("*")
+                .eq("workspaceId", workspaceId)
+                .eq("clientId", clientId)
+                .is("deletedAt", null);
+
             if (customFieldsError) {
                 throw new errors.Internal(customFieldsError.message);
             }
 
-            const customerCustomFields = customFields.filter(field => field.entityType === "customer");
-            const companyCustomFields = customFields.filter(field => field.entityType === "company");
-            const ticketCustomFields = customFields.filter(field => field.entityType === "ticket");
-
-            customerCustomFields.forEach(field => {
-                tables[0].fields.push({
+            // Group custom fields by entity type
+            const customFieldsByType = customFields.reduce((acc, field) => {
+                if (!acc[field.entityType]) {
+                    acc[field.entityType] = [];
+                }
+                acc[field.entityType].push({
                     entityType: "custom_field",
                     columnname: field.id,
                     label: field.name,
                     type: field.fieldType,
                     options: field.options,
                     placeholder: field.placeholder,
-                    table: "contact"
+                    table: field.entityType
                 });
+                return acc;
+            }, {});
+
+            // Add custom fields to their respective tables
+            standardTables.forEach(table => {
+                const customFieldsForTable = customFieldsByType[table.name] || [];
+                table.fields.push(...customFieldsForTable);
             });
 
-            companyCustomFields.forEach(field => {
-                tables[1].fields.push({
-                    entityType: "custom_field",
-                    columnname: field.id,
-                    label: field.name,
-                    type: field.fieldType,
-                    options: field.options,
-                    placeholder: field.placeholder,
-                    table: "company"
-                });
-            });
-
-            ticketCustomFields.forEach(field => {
-                tables[2].fields.push({
-                    entityType: "custom_field",
-                    columnname: field.id,
-                    label: field.name,
-                    type: field.fieldType,
-                    options: field.options,
-                    placeholder: field.placeholder,
-                    table: "ticket"
-                });
-            });
-
-            // List all custom objects and send them as tables with  their custom object fields
-            const { data: customObjects, error: customObjectsError } = await this.supabase.from("customobjects").select("*").eq("workspaceId", workspaceId).eq("clientId", clientId).is("deletedAt", null).order("createdAt", { ascending: false });
+            // Fetch and process custom objects
+            const { data: customObjects, error: customObjectsError } = await this.supabase
+                .from("customobjects")
+                .select("*")
+                .eq("workspaceId", workspaceId)
+                .eq("clientId", clientId)
+                .is("deletedAt", null)
+                .order("createdAt", { ascending: false });
 
             if (customObjectsError) {
                 throw new errors.Internal(customObjectsError.message);
             }
 
-            const promises = customObjects.map(async (customObject) => {
-                const customObjectFields = [];
-                const { data: customObjectFieldsData, error: customObjectFieldsError } = await this.supabase.from("customobjectfields").select("*").eq("workspaceId", workspaceId).eq("clientId", clientId).eq("customObjectId", customObject.id).is("deletedAt", null).order("createdAt", { ascending: false });
-
-                if (customObjectFieldsError) {
-                    throw new errors.Internal(customObjectFieldsError.message);
-                }
-                const fieldPromises = customObjectFieldsData.map(field => {
-                    customObjectFields.push({
-                        entityType: "custom_object_field",
-                        columnname: field.id,
-                        label: field.name,
-                        type: field.fieldType,
-                        options: field.options,
-                        placeholder: field.placeholder,
-                        table: customObject.name
-                    });
-                });
-                await Promise.all(fieldPromises);
-                tables.push({
-                    name: customObject.name,
-                    fields: customObjectFields
-                });
-            });
-
-            await Promise.all(promises);
-
-            return {
-                tables
+            if (customObjects.length === 0) {
+                return { tables: standardTables };
             }
+
+            // Fetch custom object fields
+            const customObjectIds = customObjects.map(obj => obj.id);
+            const { data: customObjectFieldsData, error: customObjectFieldsError } = await this.supabase
+                .from("customobjectfields")
+                .select("*")
+                .eq("workspaceId", workspaceId)
+                .eq("clientId", clientId)
+                .in("customObjectId", customObjectIds)
+                .is("deletedAt", null)
+                .order("createdAt", { ascending: false });
+
+            if (customObjectFieldsError) {
+                throw new errors.Internal(customObjectFieldsError.message);
+            }
+
+            // Map id with name of custom object to avoid using find 
+            const customObjectMap = customObjects.reduce((acc, customObject) => {
+                acc[customObject.id] = customObject.name;
+                return acc;
+            }, {});
+
+            // Group custom object fields by their custom object
+            const fieldsByCustomObject = customObjectFieldsData.reduce((acc, field) => {
+                if (!acc[field.customObjectId]) {
+                    acc[field.customObjectId] = [];
+                }
+                acc[field.customObjectId].push({
+                    entityType: "custom_object_field",
+                    columnname: field.id,
+                    label: field.name,
+                    type: field.fieldType,
+                    options: field.options,
+                    placeholder: field.placeholder,
+                    table: customObjectMap[field.customObjectId]
+                });
+                return acc;
+            }, {});
+
+            // Create custom object tables
+            const customObjectTables = customObjects.map(customObject => ({
+                id: customObject.id,
+                name: customObject.name,
+                fields: fieldsByCustomObject[customObject.id] || []
+            }));
+
+            // Combine standard tables with custom object tables
+            const tables = [...standardTables, ...customObjectTables];
+
+            return { tables };
         } catch (error) {
-            console.error(error);
+            console.error("Error in getWorkflowRuleFields:", error);
             throw error;
         }
     }
+
+    async getWorkflowReusableNodes(workspaceId, clientId) {
+        try {
+            // Get all workflows for the workspace
+            const {
+                data: workflows,
+                error: workflowsError
+            } = await this.supabase.from("workflow").select("*").eq("workspaceId", workspaceId).eq("clientId", clientId).is("deletedAt", null);
+
+            if (workflowsError) {
+                throw new errors.Internal(workflowsError.message);
+            }
+
+            // Map the workflow ids in an array
+            const workflowIds = workflows.map(workflow => workflow.id);
+
+            // Get all reusable nodes for the workspace
+            const {
+                data: reusableNodes,
+                error: reusableNodesError
+            } = await this.supabase.from("workflownode").select("*").eq("type", "reusable_workflow").in("workflowId", workflowIds);
+
+            if (reusableNodesError) {
+                throw new errors.Internal(reusableNodesError.message);
+            };
+
+            // Get schema for reusable_workflow node
+            const { data: getTriggerNodeSchema, error: getTriggerNodeSchemaError } = await this.supabase
+                .from('workflownodeschema')
+                .select('*')
+                .eq('nodeType', "reusable_workflow")
+                .eq('type', 'live')
+                .single();
+
+            if (getTriggerNodeSchemaError) {
+                throw new errors.Internal(getTriggerNodeSchemaError.message);
+            }
+
+            let validNodes = [];
+
+            // Validate all the nodes using ajv
+            const ajv = new Ajv();
+            for (const node of reusableNodes) {
+                const schema = getTriggerNodeSchema;
+                if (!schema) throw new Error(`Schema not found for node type: ${node.type}`);
+
+                const validate = ajv.compile(schema.schema);
+                const valid = validate(node?.config);
+                if (valid) {
+                    validNodes.push({
+                        id: node.id,
+                        branchName: node?.config?.branchName
+                    });
+                }
+            }
+
+            return validNodes;
+
+        } catch (e) {
+            console.error("Error in getWorkflowReusableNodes:", e);
+            return this.handleError({
+                error: true,
+                message: "Error in getWorkflowReusableNodes",
+                data: e,
+                httpCode: 500,
+                code: "WORKFLOW_REUSABLE_NODES_ERROR"
+            });
+        }
+    }
+
 }
 
 module.exports = WorkflowService;

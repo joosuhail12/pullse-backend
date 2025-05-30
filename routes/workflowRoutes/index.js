@@ -380,92 +380,144 @@ async function activate(app) {
         required: ['workflowChannels', 'workflowRuleParentGroup'],
         properties: {
           workflowChannels: {
-            type: 'object',
-            required: ['emailChannels', 'chatWidgetChannel'],
-            properties: {
-              emailChannels: {
-                type: 'array',
-                items: {
-                  type: 'object',
-                  required: ['emailChannelId'],
-                  additionalProperties: false,
-                  properties: {
-                    id: { type: 'string' }, // id if the email channel already exists
-                    emailChannelId: { type: 'string' }
+            oneOf: [
+              {
+                type: 'object',
+                required: ['emailChannels', 'chatWidgetChannel'],
+                properties: {
+                  emailChannels: {
+                    type: 'array',
+                    items: {
+                      type: 'object',
+                      required: ['emailChannelId'],
+                      additionalProperties: false,
+                      properties: {
+                        id: { type: 'string' }, // id if the email channel already exists
+                        emailChannelId: { type: 'string' }
+                      }
+                    }
+                  },
+                  chatWidgetChannel: {
+                    type: 'boolean'
                   }
                 }
               },
-              chatWidgetChannel: {
-                type: 'boolean'
-              }
-            }
+              { type: 'null' }
+            ]
           },
           workflowRuleParentGroup: {
-            type: 'object',
-            required: ['operator', 'workflowRules', 'workflowChildGroups'],
-            properties: {
-              id: { type: 'string' }, // id if the parent group already exists
-              operator: { type: 'string', enum: ['and', 'or'] },
-              workflowRules: {
-                type: 'array',
-                items: {
-                  type: 'object',
-                  required: ['entityType', 'operator', 'value'],
-                  properties: {
-                    id: { type: 'string' }, // id if the rule already exists
-                    entityType: {
-                      type: 'string',
-                      enum: ['contact', 'company', 'ticket', 'custom_field', 'custom_object_field']
-                    },
-                    standardFieldName: {
-                      type: 'string'
-                    },
-                    customFieldId: {
-                      type: 'string'
-                    },
-                    customObjectFieldId: {
-                      type: 'string'
-                    },
-                    operator: {
-                      type: 'string',
-                      enum: [
-                        'equals',
-                        'not_equals',
-                        'is_empty',
-                        'is_not_empty',
-                        'contains',
-                        'not_contains',
-                        'starts_with',
-                        'ends_with'
-                      ]
-                    },
-                    value: {
-                      oneOf: [
-                        { type: 'string' },
-                        { type: 'number' },
-                        { type: 'boolean' }
-                      ]
+            oneOf: [
+              {
+                type: 'object',
+                required: ['operator', 'workflowRules', 'workflowChildGroups'],
+                properties: {
+                  id: { type: 'string' }, // id if the parent group already exists
+                  operator: { type: 'string', enum: ['and', 'or'] },
+                  workflowRules: {
+                    type: 'array',
+                    items: {
+                      type: 'object',
+                      required: ['entityType', 'operator', 'value'],
+                      properties: {
+                        id: { type: 'string' }, // id if the rule already exists
+                        entityType: {
+                          type: 'string',
+                          enum: ['contact', 'company', 'ticket', 'custom_field', 'custom_object_field']
+                        },
+                        standardFieldName: {
+                          type: 'string'
+                        },
+                        customFieldId: {
+                          type: 'string'
+                        },
+                        customObjectFieldId: {
+                          type: 'string'
+                        },
+                        operator: {
+                          type: 'string',
+                          enum: [
+                            'equals',
+                            'not_equals',
+                            'is_empty',
+                            'is_not_empty',
+                            'contains',
+                            'not_contains',
+                            'starts_with',
+                            'ends_with'
+                          ]
+                        },
+                        value: {
+                          oneOf: [
+                            { type: 'string' },
+                            { type: 'number' },
+                            { type: 'boolean' }
+                          ]
+                        }
+                      }
+                    }
+                  },
+                  workflowChildGroups: {
+                    type: 'array',
+                    items: {
+                      type: 'object',
+                      required: ['operator', 'rules'],
+                      properties: {
+                        id: { type: 'string' }, // id if the child group already exists
+                        operator: {
+                          type: 'string',
+                          enum: ['and', 'or']
+                        },
+                        rules: {
+                          type: 'array',
+                          items: {
+                            type: 'object',
+                            required: ['entityType', 'operator', 'value'],
+                            properties: {
+                              id: { type: 'string' }, // id if the rule already exists
+                              entityType: {
+                                type: 'string',
+                                enum: ['contact', 'company', 'ticket', 'custom_object_field']
+                              },
+                              standardFieldName: {
+                                type: 'string'
+                              },
+                              customFieldId: {
+                                type: 'string'
+                              },
+                              customObjectFieldId: {
+                                type: 'string'
+                              },
+                              operator: {
+                                type: 'string',
+                                enum: [
+                                  'equals',
+                                  'not_equals',
+                                  'is_empty',
+                                  'is_not_empty',
+                                  'contains',
+                                  'not_contains',
+                                  'starts_with',
+                                  'ends_with'
+                                ]
+                              },
+                              value: {
+                                oneOf: [
+                                  { type: 'string' },
+                                  { type: 'number' },
+                                  { type: 'boolean' }
+                                ]
+                              }
+                            }
+                          }
+                        }
+                      }
                     }
                   }
-                }
+                },
               },
-              workflowChildGroups: {
-                type: 'array',
-                items: {
-                  type: 'object',
-                  required: ['operator', 'rules'],
-                  properties: {
-                    id: { type: 'string' }, // id if the child group already exists
-                    operator: {
-                      type: 'string',
-                      enum: ['and', 'or']
-                    },
-                    rules: { type: 'array', items: { $ref: '#/properties/workflowRuleParentGroup/properties/workflowRules/items' } }
-                  }
-                }
-              }
-            },
-          },
+              { type: 'null' }
+            ]
+          }
         },
       },
     },
@@ -516,7 +568,26 @@ async function activate(app) {
     handler: async (req, reply) => {
       return handler.getWorkflowRuleFields(req, reply);
     }
-  })
+  });
+
+  app.route({
+    url: base_url + '/getWorkflowReusableNodes',
+    method: 'GET',
+    name: "GetWorkflowReusableNodes",
+    preHandler: authMiddlewares.checkToken(AuthType.user),
+    schema: {
+      query: {
+        type: 'object',
+        required: ['workspace_id'],
+        properties: {
+          workspace_id: { type: 'string' },
+        },
+      },
+    },
+    handler: async (req, reply) => {
+      return handler.getWorkflowReusableNodes(req, reply);
+    }
+  });
 }
 
 module.exports = { activate };
