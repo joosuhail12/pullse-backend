@@ -1141,7 +1141,6 @@ class WorkflowService extends BaseService {
 
             if (nodesError) throw new Error(`Fetch failed: ${nodesError.message}`);
 
-
             // Get all edges
             const { data: edges, error: edgesError } = await this.supabase
                 .from('workflowedge')
@@ -1839,10 +1838,10 @@ class WorkflowService extends BaseService {
                     fields: [
                         {
                             entityType: "ticket",
-                            columnname: "subject",
-                            label: "Subject",
+                            columnname: "summary",
+                            label: "Summary",
                             type: "text",
-                            placeholder: "Enter subject",
+                            placeholder: "Enter summary",
                             table: "ticket"
                         }
                     ]
@@ -2025,6 +2024,506 @@ class WorkflowService extends BaseService {
         }
     }
 
+    async handleNewConversation(payload) {
+        try {
+            const ticketId = payload.new.ticketId;
+            const workspaceId = payload.new.workspaceId;
+            const clientId = payload.new.clientId;
+            const userType = payload.new.userType;
+
+            if (userType !== 'customer') {
+                console.log("Not a customer message, skipping");
+                return;
+            }
+
+            // Check the workspace for the client and workspace if any workflows are active for customer_message trigger node
+            const { data: workflows, error: workflowsError } = await this.supabase
+                .from('workflow')
+                .select('*')
+                .eq('workspaceId', workspaceId)
+                .eq('clientId', clientId)
+                .eq('status', 'live');
+
+            if (workflowsError) throw new Error(`Fetch failed: ${workflowsError.message}`);
+
+            if (workflows.length === 0) {
+                console.log("No active workflows found");
+                return;
+            }
+
+            for (const workflow of workflows) {
+                const { data: node, error: nodesError } = await this.supabase
+                    .from('workflownode')
+                    .select('*')
+                    .eq('workflowId', workflow.id)
+                    .eq('type', 'customer_message')
+                    .is("isTrigger", true)
+                    .single();
+
+                if (node) {
+                    // Validate the workflow
+                    const isValid = await this.validateWorkflow(workflow.id, workspaceId, clientId, true, true, ticketId, null, null);
+
+                    if (!isValid) {
+                        console.log("Workflow is not valid, skipping");
+                        continue;
+                    }
+                    console.log("Found a active workflow, send to temporal")
+                }
+            }
+
+            return;
+        } catch (e) {
+            console.log("Error in handleNewConversation()", e);
+            return;
+        }
+    }
+
+    async handleNewNoteAddedToConversation(payload) {
+        try {
+            const ticketId = payload.new.ticketId;
+            const workspaceId = payload.new.workspaceId;
+            const clientId = payload.new.clientId;
+
+            // Check the workspace for the client and workspace if any workflows are active for note_added trigger node
+            const { data: workflows, error: workflowsError } = await this.supabase
+                .from('workflow')
+                .select('*')
+                .eq('workspaceId', workspaceId)
+                .eq('clientId', clientId)
+                .eq('status', 'live');
+
+            if (workflowsError) throw new Error(`Fetch failed: ${workflowsError.message}`);
+
+            if (workflows.length === 0) {
+                console.log("No active workflows found");
+                return;
+            }
+
+            for (const workflow of workflows) {
+                const { data: node, error: nodesError } = await this.supabase
+                    .from('workflownode')
+                    .select('*')
+                    .eq('workflowId', workflow.id)
+                    .eq('type', 'note_added')
+                    .is("isTrigger", true)
+                    .single();
+
+                if (node) {
+                    // Validate the workflow
+                    const isValid = await this.validateWorkflow(workflow.id, workspaceId, clientId, true, true, ticketId, null, null);
+
+                    if (!isValid) {
+                        console.log("Workflow is not valid, skipping");
+                        continue;
+                    }
+                    console.log("Found a active workflow, send to temporal")
+                }
+            }
+
+            return;
+        } catch (e) {
+            console.log("Error in handleNewNoteAddedToConversation()", e);
+            return;
+        }
+    }
+
+    async handleTicketReassigned(payload) {
+        try {
+            const ticketId = payload.new.id;
+            const workspaceId = payload.new.workspaceId;
+            const clientId = payload.new.clientId;
+            const oldAssignedTo = payload.old.assignedTo;
+            const newAssignedTo = payload.new.assignedTo;
+
+            // Check the workspace for the client and workspace if any workflows are active for assign_ticket trigger node
+            const { data: workflows, error: workflowsError } = await this.supabase
+                .from('workflow')
+                .select('*')
+                .eq('workspaceId', workspaceId)
+                .eq('clientId', clientId)
+                .eq('status', 'live');
+
+            if (workflowsError) throw new Error(`Fetch failed: ${workflowsError.message}`);
+
+            if (workflows.length === 0) {
+                console.log("No active workflows found");
+                return;
+            }
+
+            for (const workflow of workflows) {
+                const { data: node, error: nodesError } = await this.supabase
+                    .from('workflownode')
+                    .select('*')
+                    .eq('workflowId', workflow.id)
+                    .eq('type', 'assign_ticket')
+                    .is("isTrigger", true)
+                    .single();
+
+                if (node) {
+                    // Validate the workflow
+                    const isValid = await this.validateWorkflow(workflow.id, workspaceId, clientId, true, true, ticketId, null, null);
+
+                    if (!isValid) {
+                        console.log("Workflow is not valid, skipping");
+                        continue;
+                    }
+                    console.log("Found a active workflow, send to temporal")
+                }
+            }
+
+            return;
+        } catch (e) {
+            console.log("Error in handleTicketReassigned()", e);
+            return;
+        }
+    }
+
+    async handleTicketDataChanged(payload) {
+        try {
+            const ticketId = payload.new.id;
+            const workspaceId = payload.new.workspaceId;
+            const clientId = payload.new.clientId;
+
+            // Check the workspace for the client and workspace if any workflows are active for data_change trigger node
+            const { data: workflows, error: workflowsError } = await this.supabase
+                .from('workflow')
+                .select('*')
+                .eq('workspaceId', workspaceId)
+                .eq('clientId', clientId)
+                .eq('status', 'live');
+
+            if (workflowsError) throw new Error(`Fetch failed: ${workflowsError.message}`);
+
+            if (workflows.length === 0) {
+                console.log("No active workflows found");
+                return;
+            }
+
+            for (const workflow of workflows) {
+                const { data: node, error: nodesError } = await this.supabase
+                    .from('workflownode')
+                    .select('*')
+                    .eq('workflowId', workflow.id)
+                    .eq('type', 'data_change')
+                    .is("isTrigger", true)
+                    .single();
+
+                if (node) {
+                    // Need to check here if the data changed in the workflow payload matches the data change node config
+                    const config = node.config;
+                    const newData = payload.new;
+                    const oldData = payload.old;
+                    const dataChanged = Object.keys(newData).filter(key => newData[key] !== oldData[key]);
+
+                    // Compare both arrays and check if we have any common values
+                    const ticketConfigFields = config?.fields?.filter(field => field.table === "ticket");
+                    const isTriggerValid = ticketConfigFields.length > 0 && dataChanged.some(item => ticketConfigFields.map(field => field.field).includes(item));
+
+                    if (!isTriggerValid) {
+                        console.log("Workflow is not valid, skipping");
+                        return;
+                    }
+
+                    // Validate the workflow
+                    const isValid = await this.validateWorkflow(workflow.id, workspaceId, clientId, true, true, ticketId, null, null);
+
+                    if (!isValid) {
+                        console.log("Workflow is not valid, skipping");
+                        continue;
+                    }
+                    console.log("Found a active workflow, send to temporal")
+                }
+            }
+
+            return;
+        } catch (e) {
+            console.log("Error in handleTicketReassigned()", e);
+            return;
+        }
+    }
+
+    async handleCustomFieldDataChanged(payload) {
+        try {
+            const customFieldId = payload.new.customfieldId;
+
+            // Fetch custom field for the custom field id
+            const { data: customField, error: customFieldError } = await this.supabase
+                .from('customfields')
+                .select('id, workspaceId, clientId')
+                .eq('id', customFieldId)
+                .single();
+
+            if (customFieldError) throw new Error(`Fetch failed: ${customFieldError.message}`);
+
+            if (!customField) {
+                console.log("Custom field not found");
+                return;
+            }
+
+            const workspaceId = customField.workspaceId;
+            const clientId = customField.clientId;
+
+            // Check the workspace for the client and workspace if any workflows are active for data_change trigger node
+            const { data: workflows, error: workflowsError } = await this.supabase
+                .from('workflow')
+                .select('*')
+                .eq('workspaceId', workspaceId)
+                .eq('clientId', clientId)
+                .eq('status', 'live');
+
+            if (workflowsError) throw new Error(`Fetch failed: ${workflowsError.message}`);
+
+            if (workflows.length === 0) {
+                console.log("No active workflows found");
+                return;
+            }
+
+            for (const workflow of workflows) {
+                const { data: node, error: nodesError } = await this.supabase
+                    .from('workflownode')
+                    .select('*')
+                    .eq('workflowId', workflow.id)
+                    .eq('type', 'data_change')
+                    .is("isTrigger", true)
+                    .single();
+
+                if (node) {
+                    // Need to check here if the data changed in the workflow payload matches the data change node config
+                    const config = node.config;
+                    const tableName = payload.new?.entityType || "";
+
+                    // Compare both arrays and check if we have any common values
+                    const customFieldConfigFields = config?.fields?.filter(field => field.table === tableName);
+                    const isTriggerValid = customFieldConfigFields.length > 0 && customFieldConfigFields.map(field => field.customFieldId).includes(customFieldId);
+
+                    if (!isTriggerValid) {
+                        console.log("Workflow is not valid, skipping");
+                        return;
+                    }
+
+                    // Validate the workflow
+                    const isValid = await this.validateWorkflow(workflow.id, workspaceId, clientId, true, true, payload?.new?.ticketId || null, payload?.new?.contactId || null, payload?.new?.companyId || null);
+
+                    if (!isValid) {
+                        console.log("Workflow is not valid, skipping");
+                        continue;
+                    }
+                    console.log("Found a active workflow, send to temporal")
+                }
+            }
+
+            return;
+        } catch (e) {
+            console.log("Error in handleCustomFieldDataChanged()", e);
+            return;
+        }
+    }
+
+    async handleCustomObjectFieldDataChanged(payload) {
+        try {
+            const customObjectFieldId = payload.new.customObjectFieldId;
+
+            // Fetch custom object field for the custom object field id
+            const { data: customObjectField, error: customObjectFieldError } = await this.supabase
+                .from('customobjectfields')
+                .select('id, workspaceId, clientId, customobjects!customobjecfields_customObjectId_fkey(id, name, connectionType)')
+                .eq('id', customObjectFieldId)
+                .single();
+
+            if (customObjectFieldError) throw new Error(`Fetch failed: ${customObjectFieldError.message}`);
+
+            if (!customObjectField) {
+                console.log("Custom object field not found");
+                return;
+            }
+
+            const workspaceId = customObjectField.customobjects.workspaceId;
+            const clientId = customObjectField.customobjects.clientId;
+
+            // Check the workspace for the client and workspace if any workflows are active for data_change trigger node
+            const { data: workflows, error: workflowsError } = await this.supabase
+                .from('workflow')
+                .select('*')
+                .eq('workspaceId', workspaceId)
+                .eq('clientId', clientId)
+                .eq('status', 'live');
+
+            if (workflowsError) throw new Error(`Fetch failed: ${workflowsError.message}`);
+
+            if (workflows.length === 0) {
+                console.log("No active workflows found");
+                return;
+            }
+
+            for (const workflow of workflows) {
+                const { data: node, error: nodesError } = await this.supabase
+                    .from('workflownode')
+                    .select('*')
+                    .eq('workflowId', workflow.id)
+                    .eq('type', 'data_change')
+                    .is("isTrigger", true)
+                    .single();
+
+                if (node) {
+                    // Need to check here if the data changed in the workflow payload matches the data change node config
+                    const config = node.config;
+                    const tableName = payload.new?.entityType || "";
+
+                    // Compare both arrays and check if we have any common values
+                    const customObjectFields = config?.fields?.filter(field => field.table === "custom_object");
+                    const isTriggerValid = customObjectFields.length > 0 && customObjectFields.map(field => field.customObjectFieldId).includes(customObjectFieldId);
+
+                    if (!isTriggerValid) {
+                        console.log("Workflow is not valid, skipping");
+                        return;
+                    }
+
+                    // Validate the workflow
+                    const isValid = await this.validateWorkflow(workflow.id, workspaceId, clientId, true, true, payload?.new?.ticketId || null, payload?.new?.contactId || null, payload?.new?.companyId || null);
+
+                    if (!isValid) {
+                        console.log("Workflow is not valid, skipping");
+                        continue;
+                    }
+                    console.log("Found a active workflow, send to temporal")
+                }
+            }
+
+            return;
+        } catch (e) {
+            console.log("Error in handleCustomObjectFieldDataChanged()", e);
+            return;
+        }
+    }
+
+    async handleCustomerDataChanged(payload) {
+        try {
+            const contactId = payload.new.id;
+            const workspaceId = payload.new.workspaceId;
+            const clientId = payload.new.clientId;
+
+            // Check the workspace for the client and workspace if any workflows are active for data_change trigger node
+            const { data: workflows, error: workflowsError } = await this.supabase
+                .from('workflow')
+                .select('*')
+                .eq('workspaceId', workspaceId)
+                .eq('clientId', clientId)
+                .eq('status', 'live');
+
+            if (workflowsError) throw new Error(`Fetch failed: ${workflowsError.message}`);
+
+            if (workflows.length === 0) {
+                console.log("No active workflows found");
+                return;
+            }
+
+            for (const workflow of workflows) {
+                const { data: node, error: nodesError } = await this.supabase
+                    .from('workflownode')
+                    .select('*')
+                    .eq('workflowId', workflow.id)
+                    .eq('type', 'data_change')
+                    .is("isTrigger", true)
+                    .single();
+
+                if (node) {
+                    // Need to check here if the data changed in the workflow payload matches the data change node config
+                    const config = node.config;
+                    const newData = payload.new;
+                    const oldData = payload.old;
+                    const dataChanged = Object.keys(newData).filter(key => newData[key] !== oldData[key]);
+
+                    // Compare both arrays and check if we have any common values
+                    const contactConfigFields = config?.fields?.filter(field => field.table === "contact");
+                    const isTriggerValid = contactConfigFields.length > 0 && dataChanged.some(item => contactConfigFields.map(field => field.field).includes(item));
+
+                    if (!isTriggerValid) {
+                        console.log("Workflow is not valid, skipping");
+                        return;
+                    }
+
+                    // Validate the workflow
+                    const isValid = await this.validateWorkflow(workflow.id, workspaceId, clientId, true, true, null, contactId, null);
+
+                    if (!isValid) {
+                        console.log("Workflow is not valid, skipping");
+                        continue;
+                    }
+                    console.log("Found a active workflow, send to temporal")
+                }
+            }
+
+            return;
+        } catch (e) {
+            console.log("Error in handleCustomerDataChanged()", e);
+            return;
+        }
+    }
+
+    async handleCompanyDataChanged(payload) {
+        try {
+            const companyId = payload.new.id;
+            const workspaceId = payload.new.workspaceId;
+            const clientId = payload.new.clientId;
+
+            // Check the workspace for the client and workspace if any workflows are active for data_change trigger node
+            const { data: workflows, error: workflowsError } = await this.supabase
+                .from('workflow')
+                .select('*')
+                .eq('workspaceId', workspaceId)
+                .eq('clientId', clientId)
+                .eq('status', 'live');
+
+            if (workflowsError) throw new Error(`Fetch failed: ${workflowsError.message}`);
+
+            if (workflows.length === 0) {
+                console.log("No active workflows found");
+                return;
+            }
+
+            for (const workflow of workflows) {
+                const { data: node, error: nodesError } = await this.supabase
+                    .from('workflownode')
+                    .select('*')
+                    .eq('workflowId', workflow.id)
+                    .eq('type', 'data_change')
+                    .is("isTrigger", true)
+                    .single();
+
+                if (node) {
+                    // Need to check here if the data changed in the workflow payload matches the data change node config
+                    const config = node.config;
+                    const newData = payload.new;
+                    const oldData = payload.old;
+                    const dataChanged = Object.keys(newData).filter(key => newData[key] !== oldData[key]);
+
+                    // Compare both arrays and check if we have any common values
+                    const companyConfigFields = config?.fields?.filter(field => field.table === "company");
+                    const isTriggerValid = companyConfigFields.length > 0 && dataChanged.some(item => companyConfigFields.map(field => field.field).includes(item));
+
+                    if (!isTriggerValid) {
+                        console.log("Workflow is not valid, skipping");
+                        return;
+                    }
+
+                    // Validate the workflow
+                    const isValid = await this.validateWorkflow(workflow.id, workspaceId, clientId, true, true, null, null, companyId);
+
+                    if (!isValid) {
+                        console.log("Workflow is not valid, skipping");
+                        continue;
+                    }
+                    console.log("Found a active workflow, send to temporal")
+                }
+            }
+
+            return;
+        } catch (e) {
+            console.log("Error in handleCompanyDataChanged()", e);
+            return;
+        }
+    }
 }
 
 module.exports = WorkflowService;
