@@ -53,6 +53,8 @@ class CompanyHandler extends BaseHandler {
 
     let id = req.params.company_id;
     let toUpdate = req.body;
+    toUpdate.updatedBy = req.authUser.id;
+
     let inst = new CompanyService();
     return this.responder(req, reply, inst.updateCompany({ id, workspaceId, clientId }, toUpdate));
   }

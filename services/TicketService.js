@@ -147,7 +147,7 @@ class TicketService {
 
     async listTickets(req) {
         try {
-            const {clientId, workspaceId} = req;
+            const { clientId, workspaceId } = req;
             const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
             if (!uuidRegex.test(clientId)) {
                 throw new errors.ValidationFailed(`Invalid clientId: ${clientId}`);
@@ -1008,7 +1008,7 @@ class TicketService {
     /**
      * Assign a ticket to a team
      */
-    async assignTicketToTeam(id, sno, teamId, workspaceId, clientId) {
+    async assignTicketToTeam(id, sno, teamId, workspaceId, clientId, assignmentData = {}) {
         try {
 
             if (!teamId) {
@@ -1057,13 +1057,20 @@ class TicketService {
                 throw new errors.NotFound(`Ticket ${id ? `with ID ${id}` : `with SNO ${sno}`} not found`);
             }
 
-            // Update ticket with teamId
+            // Update ticket with teamId and updatedBy
+            const updatePayload = {
+                teamId: teamId,
+                updatedAt: new Date().toISOString()
+            };
+
+            // Add updatedBy if provided in assignmentData
+            if (assignmentData.updatedBy) {
+                updatePayload.updatedBy = assignmentData.updatedBy;
+            }
+
             const { data: updatedTicket, error: updateError } = await supabase
                 .from(this.entityName)
-                .update({
-                    teamId: teamId,
-                    updatedAt: new Date().toISOString()
-                })
+                .update(updatePayload)
                 .eq('id', ticket.id)
                 .select()
                 .single();
@@ -1105,7 +1112,7 @@ class TicketService {
     /**
      * Assign a ticket to a user
      */
-    async assignTicketToUser(id, sno, assigneeId, assignedTo, workspaceId, clientId) {
+    async assignTicketToUser(id, sno, assigneeId, assignedTo, workspaceId, clientId, assignmentData = {}) {
         try {
 
             if (!assigneeId && !assignedTo) {
@@ -1179,6 +1186,10 @@ class TicketService {
                 updateData.assigneeId = assignedTo;
             }
 
+            // Add updatedBy if provided in assignmentData
+            if (assignmentData.updatedBy) {
+                updateData.updatedBy = assignmentData.updatedBy;
+            }
 
             // Update ticket with assigneeId and/or assignedTo fields
             const { data: updatedTicket, error: updateError } = await supabase

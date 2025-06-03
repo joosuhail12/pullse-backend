@@ -212,11 +212,11 @@ class CustomerHandler extends BaseHandler {
     let clientId = req.authUser.clientId;
     let id = req.params.customer_id;
     let toUpdate = req.body;
-    let inst = this.customerServiceInst;
+    toUpdate.updatedBy = req.authUser.id;
 
+    let inst = this.customerServiceInst;
     return this.responder(req, reply, inst.updateCustomer({ id, workspaceId, clientId }, toUpdate));
   }
-
 
   async showCustomerDetail(req, reply) {
     let clientId = req.authUser.clientId;
@@ -234,14 +234,14 @@ class CustomerHandler extends BaseHandler {
     return this.responder(req, reply, Promise.resolve(profile));
   }
 
-  async updateCustomer(req, reply) {
-    let workspaceId = req.query.workspace_id;
-    let clientId = req.authUser.clientId;
-    let id = req.params.customer_id;
-    let toUpdate = req.body;
-    let inst = this.customerServiceInst;
-    return this.responder(req, reply, inst.updateCustomer({ id, workspaceId, clientId }, toUpdate));
-  }
+  // async updateCustomer(req, reply) {
+  //   let workspaceId = req.query.workspace_id;
+  //   let clientId = req.authUser.clientId;
+  //   let id = req.params.customer_id;
+  //   let toUpdate = req.body;
+  //   let inst = this.customerServiceInst;
+  //   return this.responder(req, reply, inst.updateCustomer({ id, workspaceId, clientId }, toUpdate));
+  // }
 
   async bulkAction(req, reply) {
     let action = req.body.action;

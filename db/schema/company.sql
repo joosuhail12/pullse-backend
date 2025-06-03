@@ -19,6 +19,7 @@ CREATE TABLE companies (
     workspaceId TEXT NOT NULL,
     clientId TEXT NOT NULL,
     createdBy TEXT NOT NULL,
+    updatedBy UUID REFERENCES users(id),
     deletedAt TIMESTAMP,
     created_at TIMESTAMP DEFAULT NOW(),
     updated_at TIMESTAMP DEFAULT NOW()

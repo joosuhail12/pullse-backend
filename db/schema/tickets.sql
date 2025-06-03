@@ -37,6 +37,7 @@ CREATE TABLE tickets (
     qa JSONB,
     customFields JSONB,
     createdBy TEXT NOT NULL,
+    updatedBy UUID REFERENCES users(id),
     ticketCreatedBy TEXT,
     closedAt TIMESTAMP,
     deletedAt TIMESTAMP,

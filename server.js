@@ -103,9 +103,26 @@ const start = async () => {
 
   } catch (err) {
     app.log.error(err);
+    // Cleanup timeline listener on error
+    // if (timelineListener) {
+    //   timelineListener.cleanup();
+    // }
     process.exit(1);
   }
 }
 
+// // Graceful shutdown
+// process.on('SIGTERM', () => {
+//   if (timelineListener) {
+//     timelineListener.cleanup();
+//   }
+// });
+
+// process.on('SIGINT', () => {
+//   if (timelineListener) {
+//     timelineListener.cleanup();
+//   }
+//   process.exit(0);
+// });
 
 start();
