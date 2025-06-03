@@ -22,6 +22,7 @@ const chatbotDocumentRoute = require('./chatbotDocumentRoutes');
 const contentFolderRoute = require('./contentFolderRoutes');
 const mentionRoutes = require('./mentionRoutes');
 const notificationRoute = require('./notificationRoutes');
+const timelineRoutes = require('./timelineRoutes');
 
 const customFieldRoute = require('./customFieldRoutes');
 const customFieldDataRoute = require('./customFieldDataRoutes');
@@ -87,5 +88,7 @@ module.exports = {
     await ablyRoute.activate(app);
     await notificationRoute.activate(app);
     await actionCenterRoute.activate(app);
+    // await app.register(timelineRoutes, { prefix: '/api' });
+    await timelineRoutes.activate(app);
   }
 };

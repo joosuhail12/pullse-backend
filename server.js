@@ -1,4 +1,3 @@
-
 const config = require('./config');
 
 const fastify = require('fastify')
@@ -19,7 +18,11 @@ const swagger = require('./middlewares/swagger');
 const routes = require('./routes');
 const caslPlugin = require('./ability/casl');
 const supabase = require('./db/supabaseClient');
+const TimelineListener = require('./db/timelineListener');
+
 let app;
+let timelineListener;
+
 const start = async () => {
   try {
     app = fastify({ logger: config.logger.enable, trustProxy: true });
@@ -65,6 +68,11 @@ const start = async () => {
     });
 
     await routes.activate(app);
+
+    // Initialize timeline listener after app is ready
+    timelineListener = new TimelineListener();
+    timelineListener.init();
+
     app.addHook('onResponse', (request, reply, done) => {
       // console.log(reply, ".reply reply reply reply..",);
       // console.log(Object.keys(reply), ".reply reply reply reply..",);
@@ -78,7 +86,7 @@ const start = async () => {
       // init(ably, supabase, InternalService);
     });
 
-    
+
 
     app.listen({ port: config.server.port, host: config.server.host });
     await app.ready()
