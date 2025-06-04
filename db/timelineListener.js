@@ -54,7 +54,7 @@ class TimelineListener {
                     const changes = TimelineService.trackChanges(oldTicket, newTicket, ['status', 'assigneeId', 'priority', 'title']);
                     console.log('changes', changes);
                     if (changes && newTicket.customerId && newTicket.workspaceId && newTicket.clientId) {
-                        await this.timelineService.logTicketActivity('contact', newTicket.customerId, {
+                        await this.timelineService.logTicketActivity('contact', newTicket.customerId, { // first 2 params are entity type and entity id - faulty here 
                             action: 'updated',
                             ticket_number: newTicket.sno,
                             ticket_id: newTicket.id,
@@ -102,7 +102,7 @@ class TimelineListener {
                 try {
                     const oldCustomer = payload.old;
                     const newCustomer = payload.new;
-                    const changes = TimelineService.trackChanges(oldCustomer, newCustomer, ['firstName', 'lastName', 'email', 'phone', 'status']);
+                    const changes = TimelineService.trackChanges(oldCustomer, newCustomer, ['firstName', 'lastName', 'email', 'phone', 'status', 'title']);
 
                     if (changes && newCustomer.id && newCustomer.workspaceId && newCustomer.clientId) {
                         await this.timelineService.logEntityUpdated(
