@@ -6,6 +6,7 @@ const _ = require("lodash");
 const { CompanyEventPublisher } = require("../Events/CompanyEvent");
 const { createClient } = require('@supabase/supabase-js');
 const TagHistoryService = require("./TagHistoryService");
+const TimelineService = require('./TimelineService');
 
 
 class CompanyService extends BaseService {
@@ -238,7 +239,21 @@ class CompanyService extends BaseService {
 
             // Handle tags updates separately
             if (updates.tags) {
-                console.log("🏷️ UPDATING TAGS");
+                console.log("��️ UPDATING TAGS");
+
+                // Get current tags before deletion for timeline tracking
+                const { data: currentTagsData, error: currentTagsError } = await this.supabase
+                    .from('companyTags')
+                    .select('tagId, tags(name)')
+                    .eq('companyId', id)
+                    .eq('workspaceId', workspaceId)
+                    .eq('clientId', clientId);
+
+                const currentTagIds = currentTagsData ? currentTagsData.map(ct => ct.tagId) : [];
+                const currentTagNames = currentTagsData ? currentTagsData.map(ct => ct.tags.name) : [];
+                const newTagIds = updates.tags.map(tag => tag.id);
+                const newTagNames = updates.tags.map(tag => tag.name);
+
                 // Extract tags and remove from main updates object
                 const tags = [...updates.tags];
                 delete updates.tags;
@@ -260,6 +275,19 @@ class CompanyService extends BaseService {
                 tags.forEach(async (tag) => {
                     await tagHistoryService.updateTagHistory(tag.id, "company");
                 });
+
+                // Log tag changes to timeline
+                const timelineService = new TimelineService();
+                await timelineService.logTagActivity('company', id, {
+                    old_tag_ids: currentTagIds,
+                    new_tag_ids: newTagIds,
+                    added_tag_names: newTagNames.filter(name => !currentTagNames.includes(name)),
+                    removed_tag_names: currentTagNames.filter(name => !newTagNames.includes(name)),
+                    actor_id: updates.updatedBy || null,
+                    actor_name: await timelineService.getUserName(updates.updatedBy) || null,
+                    actor_type: 'user',
+                    source: 'web'
+                }, workspaceId, clientId);
 
                 // Only update company data if there are other fields to update
                 if (Object.keys(updates).length > 0) {

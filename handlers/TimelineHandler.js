@@ -22,8 +22,8 @@ class TimelineHandler extends BaseHandler {
                 activity_type: req.query.activity_type || 'all', // from dropdown
                 date_from: req.query.date_from,
                 date_to: req.query.date_to,
-                limit: req.query.limit || 50,
-                offset: req.query.offset || 0,
+                limit: parseInt(req.query.limit) || 50,
+                offset: parseInt(req.query.offset) || 0,
                 exclude_internal: req.authUser.userType === 'customer'
             };
 
@@ -35,16 +35,54 @@ class TimelineHandler extends BaseHandler {
                 filters
             );
 
-            // Structure response to match frontend expectations
+            // Get additional metadata for frontend
+            const [stats, activityTypes] = await Promise.all([
+                timelineService.getTimelineStats(entityType, entityId, workspaceId, clientId),
+                this.getAvailableActivityTypes(timelineService, entityType, entityId, workspaceId, clientId)
+            ]);
+
+            // Group timeline by date for better frontend display
+            const groupedTimeline = this.groupTimelineByDate(timeline);
+
+            // Structure comprehensive response for frontend
             const response = {
-                timeline: timeline,
-                has_more: timeline.length === parseInt(filters.limit),
-                total_count: timeline.length,
-                filters_applied: {
-                    activity_type: filters.activity_type,
-                    date_range: {
-                        from: filters.date_from,
-                        to: filters.date_to
+                success: true,
+                data: {
+                    timeline: timeline,
+                    grouped_timeline: groupedTimeline,
+                    entity: {
+                        type: entityType,
+                        id: entityId
+                    },
+                    pagination: {
+                        limit: filters.limit,
+                        offset: filters.offset,
+                        has_more: timeline.length === filters.limit,
+                        total_returned: timeline.length,
+                        next_offset: timeline.length === filters.limit ? filters.offset + filters.limit : null
+                    },
+                    filters: {
+                        applied: {
+                            activity_type: filters.activity_type,
+                            date_range: {
+                                from: filters.date_from,
+                                to: filters.date_to
+                            },
+                            exclude_internal: filters.exclude_internal
+                        },
+                        available: {
+                            activity_types: activityTypes,
+                            date_ranges: this.getAvailableDateRanges()
+                        }
+                    },
+                    stats: stats,
+                    metadata: {
+                        last_updated: new Date().toISOString(),
+                        user_context: {
+                            can_add_notes: req.authUser.userType !== 'customer',
+                            can_edit_entries: req.authUser.role === 'admin' || req.authUser.role === 'manager',
+                            can_delete_entries: req.authUser.role === 'admin'
+                        }
                     }
                 }
             };
@@ -206,6 +244,151 @@ class TimelineHandler extends BaseHandler {
         } catch (error) {
             return this.responder(req, reply, Promise.reject(error));
         }
+    }
+
+    /**
+     * Group timeline entries by date for frontend display
+     */
+    groupTimelineByDate(timeline) {
+        const groups = {};
+
+        timeline.forEach(entry => {
+            const dateGroup = entry.date_group || 'Other';
+            if (!groups[dateGroup]) {
+                groups[dateGroup] = {
+                    label: dateGroup,
+                    entries: []
+                };
+            }
+            groups[dateGroup].entries.push(entry);
+        });
+
+        // Sort groups by chronological order
+        const sortOrder = ['Today', 'Yesterday', 'This Week', 'This Month', 'Last 3 Months', 'Older'];
+        const sortedGroups = [];
+
+        sortOrder.forEach(groupName => {
+            if (groups[groupName]) {
+                sortedGroups.push(groups[groupName]);
+            }
+        });
+
+        // Add any remaining groups
+        Object.keys(groups).forEach(groupName => {
+            if (!sortOrder.includes(groupName)) {
+                sortedGroups.push(groups[groupName]);
+            }
+        });
+
+        return sortedGroups;
+    }
+
+    /**
+     * Get available activity types for filtering
+     */
+    async getAvailableActivityTypes(timelineService, entityType, entityId, workspaceId, clientId) {
+        try {
+            const { data, error } = await timelineService.supabase
+                .from('timeline')
+                .select('activity_type, activity_subtype')
+                .eq('entity_type', entityType)
+                .eq('entity_id', entityId)
+                .eq('workspace_id', workspaceId)
+                .eq('client_id', clientId)
+                .is('deleted_at', null);
+
+            if (error) return this.getDefaultActivityTypes();
+
+            // Group and count activity types
+            const activityCounts = {};
+            data.forEach(entry => {
+                const key = entry.activity_type;
+                activityCounts[key] = (activityCounts[key] || 0) + 1;
+            });
+
+            return [
+                { value: 'all', label: 'All Activities', count: data.length },
+                ...Object.keys(activityCounts).map(type => ({
+                    value: type,
+                    label: this.getActivityTypeLabel(type),
+                    count: activityCounts[type],
+                    icon: this.getActivityTypeIcon(type)
+                }))
+            ];
+        } catch (err) {
+            return this.getDefaultActivityTypes();
+        }
+    }
+
+    /**
+     * Get default activity types if query fails
+     */
+    getDefaultActivityTypes() {
+        return [
+            { value: 'all', label: 'All Activities', count: 0 },
+            { value: 'email', label: 'Emails', count: 0, icon: 'mail' },
+            { value: 'ticket', label: 'Tickets', count: 0, icon: 'ticket' },
+            { value: 'note', label: 'Notes', count: 0, icon: 'note' },
+            { value: 'contact_update', label: 'Contact Updates', count: 0, icon: 'user-edit' },
+            { value: 'company_update', label: 'Company Updates', count: 0, icon: 'building-edit' }
+        ];
+    }
+
+    /**
+     * Get activity type labels
+     */
+    getActivityTypeLabel(type) {
+        const labels = {
+            'email': 'Emails',
+            'ticket': 'Tickets',
+            'note': 'Notes',
+            'call': 'Calls',
+            'meeting': 'Meetings',
+            'contact_update': 'Contact Updates',
+            'company_update': 'Company Updates',
+            'tag_update': 'Tag Changes',
+            'sentiment_update': 'Sentiment Analysis'
+        };
+        return labels[type] || type.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
+    }
+
+    /**
+     * Get activity type icons
+     */
+    getActivityTypeIcon(type) {
+        const icons = {
+            'email': 'mail',
+            'ticket': 'ticket',
+            'note': 'note',
+            'call': 'phone',
+            'meeting': 'calendar',
+            'contact_update': 'user-edit',
+            'company_update': 'building-edit',
+            'tag_update': 'tag',
+            'sentiment_update': 'chart-line'
+        };
+        return icons[type] || 'activity';
+    }
+
+    /**
+     * Get available date ranges for filtering
+     */
+    getAvailableDateRanges() {
+        const now = new Date();
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const yesterday = new Date(today.getTime() - 24 * 60 * 60 * 1000);
+        const weekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
+        const monthAgo = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
+        const threeMonthsAgo = new Date(today.getTime() - 90 * 24 * 60 * 60 * 1000);
+
+        return [
+            { label: 'Today', value: 'today', from: today.toISOString(), to: null },
+            { label: 'Yesterday', value: 'yesterday', from: yesterday.toISOString(), to: today.toISOString() },
+            { label: 'Last 7 days', value: 'week', from: weekAgo.toISOString(), to: null },
+            { label: 'Last 30 days', value: 'month', from: monthAgo.toISOString(), to: null },
+            { label: 'Last 3 months', value: 'quarter', from: threeMonthsAgo.toISOString(), to: null },
+            { label: 'Custom range', value: 'custom', from: null, to: null }
+        ];
     }
 }
 

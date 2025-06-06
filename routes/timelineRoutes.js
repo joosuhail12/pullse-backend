@@ -26,7 +26,7 @@ async function activate(app) {
             querystring: {
                 type: 'object',
                 properties: {
-                    activity_type: { type: 'string', enum: ['all', 'email', 'ticket', 'note', 'call', 'meeting', 'contact_update'] },
+                    activity_type: { type: 'string', enum: ['all', 'email', 'ticket', 'note', 'call', 'meeting', 'contact_update', 'sentiment_update', 'tag_update'] },
                     date_from: { type: 'string', format: 'date' },
                     date_to: { type: 'string', format: 'date' },
                     limit: { type: 'integer', minimum: 1, maximum: 100, default: 50 },
@@ -86,7 +86,7 @@ async function activate(app) {
             querystring: {
                 type: 'object',
                 properties: {
-                    activity_type: { type: 'string', enum: ['all', 'email', 'ticket', 'note', 'call', 'meeting', 'company_update'] },
+                    activity_type: { type: 'string', enum: ['all', 'email', 'ticket', 'note', 'call', 'meeting', 'company_update', 'sentiment_update', 'tag_update'] },
                     date_from: { type: 'string', format: 'date' },
                     date_to: { type: 'string', format: 'date' },
                     limit: { type: 'integer', minimum: 1, maximum: 100, default: 50 },
@@ -171,7 +171,7 @@ async function activate(app) {
                 type: 'object',
                 properties: {
                     entity_type: { type: 'string', enum: ['contact', 'company', 'ticket'] },
-                    activity_type: { type: 'string', enum: ['email', 'ticket', 'note', 'call', 'meeting', 'company_update', 'contact_update', 'system'] },
+                    activity_type: { type: 'string', enum: ['all', 'email', 'ticket', 'note', 'call', 'meeting', 'company_update', 'contact_update', 'system', 'sentiment_update', 'tag_update'] },
                     actor_id: { type: 'string', format: 'uuid' },
                     date_from: { type: 'string', format: 'date' },
                     date_to: { type: 'string', format: 'date' },
