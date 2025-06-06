@@ -476,7 +476,7 @@ async function activate(app) {
                               id: { type: 'string' }, // id if the rule already exists
                               entityType: {
                                 type: 'string',
-                                enum: ['contact', 'company', 'ticket', 'custom_object_field']
+                                enum: ['contact', 'company', 'ticket', 'custom_field', 'custom_object_field']
                               },
                               standardFieldName: {
                                 type: 'string'

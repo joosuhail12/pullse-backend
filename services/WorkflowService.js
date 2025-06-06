@@ -4,6 +4,8 @@ const BaseService = require("./BaseService");
 const _ = require("lodash");
 const { v4: uuid } = require("uuid");
 const Ajv = require('ajv');
+const { Engine, Rule, Operator } = require('json-rules-engine');
+
 class WorkflowService extends BaseService {
     constructor() {
         super();
@@ -743,21 +745,393 @@ class WorkflowService extends BaseService {
         }
     }
 
-    async validateWorkflow(id, workspaceId, clientId) {
+    async validateChannels(ticketId, channels = []) {
         try {
-            // Get the workflow
-            const { data: workflow, error: workflowError } = await this.supabase
-                .from('workflow')
+            if (channels.length === 0) return true;
+
+            const ticketData = await this.supabase
+                .from('ticket')
                 .select('*')
-                .eq('id', id)
-                .eq('workspaceId', workspaceId)
-                .eq('clientId', clientId)
+                .eq('id', ticketId)
                 .is('deletedAt', null)
-                .eq('status', 'live')
                 .single();
 
+            if (!ticketData) throw new Error("Ticket not found");
 
-            if (workflowError) throw new Error(`Fetch failed: ${workflowError.message}`);
+            const channel = ticketData.channel;
+
+            const isChannelPresent = channels.some(c => c.channelType === channel);
+
+            if (!isChannelPresent) throw new Error("Ticket is not associated with the workflow");
+
+            if (channel === 'email') {
+                const emailChannelIdInTicket = ticketData.emailChannelId;
+                const matchingChannel = channels.find(c => c.emailChannelId === emailChannelIdInTicket);
+
+                if (!matchingChannel) throw new Error("Email channel is not associated with the workflow");
+            } else if (channel === 'chatwidget') {
+                const chatwidgetChannelIdInTicket = ticketData.chatWidgetId;
+                const matchingChannel = channels.find(c => c.widgetId === chatwidgetChannelIdInTicket);
+
+                if (!matchingChannel) throw new Error("Chatwidget channel is not associated with the workflow");
+            }
+
+            return true;
+        } catch (error) {
+            console.log("Error in validateChannels()", error);
+            return false;
+        }
+    }
+
+    async fieldsToFetchFromDb(fields, ticketId = null, contactId = null, companyId = null) {
+        if (!ticketId && !contactId && !companyId) throw new Error("No ticket, contact or company id provided");
+        let ticketData = null;
+        let contactData = null;
+        let companyData = null;
+        let data = {};
+
+        for (const field of Object.keys(fields)) {
+            data[field] = {};
+        }
+
+        if (Object.keys(fields["ticket"]).length > 0 || Object.keys(fields["contact"]).length > 0 || Object.keys(fields["company"]).length > 0) {
+            if (!ticketId && Object.keys(fields["ticket"]).length > 0) {
+                for (const columnname of fields["ticket"]) {
+                    data["ticket"][columnname] = null;
+                }
+            } else {
+                const { data: ticket, error: ticketError } = await this.supabase
+                    .from('tickets')
+                    .select('*')
+                    .eq('id', ticketId)
+                    .is('deletedAt', null)
+                    .single();
+
+                if (ticketError) throw new Error(`Fetch failed: ${ticketError.message}`);
+                ticketData = ticket;
+
+                if (Object.keys(fields["ticket"]).length > 0) {
+                    for (const columnname of fields["ticket"]) {
+                        data["ticket"][columnname] = ticketData?.[columnname] || null;
+                    }
+                }
+            }
+        }
+
+        if (Object.keys(fields["contact"]).length > 0 || Object.keys(fields["company"]).length > 0) {
+            if (!contactId && !ticketData?.customerId && Object.keys(fields["contact"]).length > 0) {
+                for (const columnname of fields["contact"]) {
+                    data["contact"][columnname] = null;
+                }
+            } else {
+                const { data: contact, error: contactError } = await this.supabase
+                    .from('customers')
+                    .select('*')
+                    .eq('id', contactId || ticketData?.customerId)
+                    .is('deletedAt', null)
+                    .single();
+
+                if (contactError) throw new Error(`Fetch failed: ${contactError.message}`);
+                contactData = contact;
+
+                if (Object.keys(fields["contact"]).length > 0) {
+                    for (const columnname of fields["contact"]) {
+                        data["contact"][columnname] = contactData?.[columnname];
+                    }
+                }
+            }
+        }
+
+        if (Object.keys(fields["company"]).length > 0) {
+            if (!companyId && !contactData?.companyId) {
+                for (const columnname of fields["company"]) {
+                    data["company"][columnname] = null;
+                }
+            } else {
+                const { data: company, error: companyError } = await this.supabase
+                    .from('companies')
+                    .select('*')
+                    .eq('id', companyId || contactData?.companyId)
+                    .is('deletedAt', null)
+                    .single();
+
+                if (companyError) throw new Error(`Fetch failed: ${companyError.message}`);
+                companyData = company;
+
+                for (const columnname of fields["company"]) {
+                    data["company"][columnname] = companyData?.[columnname];
+                }
+            }
+        }
+
+        if (fields["custom_field"].length > 0) {
+            const { data: customFields, error: customFieldsError } = await this.supabase
+                .from('customfields')
+                .select('*')
+                .in('id', fields.custom_field)
+                .is('deletedAt', null);
+
+            if (customFieldsError) throw new Error(`Fetch failed: ${customFieldsError.message}`);
+
+            // Fetch date from data table
+            for (const customField of fields.custom_field) {
+                let query = this.supabase
+                    .from('customfielddata')
+                    .select('*')
+                    .eq('customfieldId', customField)
+                    .eq('entityType', customFields.find(cf => cf.id === customField).entityType);
+
+                if (ticketId) {
+                    query = query.eq('ticketId', ticketId);
+                }
+                if (contactId) {
+                    query = query.eq('contactId', contactId);
+                }
+                if (companyId) {
+                    query = query.eq('companyId', companyId);
+                }
+
+                const { data: customFieldData, error: dataError } = await query.single();
+
+                if (dataError) {
+                    data.custom_field[customField] = null;
+                } else {
+                    data.custom_field[customField] = customFieldData?.data;
+                }
+            }
+
+        }
+
+        if (fields["custom_object_field"].length > 0) {
+            const { data: customObjectFields, error: customObjectFieldsError } = await this.supabase
+                .from('customobjectfields')
+                .select('*, customobjects!customobjecfields_customObjectId_fkey(id, name, connectionType)')
+                .in('id', fields.custom_object_field);
+
+            if (customObjectFieldsError) throw new Error(`Fetch failed: ${customObjectFieldsError.message}`);
+
+            const customObjectFieldsGroupedByCustomObjectId = customObjectFields.reduce((acc, cof) => {
+                if (!acc[cof.customObjectId]) acc[cof.customObjectId] = [];
+                acc[cof.customObjectId].push(cof);
+                return acc;
+            }, {});
+
+            for (const customObjectId of Object.keys(customObjectFieldsGroupedByCustomObjectId)) {
+                const customObjectFields = customObjectFieldsGroupedByCustomObjectId[customObjectId];
+                const connectionType = customObjectFieldsGroupedByCustomObjectId[customObjectId][0].customobjects.connectionType;
+
+                for (const customObjectField of customObjectFields) {
+                    const { data: customObjectFieldData, error: customObjectFieldError } = await this.supabase
+                        .from('customobjectfielddata')
+                        .select('*')
+                        .eq('customobjectfieldId', customObjectField.id)
+                        .eq('entityType', connectionType);
+
+                    if (customObjectFieldError) {
+                        // If the key is not present, then add it
+                        if (!data.custom_object_field[customObjectId]) {
+                            data.custom_object_field[customObjectId] = {};
+                        }
+                        data.custom_object_field[customObjectId][customObjectField.id] = null;
+                    } else {
+                        // If the key is not present, then add it
+                        if (!data.custom_object_field[customObjectId]) {
+                            data.custom_object_field[customObjectId] = {};
+                        }
+                        data.custom_object_field[customObjectId][customObjectField.id] = customObjectFieldData;
+                    }
+                }
+            }
+        }
+
+        return data;
+    }
+
+    async validateRules(rules, ticketId = null, contactId = null, companyId = null) {
+        try {
+            const parentGroup = rules.find(r => r.workflowrulegroup.parentGroupId === null)?.workflowrulegroup;
+            if (!parentGroup) throw new Error("Parent group not found");
+            const parentGroupOperator = parentGroup.operator === "and" ? "all" : "any";
+            const parentGroupId = parentGroup.id;
+            const fieldsToFetchFromDb = {
+                custom_field: [],
+                custom_object_field: [],
+                contact: [],
+                company: [],
+                ticket: []
+            };
+            rules.forEach(r => {
+                if (r.entityType === 'custom_field') {
+                    fieldsToFetchFromDb.custom_field.push(r.customFieldId);
+                } else if (r.entityType === 'custom_object_field') {
+                    fieldsToFetchFromDb.custom_object_field.push(r.customObjectFieldId);
+                } else if (r.entityType === 'contact') {
+                    fieldsToFetchFromDb.contact.push(r.standardFieldName);
+                } else if (r.entityType === 'company') {
+                    fieldsToFetchFromDb.company.push(r.standardFieldName);
+                } else if (r.entityType === 'ticket') {
+                    fieldsToFetchFromDb.ticket.push(r.standardFieldName);
+                }
+            });
+
+            const facts = await this.fieldsToFetchFromDb(fieldsToFetchFromDb, ticketId, contactId, companyId);
+
+            const conditions = {
+                [parentGroupOperator]: []
+            };
+
+            const rulesGroupedByGroupIds = rules.reduce((acc, rule) => {
+                const groupId = rule.workflowrulegroup.id;
+                if (!acc[groupId]) {
+                    acc[groupId] = [];
+                }
+                acc[groupId].push(rule);
+                return acc;
+            }, {});
+
+            const rulesWithinParentGroup = rulesGroupedByGroupIds[parentGroupId];
+            const childGroups = Object.keys(rulesGroupedByGroupIds).filter(r => r !== parentGroupId);
+
+            if (childGroups.length > 0) {
+                for (const groupId of childGroups) {
+                    const groupOperator = rulesGroupedByGroupIds[groupId][0].workflowrulegroup.operator === "and" ? "all" : "any";
+                    const groupRules = rulesGroupedByGroupIds[groupId];
+
+                    conditions[parentGroupOperator].push({
+                        [groupOperator]: groupRules.map(r => {
+                            return {
+                                fact: r.entityType === 'custom_field' ? `custom_field.${r.customFieldId}` : r.entityType === 'custom_object_field' ? `custom_object_field.${r.customObjectId}.${r.customObjectFieldId}` : `${r.entityType}.${r.standardFieldName}`,
+                                operator: r.operator.toLowerCase(),
+                                value: r.value
+                            }
+                        })
+                    })
+                }
+            }
+
+            if (rulesWithinParentGroup.length > 0) {
+                for (const rule of rulesWithinParentGroup) {
+                    let fact = '';
+                    if (rule.entityType === 'custom_field') {
+                        fact = `custom_field.${rule.customFieldId}`;
+                    } else if (rule.entityType === 'custom_object_field') {
+                        fact = `custom_object_field.${rule.customObjectId}.${rule.customObjectFieldId}`;
+                    } else {
+                        fact = `${rule.entityType}.${rule.standardFieldName}`;
+                    }
+
+                    conditions[parentGroupOperator].push({
+                        fact,
+                        operator: rule.operator.toLowerCase(),
+                        value: rule.value
+                    });
+                }
+            }
+
+            function flatten(obj, prefix = '', res = {}) {
+                for (const key in obj) {
+                    const value = obj[key];
+                    const prefixedKey = prefix ? `${prefix}.${key}` : key;
+                    if (typeof value === 'object' && value !== null) {
+                        flatten(value, prefixedKey, res);
+                    } else {
+                        res[prefixedKey] = value;
+                    }
+                }
+                return res;
+            }
+
+
+            console.log(conditions, conditions.all, "conditions");
+            console.log(facts, "facts");
+            console.log(flatten(facts), "flattened facts");
+
+            // Use json rule engine to validate the conditions
+            const engine = new Engine();
+
+
+            engine.addOperator('equals', (factValue, jsonValue) => {
+                return factValue === jsonValue;
+            });
+
+            engine.addOperator('contains', (factValue, jsonValue) => {
+                return factValue.includes(jsonValue);
+            });
+
+            engine.addOperator('starts_with', (factValue, jsonValue) => {
+                return factValue.startsWith(jsonValue);
+            });
+
+            engine.addOperator('ends_with', (factValue, jsonValue) => {
+                return factValue.endsWith(jsonValue);
+            });
+
+            engine.addOperator('not_contains', (factValue, jsonValue) => {
+                return !factValue.includes(jsonValue);
+            });
+
+            engine.addRule({
+                conditions,
+                event: {
+                    type: "ticket_created",
+                    data: {
+                        ticketId: ticketId
+                    }
+                }
+            });
+
+            const result = await engine.run(flatten(facts));
+            if (result && result?.failureEvents.length > 0) {
+                return false;
+            }
+
+            return true;
+        } catch (error) {
+            console.log("Error in validateRules()", error);
+            return false;
+        }
+    }
+
+    async validateWorkflow(id, workspaceId, clientId, checkChannels = false, checkRules = false, ticketId = null, contactId = null, companyId = null) {
+        try {
+            if (checkRules) {
+                // Get all rules and get all groups
+                const { data: rules, error: rulesError } = await this.supabase
+                    .from('workflowrule')
+                    .select('*, workflowrulegroup!workflowrule_workflowRuleGroupId_fkey(id, operator, parentGroupId)')
+                    .eq('workflowId', id)
+                    .is('deletedAt', null);
+
+                if (rulesError) throw new Error(`Fetch failed: ${rulesError.message}`);
+
+                if (rules.length > 0) {
+                    const isValid = await this.validateRules(rules, ticketId, contactId, companyId);
+
+                    if (!isValid) throw new Error("Workflow rules are not valid");
+                    console.log("Workflow rules are valid")
+                }
+            }
+
+
+
+            if (checkChannels) {
+                // Check if the workflow is activated for selected channels
+                const { data: channels, error: channelsError } = await this.supabase
+                    .from('workflowchannel')
+                    .select('*')
+                    .eq('workflowId', id)
+                    .is('deletedAt', null);
+
+                if (channelsError) throw new Error(`Fetch failed: ${channelsError.message}`);
+
+                // If the length is 0 then workflow is activated for all channels
+                if (channels.length !== 0) {
+                    // Function to handle the channel validation
+                    const isValid = await this.validateChannels(ticketId, channels);
+
+                    if (!isValid) throw new Error("Ticket is not associated with the workflow");
+                }
+            }
 
             // Get all nodes
             const { data: nodes, error: nodesError } = await this.supabase
@@ -766,7 +1140,6 @@ class WorkflowService extends BaseService {
                 .eq('workflowId', id);
 
             if (nodesError) throw new Error(`Fetch failed: ${nodesError.message}`);
-
 
             // Get all edges
             const { data: edges, error: edgesError } = await this.supabase
@@ -820,7 +1193,13 @@ class WorkflowService extends BaseService {
                 usedHandles.push(edge.reactflowTargetHandle);
             }
 
-            const totalHandles = handles.map(handle => handle.handles).flat();
+            const totalHandles = handles.map(handle => {
+                if (handle.handles) {
+                    return handle.handles;
+                }
+                // continue
+                return [];
+            }).flat();
 
             // Step 3: Check the used handles in the edges if there is any handle that is not used in the edges, throw an error
             for (const handle of totalHandles) {
@@ -967,7 +1346,7 @@ class WorkflowService extends BaseService {
 
                 if (node) {
                     // Validate the workflow
-                    const isValid = await this.validateWorkflow(workflow.id, workspaceId, clientId);
+                    const isValid = await this.validateWorkflow(workflow.id, workspaceId, clientId, true, true, ticketId, ticketId?.customerId, null);
 
                     if (!isValid) {
                         console.log("Workflow is not valid, skipping");
@@ -1459,10 +1838,10 @@ class WorkflowService extends BaseService {
                     fields: [
                         {
                             entityType: "ticket",
-                            columnname: "subject",
-                            label: "Subject",
+                            columnname: "summary",
+                            label: "Summary",
                             type: "text",
-                            placeholder: "Enter subject",
+                            placeholder: "Enter summary",
                             table: "ticket"
                         }
                     ]
@@ -1645,6 +2024,506 @@ class WorkflowService extends BaseService {
         }
     }
 
+    async handleNewConversation(payload) {
+        try {
+            const ticketId = payload.new.ticketId;
+            const workspaceId = payload.new.workspaceId;
+            const clientId = payload.new.clientId;
+            const userType = payload.new.userType;
+
+            if (userType !== 'customer') {
+                console.log("Not a customer message, skipping");
+                return;
+            }
+
+            // Check the workspace for the client and workspace if any workflows are active for customer_message trigger node
+            const { data: workflows, error: workflowsError } = await this.supabase
+                .from('workflow')
+                .select('*')
+                .eq('workspaceId', workspaceId)
+                .eq('clientId', clientId)
+                .eq('status', 'live');
+
+            if (workflowsError) throw new Error(`Fetch failed: ${workflowsError.message}`);
+
+            if (workflows.length === 0) {
+                console.log("No active workflows found");
+                return;
+            }
+
+            for (const workflow of workflows) {
+                const { data: node, error: nodesError } = await this.supabase
+                    .from('workflownode')
+                    .select('*')
+                    .eq('workflowId', workflow.id)
+                    .eq('type', 'customer_message')
+                    .is("isTrigger", true)
+                    .single();
+
+                if (node) {
+                    // Validate the workflow
+                    const isValid = await this.validateWorkflow(workflow.id, workspaceId, clientId, true, true, ticketId, null, null);
+
+                    if (!isValid) {
+                        console.log("Workflow is not valid, skipping");
+                        continue;
+                    }
+                    console.log("Found a active workflow, send to temporal")
+                }
+            }
+
+            return;
+        } catch (e) {
+            console.log("Error in handleNewConversation()", e);
+            return;
+        }
+    }
+
+    async handleNewNoteAddedToConversation(payload) {
+        try {
+            const ticketId = payload.new.ticketId;
+            const workspaceId = payload.new.workspaceId;
+            const clientId = payload.new.clientId;
+
+            // Check the workspace for the client and workspace if any workflows are active for note_added trigger node
+            const { data: workflows, error: workflowsError } = await this.supabase
+                .from('workflow')
+                .select('*')
+                .eq('workspaceId', workspaceId)
+                .eq('clientId', clientId)
+                .eq('status', 'live');
+
+            if (workflowsError) throw new Error(`Fetch failed: ${workflowsError.message}`);
+
+            if (workflows.length === 0) {
+                console.log("No active workflows found");
+                return;
+            }
+
+            for (const workflow of workflows) {
+                const { data: node, error: nodesError } = await this.supabase
+                    .from('workflownode')
+                    .select('*')
+                    .eq('workflowId', workflow.id)
+                    .eq('type', 'note_added')
+                    .is("isTrigger", true)
+                    .single();
+
+                if (node) {
+                    // Validate the workflow
+                    const isValid = await this.validateWorkflow(workflow.id, workspaceId, clientId, true, true, ticketId, null, null);
+
+                    if (!isValid) {
+                        console.log("Workflow is not valid, skipping");
+                        continue;
+                    }
+                    console.log("Found a active workflow, send to temporal")
+                }
+            }
+
+            return;
+        } catch (e) {
+            console.log("Error in handleNewNoteAddedToConversation()", e);
+            return;
+        }
+    }
+
+    async handleTicketReassigned(payload) {
+        try {
+            const ticketId = payload.new.id;
+            const workspaceId = payload.new.workspaceId;
+            const clientId = payload.new.clientId;
+            const oldAssignedTo = payload.old.assignedTo;
+            const newAssignedTo = payload.new.assignedTo;
+
+            // Check the workspace for the client and workspace if any workflows are active for assign_ticket trigger node
+            const { data: workflows, error: workflowsError } = await this.supabase
+                .from('workflow')
+                .select('*')
+                .eq('workspaceId', workspaceId)
+                .eq('clientId', clientId)
+                .eq('status', 'live');
+
+            if (workflowsError) throw new Error(`Fetch failed: ${workflowsError.message}`);
+
+            if (workflows.length === 0) {
+                console.log("No active workflows found");
+                return;
+            }
+
+            for (const workflow of workflows) {
+                const { data: node, error: nodesError } = await this.supabase
+                    .from('workflownode')
+                    .select('*')
+                    .eq('workflowId', workflow.id)
+                    .eq('type', 'assign_ticket')
+                    .is("isTrigger", true)
+                    .single();
+
+                if (node) {
+                    // Validate the workflow
+                    const isValid = await this.validateWorkflow(workflow.id, workspaceId, clientId, true, true, ticketId, null, null);
+
+                    if (!isValid) {
+                        console.log("Workflow is not valid, skipping");
+                        continue;
+                    }
+                    console.log("Found a active workflow, send to temporal")
+                }
+            }
+
+            return;
+        } catch (e) {
+            console.log("Error in handleTicketReassigned()", e);
+            return;
+        }
+    }
+
+    async handleTicketDataChanged(payload) {
+        try {
+            const ticketId = payload.new.id;
+            const workspaceId = payload.new.workspaceId;
+            const clientId = payload.new.clientId;
+
+            // Check the workspace for the client and workspace if any workflows are active for data_change trigger node
+            const { data: workflows, error: workflowsError } = await this.supabase
+                .from('workflow')
+                .select('*')
+                .eq('workspaceId', workspaceId)
+                .eq('clientId', clientId)
+                .eq('status', 'live');
+
+            if (workflowsError) throw new Error(`Fetch failed: ${workflowsError.message}`);
+
+            if (workflows.length === 0) {
+                console.log("No active workflows found");
+                return;
+            }
+
+            for (const workflow of workflows) {
+                const { data: node, error: nodesError } = await this.supabase
+                    .from('workflownode')
+                    .select('*')
+                    .eq('workflowId', workflow.id)
+                    .eq('type', 'data_change')
+                    .is("isTrigger", true)
+                    .single();
+
+                if (node) {
+                    // Need to check here if the data changed in the workflow payload matches the data change node config
+                    const config = node.config;
+                    const newData = payload.new;
+                    const oldData = payload.old;
+                    const dataChanged = Object.keys(newData).filter(key => newData[key] !== oldData[key]);
+
+                    // Compare both arrays and check if we have any common values
+                    const ticketConfigFields = config?.fields?.filter(field => field.table === "ticket");
+                    const isTriggerValid = ticketConfigFields.length > 0 && dataChanged.some(item => ticketConfigFields.map(field => field.field).includes(item));
+
+                    if (!isTriggerValid) {
+                        console.log("Workflow is not valid, skipping");
+                        return;
+                    }
+
+                    // Validate the workflow
+                    const isValid = await this.validateWorkflow(workflow.id, workspaceId, clientId, true, true, ticketId, null, null);
+
+                    if (!isValid) {
+                        console.log("Workflow is not valid, skipping");
+                        continue;
+                    }
+                    console.log("Found a active workflow, send to temporal")
+                }
+            }
+
+            return;
+        } catch (e) {
+            console.log("Error in handleTicketReassigned()", e);
+            return;
+        }
+    }
+
+    async handleCustomFieldDataChanged(payload) {
+        try {
+            const customFieldId = payload.new.customfieldId;
+
+            // Fetch custom field for the custom field id
+            const { data: customField, error: customFieldError } = await this.supabase
+                .from('customfields')
+                .select('id, workspaceId, clientId')
+                .eq('id', customFieldId)
+                .single();
+
+            if (customFieldError) throw new Error(`Fetch failed: ${customFieldError.message}`);
+
+            if (!customField) {
+                console.log("Custom field not found");
+                return;
+            }
+
+            const workspaceId = customField.workspaceId;
+            const clientId = customField.clientId;
+
+            // Check the workspace for the client and workspace if any workflows are active for data_change trigger node
+            const { data: workflows, error: workflowsError } = await this.supabase
+                .from('workflow')
+                .select('*')
+                .eq('workspaceId', workspaceId)
+                .eq('clientId', clientId)
+                .eq('status', 'live');
+
+            if (workflowsError) throw new Error(`Fetch failed: ${workflowsError.message}`);
+
+            if (workflows.length === 0) {
+                console.log("No active workflows found");
+                return;
+            }
+
+            for (const workflow of workflows) {
+                const { data: node, error: nodesError } = await this.supabase
+                    .from('workflownode')
+                    .select('*')
+                    .eq('workflowId', workflow.id)
+                    .eq('type', 'data_change')
+                    .is("isTrigger", true)
+                    .single();
+
+                if (node) {
+                    // Need to check here if the data changed in the workflow payload matches the data change node config
+                    const config = node.config;
+                    const tableName = payload.new?.entityType || "";
+
+                    // Compare both arrays and check if we have any common values
+                    const customFieldConfigFields = config?.fields?.filter(field => field.table === tableName);
+                    const isTriggerValid = customFieldConfigFields.length > 0 && customFieldConfigFields.map(field => field.customFieldId).includes(customFieldId);
+
+                    if (!isTriggerValid) {
+                        console.log("Workflow is not valid, skipping");
+                        return;
+                    }
+
+                    // Validate the workflow
+                    const isValid = await this.validateWorkflow(workflow.id, workspaceId, clientId, true, true, payload?.new?.ticketId || null, payload?.new?.contactId || null, payload?.new?.companyId || null);
+
+                    if (!isValid) {
+                        console.log("Workflow is not valid, skipping");
+                        continue;
+                    }
+                    console.log("Found a active workflow, send to temporal")
+                }
+            }
+
+            return;
+        } catch (e) {
+            console.log("Error in handleCustomFieldDataChanged()", e);
+            return;
+        }
+    }
+
+    async handleCustomObjectFieldDataChanged(payload) {
+        try {
+            const customObjectFieldId = payload.new.customObjectFieldId;
+
+            // Fetch custom object field for the custom object field id
+            const { data: customObjectField, error: customObjectFieldError } = await this.supabase
+                .from('customobjectfields')
+                .select('id, workspaceId, clientId, customobjects!customobjecfields_customObjectId_fkey(id, name, connectionType)')
+                .eq('id', customObjectFieldId)
+                .single();
+
+            if (customObjectFieldError) throw new Error(`Fetch failed: ${customObjectFieldError.message}`);
+
+            if (!customObjectField) {
+                console.log("Custom object field not found");
+                return;
+            }
+
+            const workspaceId = customObjectField.customobjects.workspaceId;
+            const clientId = customObjectField.customobjects.clientId;
+
+            // Check the workspace for the client and workspace if any workflows are active for data_change trigger node
+            const { data: workflows, error: workflowsError } = await this.supabase
+                .from('workflow')
+                .select('*')
+                .eq('workspaceId', workspaceId)
+                .eq('clientId', clientId)
+                .eq('status', 'live');
+
+            if (workflowsError) throw new Error(`Fetch failed: ${workflowsError.message}`);
+
+            if (workflows.length === 0) {
+                console.log("No active workflows found");
+                return;
+            }
+
+            for (const workflow of workflows) {
+                const { data: node, error: nodesError } = await this.supabase
+                    .from('workflownode')
+                    .select('*')
+                    .eq('workflowId', workflow.id)
+                    .eq('type', 'data_change')
+                    .is("isTrigger", true)
+                    .single();
+
+                if (node) {
+                    // Need to check here if the data changed in the workflow payload matches the data change node config
+                    const config = node.config;
+                    const tableName = payload.new?.entityType || "";
+
+                    // Compare both arrays and check if we have any common values
+                    const customObjectFields = config?.fields?.filter(field => field.table === "custom_object");
+                    const isTriggerValid = customObjectFields.length > 0 && customObjectFields.map(field => field.customObjectFieldId).includes(customObjectFieldId);
+
+                    if (!isTriggerValid) {
+                        console.log("Workflow is not valid, skipping");
+                        return;
+                    }
+
+                    // Validate the workflow
+                    const isValid = await this.validateWorkflow(workflow.id, workspaceId, clientId, true, true, payload?.new?.ticketId || null, payload?.new?.contactId || null, payload?.new?.companyId || null);
+
+                    if (!isValid) {
+                        console.log("Workflow is not valid, skipping");
+                        continue;
+                    }
+                    console.log("Found a active workflow, send to temporal")
+                }
+            }
+
+            return;
+        } catch (e) {
+            console.log("Error in handleCustomObjectFieldDataChanged()", e);
+            return;
+        }
+    }
+
+    async handleCustomerDataChanged(payload) {
+        try {
+            const contactId = payload.new.id;
+            const workspaceId = payload.new.workspaceId;
+            const clientId = payload.new.clientId;
+
+            // Check the workspace for the client and workspace if any workflows are active for data_change trigger node
+            const { data: workflows, error: workflowsError } = await this.supabase
+                .from('workflow')
+                .select('*')
+                .eq('workspaceId', workspaceId)
+                .eq('clientId', clientId)
+                .eq('status', 'live');
+
+            if (workflowsError) throw new Error(`Fetch failed: ${workflowsError.message}`);
+
+            if (workflows.length === 0) {
+                console.log("No active workflows found");
+                return;
+            }
+
+            for (const workflow of workflows) {
+                const { data: node, error: nodesError } = await this.supabase
+                    .from('workflownode')
+                    .select('*')
+                    .eq('workflowId', workflow.id)
+                    .eq('type', 'data_change')
+                    .is("isTrigger", true)
+                    .single();
+
+                if (node) {
+                    // Need to check here if the data changed in the workflow payload matches the data change node config
+                    const config = node.config;
+                    const newData = payload.new;
+                    const oldData = payload.old;
+                    const dataChanged = Object.keys(newData).filter(key => newData[key] !== oldData[key]);
+
+                    // Compare both arrays and check if we have any common values
+                    const contactConfigFields = config?.fields?.filter(field => field.table === "contact");
+                    const isTriggerValid = contactConfigFields.length > 0 && dataChanged.some(item => contactConfigFields.map(field => field.field).includes(item));
+
+                    if (!isTriggerValid) {
+                        console.log("Workflow is not valid, skipping");
+                        return;
+                    }
+
+                    // Validate the workflow
+                    const isValid = await this.validateWorkflow(workflow.id, workspaceId, clientId, true, true, null, contactId, null);
+
+                    if (!isValid) {
+                        console.log("Workflow is not valid, skipping");
+                        continue;
+                    }
+                    console.log("Found a active workflow, send to temporal")
+                }
+            }
+
+            return;
+        } catch (e) {
+            console.log("Error in handleCustomerDataChanged()", e);
+            return;
+        }
+    }
+
+    async handleCompanyDataChanged(payload) {
+        try {
+            const companyId = payload.new.id;
+            const workspaceId = payload.new.workspaceId;
+            const clientId = payload.new.clientId;
+
+            // Check the workspace for the client and workspace if any workflows are active for data_change trigger node
+            const { data: workflows, error: workflowsError } = await this.supabase
+                .from('workflow')
+                .select('*')
+                .eq('workspaceId', workspaceId)
+                .eq('clientId', clientId)
+                .eq('status', 'live');
+
+            if (workflowsError) throw new Error(`Fetch failed: ${workflowsError.message}`);
+
+            if (workflows.length === 0) {
+                console.log("No active workflows found");
+                return;
+            }
+
+            for (const workflow of workflows) {
+                const { data: node, error: nodesError } = await this.supabase
+                    .from('workflownode')
+                    .select('*')
+                    .eq('workflowId', workflow.id)
+                    .eq('type', 'data_change')
+                    .is("isTrigger", true)
+                    .single();
+
+                if (node) {
+                    // Need to check here if the data changed in the workflow payload matches the data change node config
+                    const config = node.config;
+                    const newData = payload.new;
+                    const oldData = payload.old;
+                    const dataChanged = Object.keys(newData).filter(key => newData[key] !== oldData[key]);
+
+                    // Compare both arrays and check if we have any common values
+                    const companyConfigFields = config?.fields?.filter(field => field.table === "company");
+                    const isTriggerValid = companyConfigFields.length > 0 && dataChanged.some(item => companyConfigFields.map(field => field.field).includes(item));
+
+                    if (!isTriggerValid) {
+                        console.log("Workflow is not valid, skipping");
+                        return;
+                    }
+
+                    // Validate the workflow
+                    const isValid = await this.validateWorkflow(workflow.id, workspaceId, clientId, true, true, null, null, companyId);
+
+                    if (!isValid) {
+                        console.log("Workflow is not valid, skipping");
+                        continue;
+                    }
+                    console.log("Found a active workflow, send to temporal")
+                }
+            }
+
+            return;
+        } catch (e) {
+            console.log("Error in handleCompanyDataChanged()", e);
+            return;
+        }
+    }
 }
 
 module.exports = WorkflowService;
