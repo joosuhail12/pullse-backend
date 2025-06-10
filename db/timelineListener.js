@@ -31,10 +31,12 @@ class TimelineListener {
      */
     initTicketTimeline() {
         const ticketChannel = this.supabase
-            .channel('timeline-ticket-events')
+            .channel(`timeline-ticket-events-${this.instanceId}`)
             .on('postgres_changes', { event: 'insert', schema: 'public', table: 'tickets' }, async (payload) => {
+                console.log(`🔧 DEBUG [${this.instanceId}]: Ticket INSERT event triggered`);
                 try {
                     const ticket = payload.new;
+                    console.log(`🔧 DEBUG [${this.instanceId}]: Ticket data:`, ticket);
                     if (ticket.customerId && ticket.workspaceId && ticket.clientId) {
                         await this.timelineService.logTicketActivity('contact', ticket.customerId, {
                             action: 'created',

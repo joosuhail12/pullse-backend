@@ -169,25 +169,55 @@ class TimelineService extends BaseService {
 
     // Ticket activity
     async logTicketActivity(entityType, entityId, ticketData, workspaceId, clientId) {
-        let title, summary;
+        let title, summary, description;
+
+        // Fetch actual ticket details if ticket_id is provided
+        let ticketDetails = null;
+        if (ticketData.ticket_id) {
+            try {
+                const { data, error } = await this.supabase
+                    .from('tickets')
+                    .select('id, sno, title, description, status, priority')
+                    .eq('id', ticketData.ticket_id)
+                    .single();
+
+                if (!error && data) {
+                    ticketDetails = data;
+                }
+            } catch (err) {
+                console.error('Error fetching ticket details for timeline:', err);
+            }
+        }
+        console.log('🔧 DEBUG: Ticket data:', ticketData);
+        console.log('🔧 DEBUG: Ticket details:', ticketDetails);
+
+        // Use ticket details first, fallback to ticket data
+        const ticketTitle = ticketDetails?.title || 'Ticket';
+        const ticketNumber = ticketDetails?.sno || 'Unknown';
 
         switch (ticketData.action) {
             case 'created':
-                title = `Created support ticket #${ticketData.ticket_number}`;
-                summary = `Support ticket #${ticketData.ticket_number} was created`;
+                title = `Created support ticket #${ticketTitle}`;
+                summary = `Support ticket #${ticketNumber}: ${ticketTitle}`;
+                description = ticketDetails?.description || ticketData.description || ticketTitle;
                 break;
             case 'updated':
-                title = `Updated ticket #${ticketData.ticket_number}`;
-                summary = `Ticket #${ticketData.ticket_number} was updated`;
+                title = `Updated ticket #${ticketTitle}`;
+                summary = ticketData.changes_summary || `Ticket #${ticketNumber} was updated: ${ticketTitle}`;
+                description = ticketData.changes_summary || ticketDetails?.description || ticketTitle;
                 break;
             case 'closed':
-                title = `Closed ticket #${ticketData.ticket_number}`;
-                summary = `Ticket #${ticketData.ticket_number} was closed`;
+                title = `Closed ticket #${ticketTitle}`;
+                summary = `Closed ticket #${ticketNumber}: ${ticketTitle}`;
+                description = ticketDetails?.description || ticketTitle;
                 break;
             default:
-                title = `Ticket #${ticketData.ticket_number} ${ticketData.action}`;
-                summary = title;
+                title = `Ticket #${ticketTitle}`;
+                summary = `Ticket #${ticketNumber}: ${ticketTitle}`;
+                description = ticketDetails?.description || ticketTitle;
         }
+
+        console.log('🔧 DEBUG: Final values:', { title, summary, description, ticketTitle, ticketNumber });
 
         // Fetch actual user name if actor_id is provided
         const actorName = ticketData.actor_name || await this.getUserName(ticketData.actor_id);
@@ -205,7 +235,7 @@ class TimelineService extends BaseService {
             activity_subtype: ticketData.action,
             title: title,
             summary: summary,
-            description: `Ticket ${ticketData.action}`, // Simple text description
+            description: description,
             related_ticket_id: ticketData.ticket_id,
             field_changed: changedFieldNames, // Only actual field names
             changes_summary: ticketData.changes_summary,
@@ -217,7 +247,7 @@ class TimelineService extends BaseService {
             workspace_id: workspaceId,
             client_id: clientId,
             source: ticketData.source || 'web',
-            priority: ticketData.priority || 'normal',
+            priority: ticketDetails?.priority || ticketData.priority || 'normal',
             activity_date: ticketData.activity_date || new Date()
         });
 
@@ -1218,12 +1248,21 @@ class TimelineService extends BaseService {
      * Get display title
      */
     getDisplayTitle(entry) {
-        if (entry.title) return entry.title;
+        if (entry.title && entry.title !== 'null' && entry.title.trim() !== '') {
+            return entry.title;
+        }
+
+        // If there's a related ticket, try to use its title
+        if (entry.activity_type === 'ticket' && entry.related_ticket && entry.related_ticket.title) {
+            return entry.related_ticket.title;
+        }
 
         // Generate title based on activity type
         const titles = {
             'email': entry.activity_subtype === 'sent' ? 'Email Sent' : 'Email Received',
-            'ticket': `Ticket ${entry.activity_subtype || 'Activity'}`,
+            'ticket': entry.related_ticket ?
+                (entry.related_ticket.title || `Ticket #${entry.related_ticket.sno || 'Unknown'}`) :
+                `Ticket ${entry.activity_subtype || 'Activity'}`,
             'note': 'Note Added',
             'contact_update': 'Contact Updated',
             'company_update': 'Company Updated',
@@ -1237,8 +1276,28 @@ class TimelineService extends BaseService {
      * Get display summary
      */
     getDisplaySummary(entry) {
-        if (entry.summary) return entry.summary;
+        if (entry.summary && entry.summary !== 'null' && entry.summary.trim() !== '') {
+            return entry.summary;
+        }
         if (entry.changes_summary) return entry.changes_summary;
+
+        // If there's a related ticket and the summary is null, create one from ticket data
+        if (entry.activity_type === 'ticket' && entry.related_ticket) {
+            const ticketTitle = entry.related_ticket.title || 'Ticket';
+            const ticketNumber = entry.related_ticket.sno || entry.related_ticket.id;
+
+            switch (entry.activity_subtype) {
+                case 'created':
+                    return `Support ticket #${ticketNumber}: ${ticketTitle}`;
+                case 'updated':
+                    return `Ticket #${ticketNumber} was updated: ${ticketTitle}`;
+                case 'closed':
+                    return `Ticket #${ticketNumber} was closed: ${ticketTitle}`;
+                default:
+                    return `Ticket #${ticketNumber}: ${ticketTitle}`;
+            }
+        }
+
         return entry.description || 'No summary available';
     }
 
@@ -1246,13 +1305,20 @@ class TimelineService extends BaseService {
      * Get display description
      */
     getDisplayDescription(entry) {
-        if (entry.activity_type === 'note' && entry.description) {
+        if (entry.activity_type === 'note' && entry.description && entry.description !== 'null') {
             return entry.description;
         }
         if (entry.changes_summary) {
             return `Changes made: ${entry.changes_summary}`;
         }
-        return entry.description || null;
+
+        // If there's a related ticket and the description is null, use ticket description
+        if (entry.activity_type === 'ticket' && entry.related_ticket &&
+            (!entry.description || entry.description === 'null' || entry.description.trim() === '')) {
+            return entry.related_ticket.description || null;
+        }
+
+        return entry.description && entry.description !== 'null' ? entry.description : null;
     }
 
     /**
@@ -1336,6 +1402,118 @@ class TimelineService extends BaseService {
      */
     async enrichTimelineData(timelineData) {
         return this.enrichTimelineDataForFrontend(timelineData);
+    }
+
+    /**
+     * Fix existing timeline entries that have null titles/descriptions but have related_ticket_id
+     * This method can be called to backfill missing ticket information
+     */
+    async fixNullTicketTimelineEntries(workspaceId, clientId) {
+        try {
+            console.log('🔄 Starting to fix null ticket timeline entries...', {
+                workspaceId,
+                clientId,
+                entityName: this.entityName
+            });
+
+            // Find timeline entries with null titles but have related_ticket_id
+            const { data: nullEntries, error } = await this.supabase
+                .from(this.entityName)
+                .select('id, related_ticket_id, title, summary, description')
+                .eq('activity_type', 'ticket')
+                .eq('workspace_id', workspaceId)
+                .eq('client_id', clientId)
+                .is('deleted_at', null)
+                .not('related_ticket_id', 'is', null);
+
+            if (error) throw error;
+
+            console.log(`📊 Found ${nullEntries?.length || 0} timeline entries to fix`);
+
+            if (!nullEntries || nullEntries.length === 0) {
+                return { updated: 0, total: 0, message: 'No entries to fix' };
+            }
+
+            console.log(`📊 Processing all ${nullEntries.length} timeline entries with ticket IDs`);
+
+            let updatedCount = 0;
+
+            for (const entry of nullEntries) {
+                if (!entry.related_ticket_id) continue;
+
+                try {
+                    // Fetch ticket details
+                    const { data: ticket, error: ticketError } = await this.supabase
+                        .from('tickets')
+                        .select('id, sno, title, description, priority')
+                        .eq('id', entry.related_ticket_id)
+                        .single();
+
+                    if (ticketError || !ticket) {
+                        console.warn(`⚠️ Could not find ticket ${entry.related_ticket_id} for timeline entry ${entry.id}`);
+                        continue;
+                    }
+
+                    console.log(`Processing entry ${entry.id}:`, {
+                        currentTitle: entry.title,
+                        currentSummary: entry.summary,
+                        currentDescription: entry.description,
+                        ticketTitle: ticket.title,
+                        ticketSno: ticket.sno
+                    });
+
+                    const updates = {};
+
+                    // Always update title if it's null or empty
+                    if (!entry.title || entry.title === 'null' || entry.title.trim() === '' || entry.title === null) {
+                        updates.title = ticket.title || `Ticket #${ticket.sno}`;
+                        console.log(`Will update title to: ${updates.title}`);
+                    }
+
+                    // Always update summary if it's null or empty
+                    if (!entry.summary || entry.summary === 'null' || entry.summary.trim() === '' || entry.summary === null) {
+                        updates.summary = ticket.title ?
+                            `Support ticket #${ticket.sno}: ${ticket.title}` :
+                            `Support ticket #${ticket.sno}`;
+                        console.log(`Will update summary to: ${updates.summary}`);
+                    }
+
+                    // Always update description if it's null or empty
+                    if (!entry.description || entry.description === 'null' || entry.description.trim() === '' || entry.description === null) {
+                        updates.description = ticket.description || ticket.title || 'Ticket activity';
+                        console.log(`Will update description to: ${updates.description}`);
+                    }
+
+                    if (Object.keys(updates).length > 0) {
+                        const { error: updateError } = await this.supabase
+                            .from(this.entityName)
+                            .update(updates)
+                            .eq('id', entry.id);
+
+                        if (updateError) {
+                            console.error(`❌ Error updating timeline entry ${entry.id}:`, updateError);
+                        } else {
+                            updatedCount++;
+                            console.log(`✅ Updated timeline entry ${entry.id} with ticket data`);
+                        }
+                    }
+                } catch (err) {
+                    console.error(`❌ Error processing timeline entry ${entry.id}:`, err);
+                }
+            }
+
+            console.log(`🎉 Fixed ${updatedCount} timeline entries`);
+            return { updated: updatedCount, total: nullEntries.length, found: nullEntries.length };
+
+        } catch (err) {
+            console.error('❌ Error fixing null ticket timeline entries:', err);
+            console.error('Error details:', {
+                message: err.message,
+                stack: err.stack,
+                code: err.code
+            });
+            return { error: true, message: err.message, updated: 0, total: 0 };
+        }
     }
 }
 

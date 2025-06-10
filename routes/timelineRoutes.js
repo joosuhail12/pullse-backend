@@ -210,6 +210,26 @@ async function activate(app) {
         },
         handler: timelineHandler.deleteTimelineEntry.bind(timelineHandler)
     });
+
+    // Fix null ticket timeline entries (utility endpoint)
+    app.route({
+        url: base_url + '/timeline/fix-null-tickets',
+        method: 'POST',
+        name: 'FixNullTicketTimelineEntries',
+        preHandler: authMiddlewares.checkToken(AuthType.user),
+        schema: {
+            tags: ['Timeline'],
+            summary: 'Fix Null Ticket Timeline Entries',
+            description: 'API to fix existing timeline entries that have null titles/descriptions but have related ticket IDs.',
+            querystring: {
+                type: 'object',
+                properties: {
+                    workspace_id: { type: 'string', format: 'uuid' }
+                }
+            }
+        },
+        handler: timelineHandler.fixNullTicketEntries.bind(timelineHandler)
+    });
 }
 
 module.exports = { activate }; 
