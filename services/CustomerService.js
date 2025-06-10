@@ -6,6 +6,7 @@ const TagService = require("./TagService");
 const CSVHandler = require('../FileManagement/CSVFileSystem');
 const { CustomerEventPublisher } = require("../Events/CustomerEvent");
 const TagHistoryService = require("./TagHistoryService");
+const TimelineService = require('./TimelineService');
 
 class CustomerService extends BaseService {
     constructor(fields = null, dependencies = {}) {
@@ -128,6 +129,19 @@ class CustomerService extends BaseService {
 
             // 3. Update customer tags if provided
             if (updateValues.tags) {
+                // Get current tags before deletion for timeline tracking
+                const { data: currentTagsData, error: currentTagsError } = await this.supabase
+                    .from('customerTags')
+                    .select('tagId, tags(name)')
+                    .eq('customerId', id)
+                    .eq('workspaceId', workspaceId)
+                    .eq('clientId', clientId);
+
+                const currentTagIds = currentTagsData ? currentTagsData.map(ct => ct.tagId) : [];
+                const currentTagNames = currentTagsData ? currentTagsData.map(ct => ct.tags.name) : [];
+                const newTagIds = updateValues.tags.map(tag => tag.id);
+                const newTagNames = updateValues.tags.map(tag => tag.name);
+
                 // Delete existing tags
                 await this.supabase.from('customerTags').delete().eq('customerId', id);
 
@@ -142,6 +156,31 @@ class CustomerService extends BaseService {
                 updateValues.tags.forEach(async (tag) => {
                     await tagHistoryService.updateTagHistory(tag.id, "customer");
                 });
+
+                // Log tag changes to timeline
+                const timelineService = new TimelineService();
+
+                // Only log tag changes if there are actual tag changes
+                const hasTagChanges =
+                    newTagIds.length !== currentTagIds.length ||
+                    !newTagIds.every(id => currentTagIds.includes(id)) ||
+                    !currentTagIds.every(id => newTagIds.includes(id));
+
+                if (hasTagChanges) {
+                    // Properly await the getUserName call
+                    const actorName = updateValues.updatedBy ? await timelineService.getUserName(updateValues.updatedBy) : null;
+
+                    await timelineService.logTagActivity('contact', id, {
+                        old_tag_ids: currentTagIds,
+                        new_tag_ids: newTagIds,
+                        added_tag_names: newTagNames.filter(name => !currentTagNames.includes(name)),
+                        removed_tag_names: currentTagNames.filter(name => !newTagNames.includes(name)),
+                        actor_id: updateValues.updatedBy || null,
+                        actor_name: actorName,
+                        actor_type: 'user',
+                        source: 'web'
+                    }, workspaceId, clientId);
+                }
 
                 // Store a copy of tags before deleting
                 const tags = [...updateValues.tags];
