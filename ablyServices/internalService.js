@@ -52,7 +52,7 @@ class InternalService {
   }
 
   /** Notify the support team that a new ticket has arrived */
-   notifyNewTicket(ticketId, firstMessage, customerId) {
+  notifyNewTicket(ticketId, firstMessage, customerId) {
 
     console.log(`[🛎️] New ticket created: ${ticketId}`);
     // TODO: Trigger Slack/email notifications here
@@ -60,17 +60,17 @@ class InternalService {
 
   async saveConversation(ticketId, firstMessage, customerId, senderType, senderName, clientId, workspaceId) {
     const { data: conversation, error: conversationError } = await supabase.from('conversations').insert({
-        message: firstMessage,
-        createdBy: customerId,
-        type: 'chat',
-        ticketId,
-        userType: senderType,
-        senderName: senderName, // Add this!
-        clientId: clientId,
-        workspaceId: workspaceId,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      });
+      message: firstMessage,
+      createdBy: customerId,
+      type: 'chat',
+      ticketId,
+      userType: senderType,
+      senderName: senderName, // Add this!
+      clientId: clientId,
+      workspaceId: workspaceId,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    });
     if (conversationError) {
       console.error('Error saving conversation:', conversationError);
     }
@@ -84,7 +84,7 @@ class InternalService {
   }
 
   /** Notify support team if no agent is assigned */
-notifyAgentTeam(ticketId, message) {
+  notifyAgentTeam(ticketId, message) {
     console.log(`[📨] No assigned agent. Notifying support team. Ticket ${ticketId}, message: "${message}"`);
     // TODO: Broadcast to support team Slack/email/etc.
   }
@@ -99,6 +99,16 @@ notifyAgentTeam(ticketId, message) {
   notifyCustomerOfflineGeneric(ticketId, replyText) {
     console.log(`[📧] Tried notifying customer for ticket ${ticketId} but no email found. Message: "${replyText}"`);
     // TODO: Could queue for manual follow-up
+  }
+
+  async updateConversationMessage(conversationId, message) {
+    const { data: conversation, error: conversationError } = await supabase.from('conversations').update({
+      message: message,
+    }).eq('id', conversationId);
+    if (conversationError) {
+      console.error('Error updating conversation:', conversationError);
+    }
+    return conversation;
   }
 }
 

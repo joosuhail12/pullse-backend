@@ -41,28 +41,28 @@ const widgetSessionSubscriptions = new Set();
 // }
 
 const initializeWidgetSession = (sessionId, clientId, workspaceId) => {
-    try {
-  if (widgetSessionSubscriptions.has(sessionId)) return;
-  widgetSessionSubscriptions.add(sessionId);
+  try {
+    if (widgetSessionSubscriptions.has(sessionId)) return;
+    widgetSessionSubscriptions.add(sessionId);
 
-  const contactCh = ably.channels.get(`widget:contactevent:${sessionId}`);
+    const contactCh = ably.channels.get(`widget:contactevent:${sessionId}`);
 
-  contactCh.subscribe('new_ticket', async (msg) => {
-    try {
-      const d = typeof msg.data === 'string' ? JSON.parse(msg.data) : msg.data;
-      await handleNewTicket({
-        workspaceId,
-        sessionId,
-        firstMessage: d.text || d.message,
-        userType: 'customer',
-      });
+    contactCh.subscribe('new_ticket', async (msg) => {
+      try {
+        const d = typeof msg.data === 'string' ? JSON.parse(msg.data) : msg.data;
+        await handleNewTicket({
+          workspaceId,
+          sessionId,
+          firstMessage: d.text || d.message,
+          userType: 'customer',
+        });
 
-    } catch (err) {
-      console.error('handleNewTicket error:', err);
-    }
-  });
+      } catch (err) {
+        console.error('handleNewTicket error:', err);
+      }
+    });
 
-  console.log(`Listening for new_ticket on session ${sessionId}`);
+    console.log(`Listening for new_ticket on session ${sessionId}`);
   } catch (err) {
     console.error(`❌ Error initializing widget session ${sessionId}:`, err);
   }
@@ -70,8 +70,9 @@ const initializeWidgetSession = (sessionId, clientId, workspaceId) => {
 
 const subscribeToConversationChannels = (ticketId, sessionId) => {
   const widgetCh = ably.channels.get(`widget:conversation:ticket-${ticketId}`);
-  widgetCh.subscribe("message", (msg) =>
-    handleWidgetConversationEvent(ticketId, msg.data, sessionId)
+  widgetCh.subscribe("message", (msg) => {
+    handleWidgetConversationEvent(ticketId, msg.data, sessionId, msg.data.id)
+  }
   );
 
   const agentCh = ably.channels.get(`agent-conversation:${ticketId}`);

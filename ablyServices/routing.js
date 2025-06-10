@@ -9,15 +9,15 @@ const ably = new Ably.Realtime(process.env.ABLY_API_KEY);
 /** Initialize dependencies for routing module */
 let internalService;
 function init(depInternalService) {
-    internalService = depInternalService;
+  internalService = depInternalService;
 }
 
 /**
  * Handle incoming message from the user widget.
  * This will persist the message, forward it to agents, and trigger AI if enabled.
  */
-const handleWidgetConversationEvent =  async (ticketId, messageData, sessionId) => {
-    const internalService = new InternalService();
+const handleWidgetConversationEvent = async (ticketId, messageData, sessionId, conversationId = null) => {
+  const internalService = new InternalService();
   try {
     // Validate ticketId format
     if (!safeUUID(ticketId)) {
@@ -51,6 +51,10 @@ const handleWidgetConversationEvent =  async (ticketId, messageData, sessionId) 
     // await supabase.from('messages').insert(messageRecord);
     internalService.saveConversation(ticketId, userText, ticket.customers.id, 'customer', ticket.customers.firstname + " " + ticket.customers.lastname, ticket.clientId, ticket.workspaceId);
 
+    if (conversationId) {
+      internalService.updateConversationMessage(conversationId, userText);
+    }
+
     // 2. Forward the message to the agent's channel so any online agent clients receive it
     const agentChannel = ably.channels.get(`agent-conversation:${ticketId}`);
     // agentChannel.publish('message', { content: userText, ticketId }, err => {
@@ -61,7 +65,7 @@ const handleWidgetConversationEvent =  async (ticketId, messageData, sessionId) 
     if (ticket.aiEnabled && userText?.trim()) {
       ensureQaSubscription(ticketId, sessionId);
       const qaCh = ably.channels.get(`document-qa`);
-      qaCh.publish('message', { query:userText, id:ticketId, clientId:ticket.clientId });
+      qaCh.publish('message', { query: userText, id: ticketId, clientId: ticket.clientId });
     }
 
     // 4. Offline agent notification: if no agent is currently online for this ticket, notify via internal service.
@@ -90,7 +94,7 @@ const handleAgentConversationEvent = async (ticketId, messageData) => {
   const internalService = new InternalService();
   console.log("handleAgentConversationEvent", ticketId, messageData)
   try {
-      if (!safeUUID(ticketId)) {
+    if (!safeUUID(ticketId)) {
       console.warn(`Received agent message for invalid ticketId: ${ticketId}`);
       return;
     }
@@ -159,7 +163,7 @@ const handleAgentConversationEvent = async (ticketId, messageData) => {
  * Forwards the AI's reply to the customer's widget and stores it in the conversation history.
  */
 const handleDocumentQAResult = async (ticketId, resultData, users, sessionId) => {
-    const internalService = new InternalService();
+  const internalService = new InternalService();
   try {
     const answerText = resultData.text || resultData.answer || resultData.content;
     if (!answerText) return;
@@ -179,12 +183,13 @@ const handleDocumentQAResult = async (ticketId, resultData, users, sessionId) =>
     const widgetChannel = ably.channels.get(`widget:conversation:ticket-${ticketId}`);
 
     const message = {
-        ticketId,
-        message:answerText,
-        from: 'agent',
-        to: 'customer',
-        sessionId: sessionId}
-    console.log(message,"message")
+      ticketId,
+      message: answerText,
+      from: 'agent',
+      to: 'customer',
+      sessionId: sessionId
+    }
+    console.log(message, "message")
     widgetChannel.publish('message_reply', message, err => {
       if (err) console.error('Failed to publish AI reply to widget:', err);
     });
