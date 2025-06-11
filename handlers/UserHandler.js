@@ -22,31 +22,29 @@ class UserHandler extends BaseHandler {
       confirmPassword: req.body.confirm_password,
       createdBy: createdBy,
       clientId: clientId,
-      roleIds: [req.body.role],
+      roleIds: req.body.roleIds || [req.body.role], // Support both roleIds array and single role
       defaultWorkSpace: defaultWorkspaceId
     };
 
+    console.log(userData, "userData")
+
     // Create the user
-    await inst.createUser(userData);
+    const createdUser = await inst.createUser(userData);
 
-    // Fetch the list of users
-    let filters = { clientId: clientId };
-    let result = await inst.paginate(filters);
-
-    // Format the response
-    result = result.map(user => ({
-      id: user.id,
-      name: user.name,
-      email: user.email || `${user.name.replace(/\s+/g, '').toLowerCase()}@example.com`,
-      role: 'admin',
-      status: user.status,
-      teamId: user.teamId,
-      createdBy: user.createdBy,
-      createdAt: user.created_at,
-      lastActive: user.lastLoggedInAt,
-      avatar: user.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(user.name)}`,
+    // Format and return the created user only
+    const result = {
+      id: createdUser.id,
+      name: createdUser.name,
+      email: createdUser.email,
+      role: 'admin', // You can fetch the actual role name if needed
+      status: createdUser.status,
+      teamId: createdUser.teamId,
+      createdBy: createdUser.createdBy,
+      createdAt: createdUser.created_at,
+      lastActive: createdUser.lastLoggedInAt,
+      avatar: createdUser.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(createdUser.name)}`,
       permissions: ['view_reports'],
-    }));
+    };
 
     return this.responder(req, reply, Promise.resolve(result));
   }

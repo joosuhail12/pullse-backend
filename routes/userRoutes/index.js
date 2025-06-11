@@ -13,13 +13,13 @@ async function activate(app) {
     url: base_url,
     method: 'POST',
     name: "CreateUser",
-    preHandler: authorize('create','User'),
+    preHandler: authorize('create', 'User'),
     schema: {
       tags: ['User'],
       summary: 'Create User',
       description: 'API to create user.',
       body: {
-        required: [ "first_name", "last_name", "email",  "password","confirm_password"  ],
+        required: ["first_name", "last_name", "email", "password", "confirm_password"],
         additionalProperties: false,
         type: 'object',
         properties: {
@@ -37,6 +37,13 @@ async function activate(app) {
             type: 'string',
             description: "User email",
             format: 'email'
+          },
+          roleIds: {
+            type: 'array',
+            items: {
+              type: 'string',
+            },
+            description: "Array of role IDs to assign to the user"
           },
 
           password: {
@@ -68,7 +75,7 @@ async function activate(app) {
     url: base_url,
     method: 'GET',
     name: "ListUsers",
-    preHandler: authorize('read','User'),
+    preHandler: authorize('read', 'User'),
     schema: {
       tags: ['User'],
       summary: 'List Users',
@@ -145,7 +152,7 @@ async function activate(app) {
       tags: ['User'],
       summary: 'Update User',
       description: 'API to update a User.',
-      required: [ "first_name", "last_name", "email", "role", "password", ],
+      required: ["first_name", "last_name", "email", "role", "password",],
       body: {
         first_name: {
           type: 'string',
@@ -184,7 +191,7 @@ async function activate(app) {
   });
 
   app.route({
-    url: base_url+ "/:user_id",
+    url: base_url + "/:user_id",
     method: 'DELETE',
     name: "DeleteUser",
     preHandler: authMiddlewares.checkToken(AuthType.user),

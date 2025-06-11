@@ -16,7 +16,7 @@ class UserRoleHandler extends BaseHandler {
 
   async listRoles(req, reply) {
     let inst = new UserRoleService();
-    return this.responder(req, reply, inst.paginate(req.query));
+    return this.responder(req, reply, inst.listAvailableRoles());
   }
 
   async showRoleDetail(req, reply) {

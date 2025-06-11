@@ -22,14 +22,14 @@ async function activate(app) {
         additionalProperties: false,
         type: 'object',
         properties: {
-          name:  {
+          name: {
             type: 'string',
             minLength: 2
           },
-          description:  {
+          description: {
             type: 'string',
           },
-          permissions:  {
+          permissions: {
             type: 'string',
           },
         }
@@ -94,14 +94,14 @@ async function activate(app) {
       description: 'API to update a Role.',
       required: [],
       body: {
-        name:  {
+        name: {
           type: 'string',
           minLength: 2
         },
-        description:  {
+        description: {
           type: 'string',
         },
-        permissions:  {
+        permissions: {
           type: 'string',
         },
       }
@@ -112,7 +112,7 @@ async function activate(app) {
   });
 
   app.route({
-    url: base_url+ "/:role_id",
+    url: base_url + "/:role_id",
     method: 'DELETE',
     name: "DeleteRole",
     preHandler: authMiddlewares.checkToken(AuthType.user),

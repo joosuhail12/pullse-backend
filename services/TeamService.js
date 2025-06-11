@@ -162,7 +162,7 @@ class TeamService {
             // Extract members from updateValues if present
             const { members, channels, ...teamUpdateValues } = updateValues;
 
-            
+
             teamUpdateValues.workspaceId = workspaceId;
             teamUpdateValues.clientId = clientId;
 
@@ -274,6 +274,89 @@ class TeamService {
 
         if (error) throw error;
         return data;
+    }
+
+    /** 
+     * Add a single teammate to a team 
+     */
+    async addTeammateToTeam(teamId, userId, workspaceId, clientId) {
+        try {
+            // First verify the team exists and belongs to the client/workspace
+            const { data: team, error: teamError } = await supabase
+                .from(this.entityName)
+                .select("id")
+                .eq("id", teamId)
+                .eq("workspaceId", workspaceId)
+                .eq("clientId", clientId)
+                .is("deletedAt", null)
+                .single();
+
+            if (teamError) {
+                if (teamError.code === "PGRST116") {
+                    return Promise.reject(new errors.NotFound("Team not found."));
+                }
+                throw teamError;
+            }
+
+            // Check if user exists and belongs to the same client/workspace
+            const { data: user, error: userError } = await supabase
+                .from(this.usersTable)
+                .select("id")
+                .eq("id", userId)
+                .eq("clientId", clientId)
+                .is("deletedAt", null)
+                .single();
+
+            if (userError) {
+                if (userError.code === "PGRST116") {
+                    return Promise.reject(new errors.NotFound("User not found."));
+                }
+                throw userError;
+            }
+
+            // Check if user is already a member of the team
+            const { data: existingMember, error: memberCheckError } = await supabase
+                .from(this.memberTable)
+                .select("id")
+                .eq("team_id", teamId)
+                .eq("user_id", userId)
+                .single();
+
+            if (memberCheckError && memberCheckError.code !== "PGRST116") {
+                throw memberCheckError;
+            }
+
+            if (existingMember) {
+                return Promise.reject(new errors.BadRequest("User is already a member of this team."));
+            }
+
+            // Add the user to the team
+            const { data: newMember, error: insertError } = await supabase
+                .from(this.memberTable)
+                .insert([{
+                    team_id: teamId,
+                    user_id: userId
+                }])
+                .select(`
+                    id, added_at,
+                    users (id, name, email)
+                `)
+                .single();
+
+            if (insertError) throw insertError;
+
+            return {
+                message: "Teammate added successfully",
+                member: {
+                    id: newMember.id,
+                    added_at: newMember.added_at,
+                    user: newMember.users
+                }
+            };
+        } catch (error) {
+            console.log(error);
+            return Promise.reject(this.handleError(error));
+        }
     }
 
     /** 
@@ -418,7 +501,7 @@ class TeamService {
             // Step 3: Fetch user details for all teammates
             const { data: teammateDetails, error: detailsError } = await supabase
                 .from(this.usersTable)
-                .select('id, name, email')
+                .select('id, name, email, status, lastLoggedInAt, created_at, avatar')
                 .in('id', teammateIds)
                 .eq('clientId', clientId)
                 .is('deletedAt', null);
@@ -433,6 +516,63 @@ class TeamService {
             return teammateDetails;
         } catch (error) {
             console.error('Error getting user teammates:', error);
+            return Promise.reject(this.handleError(error));
+        }
+    }
+
+    // Get all teammates/members of a specific team with detailed info
+    async getTeamMembersDetailed(teamId, workspaceId, clientId) {
+        try {
+            console.log(`Getting detailed team members for team ${teamId}`);
+
+            // First verify the team exists and belongs to the client/workspace
+            const { data: team, error: teamError } = await supabase
+                .from(this.entityName)
+                .select("id")
+                .eq("id", teamId)
+                .eq("workspaceId", workspaceId)
+                .eq("clientId", clientId)
+                .is("deletedAt", null)
+                .single();
+
+            if (teamError) {
+                if (teamError.code === "PGRST116") {
+                    return Promise.reject(new errors.NotFound("Team not found."));
+                }
+                throw teamError;
+            }
+
+            // Get all team members with detailed user information
+            const { data: teamMembers, error: membersError } = await supabase
+                .from(this.memberTable)
+                .select(`
+                    id, added_at,
+                    users (id, name, email, status, lastLoggedInAt, created_at, avatar)
+                `)
+                .eq("team_id", teamId)
+                .order("added_at", { ascending: true });
+
+            if (membersError) {
+                console.error("Error fetching team members:", membersError);
+                throw membersError;
+            }
+
+            // Format the response to match expected structure
+            const formattedMembers = teamMembers.map(member => ({
+                id: member.users.id,
+                name: member.users.name,
+                email: member.users.email,
+                status: member.users.status || 'active',
+                lastActive: member.users.lastLoggedInAt,
+                joined: member.added_at,
+                avatar: member.users.avatar,
+                membershipId: member.id
+            }));
+
+            console.log(`Returning ${formattedMembers.length} team members for team ${teamId}`);
+            return formattedMembers;
+        } catch (error) {
+            console.error('Error getting team members:', error);
             return Promise.reject(this.handleError(error));
         }
     }
