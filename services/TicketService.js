@@ -10,6 +10,7 @@ const { createClient } = require('@supabase/supabase-js');
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
 const Ably = require("ably");
 const { setAblyTicketChatListener } = require("../ExternalService/ablyListener");
+const { subscribeToTicketChannels } = require("../ablyServices/listeners");
 const ably = new Ably.Realtime(process.env.ABLY_API_KEY);
 
 class TicketService {
@@ -157,8 +158,10 @@ class TicketService {
             }
             const { data: tickets, error } = await supabase
                 .from(this.entityName)
-                .select('*')
-                .match({ workspaceId, clientId });
+                .select('*, assignedTo(id, bot_enabled)')
+                .match({ workspaceId, clientId })
+                .not("assignedTo.bot_enabled", "is", true)
+                .order('updatedAt', { ascending: false });
 
             if (error) {
                 throw new errors.DBError(error.message);
@@ -226,6 +229,7 @@ class TicketService {
                         teamData = team;
                     }
                 }
+                
 
                 // Fetch ticket type data if typeId exists
                 const ticketTypePromise = ticket.typeId
@@ -259,7 +263,6 @@ class TicketService {
                     statusType: ticket.statusId,
                     priority: ticket.priority === 2 ? 'high' : ticket.priority === 1 ? 'medium' : 'low',
                     priorityRaw: ticket.priority,
-
                     customerId: ticket.customerId,
                     customer: {
                         id: primaryCustomer?.id,
@@ -1267,7 +1270,7 @@ class TicketService {
 
             // at this point i want to subscribe to an ably channel i.e ticket:sno
             // and return the response from the channel
-            setAblyTicketChatListener(sno, clientId, workspaceId, sessionId, userId)
+            subscribeToTicketChannels(sno, clientId, workspaceId, sessionId, userId)
             const response = sortedData.map(item => ({
                 id: item.id,
                 content: item.message,
@@ -1308,11 +1311,14 @@ class TicketService {
                 .select(`
                     id, sno, title, description, status, priority, customerId,
                     teamId, teams:teamId(id, name),
-                    assignedTo, lastMessage, lastMessageAt, createdAt, updatedAt
+                    assignedTo(id, name, email, bot_enabled), lastMessage, lastMessageAt, createdAt, updatedAt
                 `)
                 .eq('assignedTo', userId)
                 .eq('clientId', clientId)
-                .is('deletedAt', null);
+                .eq('assignedTo.bot_enabled', false)
+                .eq('status', 'open')
+                .is('deletedAt', null)
+                .order('updatedAt', { ascending: false });
 
             if (workspaceId) query = query.eq('workspaceId', workspaceId);
             if (status) query = query.eq('status', status);
@@ -1438,7 +1444,7 @@ class TicketService {
 
     async getUnassignedTickets(filters = {}) {
         try {
-            const { status, workspaceId, clientId, priority, skip = 0, limit = 10 } = filters;
+            const { status, workspaceId, clientId, priority, skip = 0, limit = 10, userId } = filters;
 
             // Get tickets with no assignedTo value
             let query = supabase
@@ -1450,7 +1456,8 @@ class TicketService {
                 `)
                 .is('assignedTo', null)
                 .eq('clientId', clientId)
-                .is('deletedAt', null);
+                .is('deletedAt', null)
+                .order('updatedAt', { ascending: false });
 
             if (workspaceId) query = query.eq('workspaceId', workspaceId);
             if (status) query = query.eq('status', status);
@@ -1516,6 +1523,40 @@ class TicketService {
                     }, {});
                 }
             }
+
+            //Update notification for unassigned tickets
+            const ticketIds = tickets.map(ticket => ticket.id);
+            console.log("ticketIds", ticketIds)
+            for (const ticketId of ticketIds) {
+                const { data: notifications, error: notificationsError } = await supabase
+                .from('notifications')
+                .select('*')
+                    .eq('type', 'NEW_TICKET')
+                    .eq('entity_id', ticketId)
+                    .single();
+                if (notificationsError) {
+                    console.error("Error updating notifications:", notificationsError);
+                }
+                if (notifications) {
+                    const { data: notificationRecipients, error: notificationRecipientsError } = await supabase
+                }
+                console.log("notifications", notifications)
+                if (notifications) {
+                    await supabase
+                        .from('notification_recipients')
+                        .update({ is_read: true })
+                        .eq('notification_id', notifications.id)
+                        .eq('user_id', userId)
+
+                }
+            }
+                
+            
+            
+
+            
+            
+            
 
             // Format ticket response
             const result = tickets.map(ticket => {

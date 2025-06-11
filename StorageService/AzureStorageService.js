@@ -1,7 +1,7 @@
 const { BlobServiceClient, StorageSharedKeyCredential } = require('@azure/storage-blob');
 
 const StorageService = require("./StorageService");
-
+const fs = require('fs').promises;
 class AzureStorageService extends StorageService {
 
   constructor() {
@@ -76,7 +76,7 @@ class AzureStorageService extends StorageService {
   }
 
   async uploadToBlob(fileBuffer, originalName) {  
-    const containerClient = this.blobServiceClient.getContainerClient(`pullse-ai-content-center`);
+    const containerClient = this.blobServiceClient.getContainerClient(this.containerName);
   
     const blockBlobClient = containerClient.getBlockBlobClient(originalName);
   

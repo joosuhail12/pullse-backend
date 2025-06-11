@@ -43,6 +43,7 @@ const widgetRoute = require('./widgetRoutes');
 const analyticsRoute = require('./analyticsRoutes');
 const ablyRoute = require('./ablyRoutes');
 const actionCenterRoute = require('./actionCenterRoutes');
+const copilotProfileRoute = require('./copioltRoutes');
 
 module.exports = {
   async activate(app) {
@@ -88,7 +89,7 @@ module.exports = {
     await ablyRoute.activate(app);
     await notificationRoute.activate(app);
     await actionCenterRoute.activate(app);
-    // await app.register(timelineRoutes, { prefix: '/api' });
+    await copilotProfileRoute.activate(app);
     await timelineRoutes.activate(app);
   }
 };

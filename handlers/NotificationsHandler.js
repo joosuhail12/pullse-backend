@@ -25,6 +25,7 @@ class NotificationsHandler extends BaseHandler {
             )
         `)
         .eq('user_id', userId)
+        .eq('is_read', false)
         .order('created_at', { ascending: false })   // ← use THIS column
         .limit(100);
 
@@ -44,7 +45,7 @@ class NotificationsHandler extends BaseHandler {
             break;
 
             case 'NEW_MESSAGE':
-            inbox.push(n);
+            // inbox.push(n);
             break;
 
             case 'NEW_TICKET':
@@ -67,7 +68,6 @@ class NotificationsHandler extends BaseHandler {
         };
         return this.responder(req, reply, Promise.resolve(responseData));
     } catch (error) {
-      console.log("error", error);
       return this.responder(req, reply, Promise.reject(error));
     }
   }
