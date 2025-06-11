@@ -154,7 +154,8 @@ class TicketHandler extends BaseHandler {
       workspaceId: req.query.workspace_id,
       skip: parseInt(req.query.skip) || 0,
       limit: parseInt(req.query.limit) || 10,
-      clientId: req.authUser.clientId
+      clientId: req.authUser.clientId,
+      userId: req.authUser.id
     };
 
     let inst = this.ticketServiceInst;

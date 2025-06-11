@@ -4,6 +4,7 @@ const { createClient } = require('@supabase/supabase-js');
 const Ably = require('ably');
 const InternalService = require('./internalService.js');
 const { ensureQaSubscription } = require('./qaSubscriptions.js');
+const { createAndBroadcast } = require('./notificationsService.js');
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
 const ably = new Ably.Realtime(process.env.ABLY_API_KEY);
 /** Initialize dependencies for routing module */
@@ -16,7 +17,7 @@ function init(depInternalService) {
  * Handle incoming message from the user widget.
  * This will persist the message, forward it to agents, and trigger AI if enabled.
  */
-const handleWidgetConversationEvent =  async (ticketId, messageData, sessionId) => {
+const handleWidgetConversationEvent =  async (ticketId, messageData, sessionId, ticketChannelSubscriptions) => {
     const internalService = new InternalService();
   try {
     // Validate ticketId format
@@ -62,6 +63,44 @@ const handleWidgetConversationEvent =  async (ticketId, messageData, sessionId) 
       ensureQaSubscription(ticketId, sessionId);
       const qaCh = ably.channels.get(`document-qa`);
       qaCh.publish('message', { query:userText, id:ticketId, clientId:ticket.clientId });
+    }else{
+      if (ticketChannelSubscriptions.has(`ticket:${ticketId}`)) {
+        const ticketChannel = ably.channels.get(`ticket:${ticketId}`);
+        const message = {
+          id: ticketId,
+          content: userText,
+          sender: {
+            avatar: "",
+            name: ticket.customers.firstname + " " + ticket.customers.lastname,
+          },
+          timestamp: new Date().toISOString(),
+          isCustomer: true,
+          type: 'customer',
+          readBy: []
+        }
+        ticketChannel.publish('message', message, err => {
+          if (err) console.error('Failed to publish agent message to widget channel:', err);
+        });
+      }else{
+        const { data: tickets, error: ticketErr } = await supabase
+      .from('tickets')
+      .select('id, aiEnabled, assigneeId, customers: customerId(id, firstname, lastname, email), clientId, workspaceId, users: assigneeId(id, fName, lName, clientId, defaultWorkspaceId), teamId')
+      .eq('id', ticketId)
+      .limit(1);
+        const {data: teamMembers, error: teamMembersError} = await supabase 
+        .from('teamMembers')
+        .select('user_id')
+        .eq('team_id', tickets[0].teamId);
+      const ticket = tickets ? tickets[0] : null;
+      const assignee = teamMembers ? teamMembers.map(member => member.user_id) : null;
+        await createAndBroadcast({
+          type: 'NEW_MESSAGE',
+          entityId: ticketId,
+          actorId: ticket.customers.id,
+          recipientIds: assignee,
+          payload: { title: userText, routingType: 'new_response' },
+        });
+      }
     }
 
     // 4. Offline agent notification: if no agent is currently online for this ticket, notify via internal service.
@@ -88,7 +127,6 @@ const handleWidgetConversationEvent =  async (ticketId, messageData, sessionId) 
 const handleAgentConversationEvent = async (ticketId, messageData) => {
 
   const internalService = new InternalService();
-  console.log("handleAgentConversationEvent", ticketId, messageData)
   try {
       if (!safeUUID(ticketId)) {
       console.warn(`Received agent message for invalid ticketId: ${ticketId}`);
@@ -154,6 +192,29 @@ const handleAgentConversationEvent = async (ticketId, messageData) => {
   }
 }
 
+const handleTicketMessage = async (ticketId, messageData, clientId, workspaceId, sessionId, userId) => {
+  const { data: tickets, error: ticketErr } = await supabase
+      .from('tickets')
+      .select('id, aiEnabled, assigneeId, customers: customerId(id, firstname, lastname, email), clientId, workspaceId, users: assignedTo(id, fName, lName, clientId, defaultWorkspaceId)')
+      .eq('id', ticketId)
+      .limit(1);
+  const ticket = tickets ? tickets[0] : null;
+  const userName = ticket.users ? ticket.users[0].fName + " " + ticket.users[0].lName : null;
+  const internalService = new InternalService();
+  //send message back to widget
+  const widgetChannel = ably.channels.get(`widget:conversation:ticket-${ticketId}`);
+  internalService.saveConversation(ticketId, messageData.text, userId, 'agent', userName, clientId, workspaceId);
+  const message = {
+    ticketId,
+    message:messageData.text,
+    from: 'agent',
+    to: 'customer',
+    sessionId: sessionId}
+  widgetChannel.publish('message_reply', message, err => {
+    if (err) console.error('Failed to publish agent message to widget channel:', err);
+  });
+}
+
 /**
  * Handle AI assistant's reply from the document-qa-results channel.
  * Forwards the AI's reply to the customer's widget and stores it in the conversation history.
@@ -163,7 +224,6 @@ const handleDocumentQAResult = async (ticketId, resultData, users, sessionId) =>
   try {
     const answerText = resultData.text || resultData.answer || resultData.content;
     if (!answerText) return;
-    console.log(`AI response for ticket ${ticketId}: ${answerText}`);
 
     // 1. Persist the AI's reply as a message in Supabase (mark as from 'bot' or similar).
     // const messageRecord = {
@@ -184,7 +244,6 @@ const handleDocumentQAResult = async (ticketId, resultData, users, sessionId) =>
         from: 'agent',
         to: 'customer',
         sessionId: sessionId}
-    console.log(message,"message")
     widgetChannel.publish('message_reply', message, err => {
       if (err) console.error('Failed to publish AI reply to widget:', err);
     });
@@ -206,4 +265,5 @@ module.exports = {
   handleWidgetConversationEvent,
   handleAgentConversationEvent,
   handleDocumentQAResult,
+  handleTicketMessage
 };

@@ -85,7 +85,7 @@ class MentionService {
             let ticketQuery = supabase
                 .from('tickets')
                 .select('id, title, status, priority, customerId, clientId, sno, createdAt, updatedAt, assignedTo, teamId')
-                .in('id', ticketIds);
+                .in('id', ticketIds).order('updatedAt', { ascending: false });
 
             // Apply filters on tickets
             if (status) {
@@ -465,7 +465,6 @@ class MentionService {
     }
 
     handleError(error) {
-        console.log(error);
         if (error.code === "PGRST116") {
             return new errors.NotFound(`${this.entityName} not found.`);
         }
