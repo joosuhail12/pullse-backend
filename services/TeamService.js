@@ -498,10 +498,10 @@ class TeamService {
                 return [];
             }
 
-            // Step 3: Fetch user details for all teammates
+            // Step 3: Fetch user details for all teammates with role information
             const { data: teammateDetails, error: detailsError } = await supabase
                 .from(this.usersTable)
-                .select('id, name, email, status, lastLoggedInAt, created_at, avatar')
+                .select('id, name, email, status, lastLoggedInAt, created_at, avatar, teamId, createdBy, roleIds:userRoles(name)')
                 .in('id', teammateIds)
                 .eq('clientId', clientId)
                 .is('deletedAt', null);
@@ -512,8 +512,22 @@ class TeamService {
                 throw detailsError;
             }
 
-            console.log(`Returning ${teammateDetails.length} teammates for user ${userId}`);
-            return teammateDetails;
+            // Format the response to match expected structure (same as UserHandler pattern)
+            const formattedTeammates = teammateDetails.map(user => ({
+                id: user.id,
+                name: user.name,
+                email: user.email,
+                role: user.roleIds ? user.roleIds.name : null,
+                status: user.status,
+                teamId: user.teamId,
+                createdBy: user.createdBy,
+                createdAt: user.created_at,
+                lastActive: user.lastLoggedInAt,
+                avatar: user.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(user.name)}`
+            }));
+
+            console.log(`Returning ${formattedTeammates.length} teammates for user ${userId}`);
+            return formattedTeammates;
         } catch (error) {
             console.error('Error getting user teammates:', error);
             return Promise.reject(this.handleError(error));
