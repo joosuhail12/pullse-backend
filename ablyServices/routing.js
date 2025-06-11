@@ -10,7 +10,7 @@ const ably = new Ably.Realtime(process.env.ABLY_API_KEY);
 /** Initialize dependencies for routing module */
 let internalService;
 function init(depInternalService) {
-    internalService = depInternalService;
+  internalService = depInternalService;
 }
 
 /**
@@ -51,6 +51,10 @@ const handleWidgetConversationEvent =  async (ticketId, messageData, sessionId, 
     // };
     // await supabase.from('messages').insert(messageRecord);
     internalService.saveConversation(ticketId, userText, ticket.customers.id, 'customer', ticket.customers.firstname + " " + ticket.customers.lastname, ticket.clientId, ticket.workspaceId);
+
+    if (conversationId) {
+      internalService.updateConversationMessage(conversationId, userText);
+    }
 
     // 2. Forward the message to the agent's channel so any online agent clients receive it
     const agentChannel = ably.channels.get(`agent-conversation:${ticketId}`);
@@ -128,7 +132,7 @@ const handleAgentConversationEvent = async (ticketId, messageData) => {
 
   const internalService = new InternalService();
   try {
-      if (!safeUUID(ticketId)) {
+    if (!safeUUID(ticketId)) {
       console.warn(`Received agent message for invalid ticketId: ${ticketId}`);
       return;
     }
@@ -220,7 +224,7 @@ const handleTicketMessage = async (ticketId, messageData, clientId, workspaceId,
  * Forwards the AI's reply to the customer's widget and stores it in the conversation history.
  */
 const handleDocumentQAResult = async (ticketId, resultData, users, sessionId) => {
-    const internalService = new InternalService();
+  const internalService = new InternalService();
   try {
     const answerText = resultData.text || resultData.answer || resultData.content;
     if (!answerText) return;

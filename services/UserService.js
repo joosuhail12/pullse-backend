@@ -37,17 +37,40 @@ class UserService extends BaseService {
 
             password = await this.bcryptToken(password);
 
-            // ✅ Fetch role IDs from role names
+            // ✅ Handle role IDs - if they're already IDs, use them directly, if they're names, look them up
             let fetchedRoles = [];
             if (roleIds.length > 0) {
-                const { data, error } = await this.supabase
-                    .from("userRoles")
-                    .select("id, name")
-                    .eq("name", roleIds)
-                    .single();
+                // Check if first element looks like a UUID (ID) or a name
+                const firstRole = roleIds[0];
+                const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(firstRole);
 
-                if (error) throw error;
-                fetchedRoles = data.id;
+                if (isUUID) {
+                    // If they're already IDs, verify they exist and use them
+                    const { data, error } = await this.supabase
+                        .from("userRoles")
+                        .select("id")
+                        .in("id", roleIds)
+                        .is("deletedAt", null);
+
+                    if (error) throw error;
+                    if (!data || data.length === 0) {
+                        throw new Error("Invalid role ID(s) provided");
+                    }
+                    fetchedRoles = roleIds; // Use the provided IDs
+                } else {
+                    // If they're names, look them up
+                    const { data, error } = await this.supabase
+                        .from("userRoles")
+                        .select("id, name")
+                        .in("name", roleIds)
+                        .is("deletedAt", null);
+
+                    if (error) throw error;
+                    if (!data || data.length === 0) {
+                        throw new Error("Invalid role name(s) provided");
+                    }
+                    fetchedRoles = data.map(role => role.id);
+                }
             }
 
             // Insert User into Supabase
@@ -59,7 +82,7 @@ class UserService extends BaseService {
                     name,
                     email,
                     password,
-                    roleIds: fetchedRoles, // ✅ Save IDs here
+                    roleIds: fetchedRoles[0] || null, // ✅ Use first role only, not array
                     createdBy,
                     clientId,
                     defaultWorkspaceId: defaultWorkSpace || null,
@@ -158,14 +181,37 @@ class UserService extends BaseService {
     async updateUser({ user_id, clientId }, updateValues) {
         try {
             if (updateValues.roleIds && updateValues.roleIds.length > 0) {
-                const { data, error } = await this.supabase
-                    .from("userRoles")
-                    .select("id, name")
-                    .eq("name", updateValues.roleIds)
-                    .single();
+                // Check if first element looks like a UUID (ID) or a name
+                const firstRole = updateValues.roleIds[0];
+                const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(firstRole);
 
-                if (error) throw error;
-                updateValues.roleIds = data.id;
+                if (isUUID) {
+                    // If they're already IDs, verify they exist and use them
+                    const { data, error } = await this.supabase
+                        .from("userRoles")
+                        .select("id")
+                        .in("id", updateValues.roleIds)
+                        .is("deletedAt", null);
+
+                    if (error) throw error;
+                    if (!data || data.length === 0) {
+                        throw new Error("Invalid role ID(s) provided");
+                    }
+                    // Keep the original roleIds since they're already valid IDs
+                } else {
+                    // If they're names, look them up
+                    const { data, error } = await this.supabase
+                        .from("userRoles")
+                        .select("id, name")
+                        .in("name", updateValues.roleIds)
+                        .is("deletedAt", null);
+
+                    if (error) throw error;
+                    if (!data || data.length === 0) {
+                        throw new Error("Invalid role name(s) provided");
+                    }
+                    updateValues.roleIds = data.map(role => role.id);
+                }
             }
 
             const { error } = await this.supabase

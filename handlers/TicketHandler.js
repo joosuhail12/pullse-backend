@@ -85,6 +85,9 @@ class TicketHandler extends BaseHandler {
 
 
     let toUpdate = req.body;
+    // Add updatedBy from authenticated user
+    toUpdate.updatedBy = req.authUser.id;
+
     let inst = this.ticketServiceInst;
     return this.responder(req, reply, inst.updateTicket({ id, sno, workspaceId, clientId }, toUpdate));
   }
@@ -131,9 +134,14 @@ class TicketHandler extends BaseHandler {
       return this.responder(req, reply, Promise.reject(new Error('User ID is required. Please provide userId, assignTo, or assignedTo.')));
     }
 
+    // Add updatedBy to track who performed the assignment
+    const assignmentData = {
+      ...req.body,
+      updatedBy: req.authUser.id
+    };
 
     let inst = this.ticketServiceInst;
-    return this.responder(req, reply, inst.assignTicketToUser(id, sno, userId, workspaceId, clientId));
+    return this.responder(req, reply, inst.assignTicketToUser(id, sno, userId, workspaceId, clientId, assignmentData));
   }
   // get conversation by ticket id
   async getConversationByTicketId(req, reply) {
@@ -201,9 +209,14 @@ class TicketHandler extends BaseHandler {
       return this.responder(req, reply, Promise.reject(new Error('Team ID is required')));
     }
 
+    // Add updatedBy to track who performed the team assignment
+    const assignmentData = {
+      ...req.body,
+      updatedBy: req.authUser.id
+    };
 
     let inst = this.ticketServiceInst;
-    return this.responder(req, reply, inst.assignTicketToTeam(id, sno, teamId, workspaceId, clientId));
+    return this.responder(req, reply, inst.assignTicketToTeam(id, sno, teamId, workspaceId, clientId, assignmentData));
   }
 
   // New dedicated method for team assignment routes

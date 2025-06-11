@@ -359,6 +359,79 @@ async function activate(app) {
     }
   });
 
+  // Add teammate to team
+  app.route({
+    url: base_url + "/:team_id/add-teammate",
+    method: 'POST',
+    name: "AddTeammateToTeam",
+    preHandler: authMiddlewares.checkToken(AuthType.user),
+    schema: {
+      tags: ['teams'],
+      summary: 'Add Teammate to Team',
+      description: 'API to add a teammate to an existing team.',
+      params: {
+        type: 'object',
+        properties: {
+          team_id: {
+            type: 'string',
+            description: 'ID of the team to add the teammate to'
+          }
+        }
+      },
+      query: {
+        workspace_id: {
+          type: 'string',
+          description: 'ID of the workspace'
+        }
+      },
+      body: {
+        type: 'object',
+        required: ['userId'],
+        additionalProperties: false,
+        properties: {
+          userId: {
+            type: 'string',
+            description: 'ID of the user to add as a teammate'
+          }
+        }
+      }
+    },
+    handler: async (req, reply) => {
+      return handler.addTeammateToTeam(req, reply);
+    }
+  });
+
+  // Get detailed team members list
+  app.route({
+    url: base_url + "/:team_id/members",
+    method: 'GET',
+    name: "GetTeamMembersDetailed",
+    preHandler: authMiddlewares.checkToken(AuthType.user),
+    schema: {
+      tags: ['teams'],
+      summary: 'Get Team Members with Details',
+      description: 'API to fetch all team members with detailed information including status, last active, joined date, etc.',
+      params: {
+        type: 'object',
+        properties: {
+          team_id: {
+            type: 'string',
+            description: 'ID of the team whose members you want to retrieve'
+          }
+        }
+      },
+      query: {
+        workspace_id: {
+          type: 'string',
+          description: 'ID of the workspace'
+        }
+      }
+    },
+    handler: async (req, reply) => {
+      return handler.getTeamMembersDetailed(req, reply);
+    }
+  });
+
   // Assign ticket to team
   app.route({
     url: "/api/ticket/:ticket_id/assign-team",

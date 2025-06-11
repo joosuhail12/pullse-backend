@@ -9,7 +9,7 @@ const supabase = createClient('https://qplvypinkxzbohbmykei.supabase.co', 'eyJhb
 class UserRoleService extends BaseService {
     constructor() {
         super();
-        this.entityName = "Role";
+        this.entityName = "userRoles";
         this.listingFields = ["id", "name", "createdBy", "created_at"];
         this.updatableFields = ["name", "description", "permissions"];
         this.supabase = supabase;
@@ -64,6 +64,25 @@ class UserRoleService extends BaseService {
             return true;
         } catch (err) {
             return this.handleError(err);
+        }
+    }
+
+    async listAvailableRoles() {
+        try {
+            let query = this.supabase
+                .from("userRoles")
+                .select("id, name, description, permissions, created_at, updated_at")
+                .is("deletedAt", null)
+                .order("name", { ascending: true });
+
+            const { data, error } = await query;
+
+            if (error) throw error;
+
+            return data || [];
+        } catch (e) {
+            console.log("Error in listAvailableRoles() of UserRoleService", e);
+            return Promise.reject(e);
         }
     }
 }

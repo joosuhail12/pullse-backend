@@ -22,6 +22,7 @@ CREATE TABLE customers (
     workspaceId TEXT NOT NULL,
     clientId TEXT NOT NULL,
     createdBy TEXT NOT NULL,
+    updatedBy UUID REFERENCES users(id),
     lastActiveAt TEXT,
     deletedAt TIMESTAMP,
     created_at TIMESTAMP DEFAULT NOW(),

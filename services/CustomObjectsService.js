@@ -33,6 +33,7 @@ class CustomObjectService extends BaseService {
                     showInCustomerContext,
                     showInCustomerDetail,
                     showInCompanyDetail,
+                    connectionType,
                     fields_count:customobjectfields(count)
                 `)
                 .eq("workspaceId", workspaceId)
