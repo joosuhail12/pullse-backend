@@ -128,6 +128,27 @@ async function activate(app) {
   });
 
   app.route({
+    url: base_url + "/overview",
+    method: 'GET',
+    name: "GetUserTeamsAndRoles",
+    preHandler: authMiddlewares.checkToken(AuthType.user),
+    schema: {
+      tags: ['User'],
+      summary: 'Get User Teams and Roles Overview',
+      description: 'API to get current user\'s teams and roles overview.',
+      query: {
+        workspace_id: {
+          type: 'string',
+          description: 'ID of the workspace'
+        }
+      }
+    },
+    handler: async (req, reply) => {
+      return handler.getUserTeamsAndRoles(req, reply);
+    }
+  });
+
+  app.route({
     url: base_url + "/:user_id",
     method: 'GET',
     name: "ShowUserDetail",

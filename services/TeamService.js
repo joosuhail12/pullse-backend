@@ -162,19 +162,26 @@ class TeamService {
             // Extract members from updateValues if present
             const { members, channels, ...teamUpdateValues } = updateValues;
 
-
             teamUpdateValues.workspaceId = workspaceId;
             teamUpdateValues.clientId = clientId;
 
             // update channels   
-            if (channels && channels.email && Object.keys(channels).length > 0) {
+            if (channels && channels.email && channels.email.length > 0) {
                 const { data: channelData, error: channelError } = await supabase
                     .from("emailchannels")
                     .select("id")
                     .eq("emailAddress", channels.email[0])
-                    .single();
+                    .maybeSingle();
+
                 if (channelError) throw channelError;
-                teamUpdateValues.channels = channelData.id;
+
+                if (channelData) {
+                    teamUpdateValues.channels = channelData.id;
+                } else {
+                    // Email channel doesn't exist, skip setting channels
+                    console.log(`Email channel ${channels.email[0]} not found, skipping channel update`);
+                    delete teamUpdateValues.channels;
+                }
             } else {
                 delete teamUpdateValues.channels;
             }
@@ -216,9 +223,16 @@ class TeamService {
                     maxTotalTickets, maxOpenTickets, maxActiveChats, officeHours, holidays, createdAt, updatedAt
                 `)
                 .eq("id", id)
-                .single();
+                .eq("workspaceId", workspaceId)
+                .eq("clientId", clientId)
+                .is("deletedAt", null)
+                .maybeSingle();
 
             if (fetchError) throw fetchError;
+
+            if (!updatedTeam) {
+                return Promise.reject(new errors.NotFound("Team not found after update."));
+            }
 
             // Fetch team members separately by joining with users explicitly
             const { data: teamMembers, error: membersError } = await supabase
@@ -237,7 +251,7 @@ class TeamService {
             };
         } catch (error) {
             console.log(error, "error---");
-            this.handleError(error);
+            return Promise.reject(this.handleError(error));
         }
     }
 

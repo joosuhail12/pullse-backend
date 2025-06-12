@@ -268,6 +268,91 @@ class UserService extends BaseService {
 
         return filters;
     }
+
+    // Get user's teams and roles overview
+    async getUserTeamsAndRoles(userId, workspaceId, clientId) {
+        try {
+            console.log(`Getting teams and roles overview for user ${userId}`);
+
+            // Step 1: Get user's role information
+            const { data: user, error: userError } = await this.supabase
+                .from("users")
+                .select("id, name, email, roleIds:userRoles(id, name, description)")
+                .eq("id", userId)
+                .eq("clientId", clientId)
+                .is("deletedAt", null)
+                .single();
+
+            if (userError) {
+                if (userError.code === "PGRST116") {
+                    return Promise.reject(new errors.NotFound("User not found."));
+                }
+                throw userError;
+            }
+
+            // Step 2: Get all teams the user is part of
+            const { data: userTeamMemberships, error: membershipError } = await this.supabase
+                .from("teamMembers")
+                .select('team_id')
+                .eq('user_id', userId);
+
+            if (membershipError) {
+                console.error("Error fetching team memberships:", membershipError);
+                throw membershipError;
+            }
+
+            let teams = [];
+            if (userTeamMemberships && userTeamMemberships.length > 0) {
+                // Extract team IDs
+                const teamIds = userTeamMemberships.map(membership => membership.team_id);
+
+                // Fetch team details
+                const { data: teamData, error: teamsError } = await this.supabase
+                    .from("teams")
+                    .select('id, name, description, icon, workspaceId, clientId, routingStrategy, createdAt')
+                    .in('id', teamIds)
+                    .eq('workspaceId', workspaceId)
+                    .eq('clientId', clientId)
+                    .is('deletedAt', null);
+
+                if (teamsError) {
+                    console.error("Error fetching team details:", teamsError);
+                    throw teamsError;
+                }
+
+                teams = teamData || [];
+            }
+
+            // Step 3: Format the response
+            const response = {
+                user: {
+                    id: user.id,
+                    name: user.name,
+                    email: user.email
+                },
+                role: user.roleIds ? {
+                    id: user.roleIds.id,
+                    name: user.roleIds.name,
+                    description: user.roleIds.description
+                } : null,
+                teams: teams.map(team => ({
+                    id: team.id,
+                    name: team.name,
+                    description: team.description,
+                    icon: team.icon,
+                    routingStrategy: team.routingStrategy,
+                    createdAt: team.createdAt
+                }))
+            };
+
+            console.log(`Returning overview for user ${userId}: ${teams.length} teams`);
+            return response;
+
+        } catch (error) {
+            console.error('Error getting user teams and roles:', error);
+            return Promise.reject(this.handleError(error));
+        }
+    }
 }
 
 module.exports = UserService;

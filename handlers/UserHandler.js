@@ -166,6 +166,19 @@ class UserHandler extends BaseHandler {
     return this.responder(req, reply, inst.deleteUser(user_id));
   }
 
+  async getUserTeamsAndRoles(req, reply) {
+    const userId = req.authUser.id;
+    const clientId = req.authUser.clientId;
+    const workspaceId = req.query.workspace_id || req.authUser.defaultWorkspaceId;
+
+    if (!workspaceId) {
+      return this.responder(req, reply, Promise.reject(new Error('Workspace ID is required')));
+    }
+
+    let inst = new UserService();
+    return this.responder(req, reply, inst.getUserTeamsAndRoles(userId, workspaceId, clientId));
+  }
+
 }
 
 module.exports = UserHandler;
