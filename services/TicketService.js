@@ -229,7 +229,7 @@ class TicketService {
                         teamData = team;
                     }
                 }
-                
+
 
                 // Fetch ticket type data if typeId exists
                 const ticketTypePromise = ticket.typeId
@@ -1529,8 +1529,8 @@ class TicketService {
             console.log("ticketIds", ticketIds)
             for (const ticketId of ticketIds) {
                 const { data: notifications, error: notificationsError } = await supabase
-                .from('notifications')
-                .select('*')
+                    .from('notifications')
+                    .select('*')
                     .eq('type', 'NEW_TICKET')
                     .eq('entity_id', ticketId)
                     .single();
@@ -1550,13 +1550,13 @@ class TicketService {
 
                 }
             }
-                
-            
-            
 
-            
-            
-            
+
+
+
+
+
+
 
             // Format ticket response
             const result = tickets.map(ticket => {
@@ -1845,6 +1845,99 @@ class TicketService {
             return enrichedTickets;
         } catch (err) {
             console.error("Error in listBotTickets:", err);
+            throw err;
+        }
+    }
+
+    // Ticket Tags Methods using ticketTags table
+
+    async getTicketTagsById(ticketId, workspaceId, clientId) {
+        try {
+            const { data: ticketTags, error } = await supabase
+                .from('ticketTags')
+                .select(`
+                    tagId,
+                    tags (
+                        id,
+                        name,
+                        color
+                    )
+                `)
+                .eq('ticketId', ticketId)
+                .eq('workspaceId', workspaceId)
+                .eq('clientId', clientId);
+
+            if (error) {
+                throw new errors.DBError(error.message);
+            }
+
+            const tags = ticketTags?.map(tt => ({
+                id: tt.tags.id,
+                name: tt.tags.name,
+                color: tt.tags.color
+            })) || [];
+
+            return {
+                ticketId,
+                tags,
+                count: tags.length
+            };
+        } catch (err) {
+            console.error("Error getting ticket tags:", err);
+            throw err;
+        }
+    }
+
+    async updateTicketTagsById(ticketId, tagIds, workspaceId, clientId, userId) {
+        try {
+            // Verify ticket exists
+            const { data: ticket, error: ticketError } = await supabase
+                .from('tickets')
+                .select('id')
+                .eq('id', ticketId)
+                .eq('workspaceId', workspaceId)
+                .eq('clientId', clientId)
+                .single();
+
+            if (ticketError) {
+                throw new errors.NotFound("Ticket not found");
+            }
+
+            // Delete all existing tags for this ticket
+            const { error: deleteError } = await supabase
+                .from('ticketTags')
+                .delete()
+                .eq('ticketId', ticketId)
+                .eq('workspaceId', workspaceId)
+                .eq('clientId', clientId);
+
+            if (deleteError) {
+                throw new errors.DBError(deleteError.message);
+            }
+
+            // Insert new tags if any
+            if (tagIds && tagIds.length > 0) {
+                const tagEntries = tagIds.map(tagId => ({
+                    ticketId,
+                    tagId,
+                    workspaceId,
+                    clientId,
+                    createdAt: new Date().toISOString(),
+                }));
+
+                const { error: insertError } = await supabase
+                    .from('ticketTags')
+                    .insert(tagEntries);
+
+                if (insertError) {
+                    throw new errors.DBError(insertError.message);
+                }
+            }
+
+            // Return updated tags
+            return await this.getTicketTagsById(ticketId, workspaceId, clientId);
+        } catch (err) {
+            console.error("Error updating ticket tags:", err);
             throw err;
         }
     }

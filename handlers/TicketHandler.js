@@ -242,6 +242,27 @@ class TicketHandler extends BaseHandler {
     };
     return this.responder(req, reply, inst.listBotTickets(filters));
   }
+
+  // Ticket Tags Handler Methods using ticketTags table
+
+  async getTicketTagsById(req, reply) {
+    const workspaceId = req.query.workspace_id;
+    const clientId = req.authUser.clientId;
+    const ticketId = req.params.ticket_id;
+
+    let inst = this.ticketServiceInst;
+    return this.responder(req, reply, inst.getTicketTagsById(ticketId, workspaceId, clientId));
+  }
+
+  async updateTicketTagsById(req, reply) {
+    const workspaceId = req.query.workspace_id;
+    const clientId = req.authUser.clientId;
+    const ticketId = req.params.ticket_id;
+    const { tagIds } = req.body;
+
+    let inst = this.ticketServiceInst;
+    return this.responder(req, reply, inst.updateTicketTagsById(ticketId, tagIds, workspaceId, clientId, req.authUser.id));
+  }
 }
 
 module.exports = TicketHandler;

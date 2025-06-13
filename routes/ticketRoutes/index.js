@@ -419,6 +419,54 @@ async function activate(app) {
       return handler.listBotTickets(req, reply);
     }
   });
+
+  // Ticket Tags Routes using ticketTags table
+
+  // GET - Get all tags of a ticket by ticket ID
+  app.route({
+    url: base_url + "/:ticket_id/tags",
+    method: 'GET',
+    name: "GetTicketTagsById",
+    preHandler: authMiddlewares.checkToken(AuthType.user),
+    schema: {
+      tags: ['Ticket'],
+      summary: 'Get Ticket Tags by ID',
+      description: 'API to get all tags associated with a ticket using ticket ID.',
+      query: {
+        workspace_id: { type: 'string' }
+      }
+    },
+    handler: async (req, reply) => {
+      return handler.getTicketTagsById(req, reply);
+    }
+  });
+
+  // PUT - Update tags of a ticket by ticket ID (delete all and create new)
+  app.route({
+    url: base_url + "/:ticket_id/tags",
+    method: 'PUT',
+    name: "UpdateTicketTagsById",
+    preHandler: authMiddlewares.checkToken(AuthType.user),
+    schema: {
+      tags: ['Ticket'],
+      summary: 'Update Ticket Tags by ID',
+      description: 'API to update all tags for a ticket using ticket ID. Replaces existing tags.',
+      body: {
+        type: 'object',
+        required: ['tagIds'],
+        properties: {
+          tagIds: {
+            type: 'array',
+            items: { type: 'string' },
+            description: 'Array of tag IDs to associate with the ticket'
+          }
+        }
+      }
+    },
+    handler: async (req, reply) => {
+      return handler.updateTicketTagsById(req, reply);
+    }
+  });
 }
 
 // get conversation by ticket id
