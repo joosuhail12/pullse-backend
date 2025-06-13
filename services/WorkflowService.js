@@ -5,6 +5,7 @@ const _ = require("lodash");
 const { v4: uuid } = require("uuid");
 const Ajv = require('ajv');
 const { Engine, Rule, Operator } = require('json-rules-engine');
+const TemporalServerUtils = require("../Utils/TemporalServerUtils");
 
 class WorkflowService extends BaseService {
     constructor() {
@@ -1353,6 +1354,28 @@ class WorkflowService extends BaseService {
                         continue;
                     }
 
+                    const data = {
+                        workflowId: workflow.id,
+                        ticketId: ticketId,
+                        contactId: payload?.new?.customerId,
+                    };
+
+                    // Find the company id of the customer if exists
+                    if (ticketId?.customerId) {
+                        const { data: company, error: companyError } = await this.supabase
+                            .from('company')
+                            .select('*')
+                            .eq('id', ticketId.customerId)
+                            .is('deletedAt', null)
+                            .single();
+
+                        if (company && !companyError) {
+                            data["companyId"] = company.id;
+                        }
+                    }
+
+                    const temporalServerUtils = TemporalServerUtils.getInstance();
+                    temporalServerUtils.startWorkflow(data);
                     console.log("Found a active workflow, send to temporal")
                 }
             }
