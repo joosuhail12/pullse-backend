@@ -32,7 +32,10 @@ class TimelineService extends BaseService {
 
             // Apply activity type filter (from dropdown)
             if (filters.activity_type && filters.activity_type !== 'all') {
-                query = query.eq('activity_type', filters.activity_type);
+                // query = query.eq('activity_type', filters.activity_type);
+                // Map frontend activity type to database activity type
+                const dbActivityType = this.mapActivityTypeToDatabase(filters.activity_type, entityType);
+                query = query.eq('activity_type', dbActivityType);
             }
 
             // Apply date range filters
@@ -69,6 +72,16 @@ class TimelineService extends BaseService {
         } catch (err) {
             return this.handleError(err);
         }
+    }
+
+    /**
+     * Map frontend activity type to database activity type
+     * This handles the difference between what users see in filters vs what's stored in DB
+     */
+    mapActivityTypeToDatabase(frontendActivityType, entityType) {
+        // Based on the database, ticket activities are stored as 'ticket', not 'ticket_update'
+        // So no mapping is needed - return the frontend type as-is
+        return frontendActivityType;
     }
 
     /**
@@ -231,7 +244,7 @@ class TimelineService extends BaseService {
         const entryData = TimelineService.createTimelineEntryData({
             entity_type: entityType,
             entity_id: entityId,
-            activity_type: 'ticket',
+            activity_type: 'ticket_update',
             activity_subtype: ticketData.action,
             title: title,
             summary: summary,
@@ -1402,6 +1415,178 @@ class TimelineService extends BaseService {
      */
     async enrichTimelineData(timelineData) {
         return this.enrichTimelineDataForFrontend(timelineData);
+    }
+
+    /**
+     * Log custom field activity for tickets
+     */
+    async logCustomFieldActivity(entityType, entityId, customFieldData, workspaceId, clientId) {
+        const fieldName = customFieldData.field_name || 'Custom Field';
+        const oldValue = customFieldData.old_value;
+        const newValue = customFieldData.new_value;
+        const action = customFieldData.action || 'changed';
+
+        let title, summary, description;
+
+        switch (action) {
+            case 'created':
+                title = `Added custom field: ${fieldName}`;
+                summary = `Custom field "${fieldName}" was added with value: ${newValue || 'empty'}`;
+                description = `Custom field "${fieldName}" was created`;
+                break;
+            case 'updated':
+                title = `Updated custom field: ${fieldName}`;
+                summary = `Custom field "${fieldName}": ${oldValue || 'empty'} → ${newValue || 'empty'}`;
+                description = `Custom field "${fieldName}" was modified`;
+                break;
+            default:
+                title = `Custom field changed: ${fieldName}`;
+                summary = `Custom field "${fieldName}" was updated`;
+                description = `Custom field "${fieldName}" was modified`;
+        }
+
+        // Fetch actual user name if actor_id is provided
+        const actorName = customFieldData.actor_name || await this.getUserName(customFieldData.actor_id);
+
+        // Create structured change data
+        const changeData = TimelineService.createCustomFieldChangeData(
+            customFieldData.custom_field_id,
+            fieldName,
+            oldValue,
+            newValue
+        );
+
+        const entryData = TimelineService.createTimelineEntryData({
+            entity_type: entityType,
+            entity_id: entityId,
+            activity_type: 'custom_field',
+            activity_subtype: action,
+            title: title,
+            summary: summary,
+            description: description,
+            field_changed: fieldName,
+            changes_summary: summary,
+            old_value: changeData,
+            new_value: changeData,
+            actor_id: customFieldData.actor_id || null,
+            actor_name: actorName,
+            actor_type: customFieldData.actor_type || 'user',
+            workspace_id: workspaceId,
+            client_id: clientId,
+            source: customFieldData.source || 'web',
+            activity_date: new Date()
+        });
+
+        return this.createEntry(entryData);
+    }
+
+    /**
+     * Log custom object activity for tickets
+     */
+    async logCustomObjectActivity(entityType, entityId, customObjectData, workspaceId, clientId) {
+        const objectName = customObjectData.object_name || 'Custom Object';
+        const fieldName = customObjectData.field_name || 'Field';
+        const oldValue = customObjectData.old_value;
+        const newValue = customObjectData.new_value;
+        const action = customObjectData.action || 'changed';
+
+        let title, summary, description;
+
+        switch (action) {
+            case 'created':
+                title = `Added custom object field: ${objectName}.${fieldName}`;
+                summary = `Custom object "${objectName}" field "${fieldName}" was added with value: ${newValue || 'empty'}`;
+                description = `Custom object "${objectName}" field "${fieldName}" was created`;
+                break;
+            case 'updated':
+                title = `Updated custom object field: ${objectName}.${fieldName}`;
+                summary = `Custom object "${objectName}" field "${fieldName}": ${oldValue || 'empty'} → ${newValue || 'empty'}`;
+                description = `Custom object "${objectName}" field "${fieldName}" was modified`;
+                break;
+            default:
+                title = `Custom object field changed: ${objectName}.${fieldName}`;
+                summary = `Custom object "${objectName}" field "${fieldName}" was updated`;
+                description = `Custom object "${objectName}" field "${fieldName}" was modified`;
+        }
+
+        // Fetch actual user name if actor_id is provided
+        const actorName = customObjectData.actor_name || await this.getUserName(customObjectData.actor_id);
+
+        // Create structured change data
+        const changeData = TimelineService.createCustomObjectChangeData(
+            customObjectData.custom_object_id,
+            customObjectData.custom_object_field_id,
+            objectName,
+            fieldName,
+            oldValue,
+            newValue
+        );
+
+        const entryData = TimelineService.createTimelineEntryData({
+            entity_type: entityType,
+            entity_id: entityId,
+            activity_type: 'custom_object',
+            activity_subtype: action,
+            title: title,
+            summary: summary,
+            description: description,
+            field_changed: `${objectName}.${fieldName}`,
+            changes_summary: summary,
+            old_value: changeData,
+            new_value: changeData,
+            actor_id: customObjectData.actor_id || null,
+            actor_name: actorName,
+            actor_type: customObjectData.actor_type || 'user',
+            workspace_id: workspaceId,
+            client_id: clientId,
+            source: customObjectData.source || 'web',
+            activity_date: new Date()
+        });
+
+        return this.createEntry(entryData);
+    }
+
+    /**
+     * Create standardized custom field change data structure
+     */
+    static createCustomFieldChangeData(customFieldId, fieldName, oldValue, newValue) {
+        return {
+            fields_updated: [{
+                field_name: fieldName,
+                field_type: 'custom_field',
+                custom_field_id: customFieldId,
+                old_value: TimelineService.cleanValue(oldValue),
+                new_value: TimelineService.cleanValue(newValue),
+                changed: oldValue !== newValue,
+                description: `Custom field "${fieldName}" updated`,
+                display_text: `${oldValue || 'empty'} → ${newValue || 'empty'}`
+            }],
+            total_changes: 1,
+            change_type: 'custom_field'
+        };
+    }
+
+    /**
+     * Create standardized custom object change data structure
+     */
+    static createCustomObjectChangeData(customObjectId, customObjectFieldId, objectName, fieldName, oldValue, newValue) {
+        return {
+            fields_updated: [{
+                field_name: `${objectName}.${fieldName}`,
+                field_type: 'custom_object',
+                custom_object_id: customObjectId,
+                custom_object_field_id: customObjectFieldId,
+                object_name: objectName,
+                field_name_within_object: fieldName,
+                old_value: TimelineService.cleanValue(oldValue),
+                new_value: TimelineService.cleanValue(newValue),
+                changed: oldValue !== newValue,
+                description: `Custom object "${objectName}" field "${fieldName}" updated`,
+                display_text: `${oldValue || 'empty'} → ${newValue || 'empty'}`
+            }],
+            total_changes: 1,
+            change_type: 'custom_object'
+        };
     }
 
     /**

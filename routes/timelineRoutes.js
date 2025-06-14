@@ -230,6 +230,66 @@ async function activate(app) {
         },
         handler: timelineHandler.fixNullTicketEntries.bind(timelineHandler)
     });
+
+    // Ticket timeline routes
+    app.route({
+        url: base_url + '/tickets/:ticket_id/timeline',
+        method: 'GET',
+        name: 'GetTicketTimeline',
+        preHandler: authMiddlewares.checkToken(AuthType.user),
+        schema: {
+            tags: ['Timeline'],
+            summary: 'Get Ticket Timeline',
+            description: 'API to get activity timeline for a ticket.',
+            params: {
+                type: 'object',
+                properties: {
+                    ticket_id: { type: 'string', format: 'uuid' }
+                },
+                required: ['ticket_id']
+            },
+            querystring: {
+                type: 'object',
+                properties: {
+                    activity_type: { type: 'string', enum: ['all', 'ticket', 'note', 'custom_field', 'custom_object', 'status_change', 'assignment', 'priority_change', 'tag_update'] },
+                    date_from: { type: 'string', format: 'date' },
+                    date_to: { type: 'string', format: 'date' },
+                    limit: { type: 'integer', minimum: 1, maximum: 100, default: 50 },
+                    offset: { type: 'integer', minimum: 0, default: 0 },
+                    workspace_id: { type: 'string', format: 'uuid' }
+                }
+            }
+        },
+        handler: timelineHandler.getTicketTimeline.bind(timelineHandler)
+    });
+
+    app.route({
+        url: base_url + '/tickets/:ticket_id/timeline/stats',
+        method: 'GET',
+        name: 'GetTicketTimelineStats',
+        preHandler: authMiddlewares.checkToken(AuthType.user),
+        schema: {
+            tags: ['Timeline'],
+            summary: 'Get Ticket Timeline Statistics',
+            description: 'API to get timeline statistics for a ticket.',
+            params: {
+                type: 'object',
+                properties: {
+                    ticket_id: { type: 'string', format: 'uuid' }
+                },
+                required: ['ticket_id']
+            },
+            querystring: {
+                type: 'object',
+                properties: {
+                    date_from: { type: 'string', format: 'date' },
+                    date_to: { type: 'string', format: 'date' },
+                    workspace_id: { type: 'string', format: 'uuid' }
+                }
+            }
+        },
+        handler: timelineHandler.getTicketTimelineStats.bind(timelineHandler)
+    });
 }
 
 module.exports = { activate }; 

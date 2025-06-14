@@ -23,6 +23,8 @@ class TimelineListener {
         this.initCompanyTimeline();
         this.initTagTimeline();
         this.initSentimentTimeline();
+        this.initCustomFieldTimeline();
+        this.initCustomObjectTimeline();
         console.log(`✅ Timeline listeners initialized for instance: ${this.instanceId}`);
     }
 
@@ -80,17 +82,32 @@ class TimelineListener {
                         }, newTicket.workspaceId, newTicket.clientId);
                         console.log('📝 Timeline: Ticket update logged -', changeResult.summary);
 
+                        // Also log to the ticket's own timeline
+                        await this.timelineService.logTicketActivity('ticket', newTicket.id, {
+                            action: 'updated',
+                            ticket_number: newTicket.sno,
+                            ticket_id: newTicket.id,
+                            changes_summary: changeResult.summary,
+                            field_changed: changeResult.fieldsChanged.join(', '),
+                            old_value: changeResult.changeData,
+                            new_value: changeResult.changeData,
+                            actor_id: newTicket.updatedBy || null,
+                            actor_name: null,
+                            source: 'system'
+                        }, newTicket.workspaceId, newTicket.clientId);
+                        console.log('📝 Timeline: Ticket self-timeline update logged');
+
                         // Log sentiment changes separately if present
-                        if (changeResult.changes.sentiment) {
-                            await this.timelineService.logSentimentActivity('contact', newTicket.customerId, {
-                                old_sentiment: changeResult.changes.sentiment.old,
-                                new_sentiment: changeResult.changes.sentiment.new,
-                                ticket_id: newTicket.id,
-                                actor_id: newTicket.updatedBy || null,
-                                actor_name: null
-                            }, newTicket.workspaceId, newTicket.clientId);
-                            console.log('📊 Timeline: Sentiment change logged');
-                        }
+                        // if (changeResult.changes.sentiment) {
+                        //     await this.timelineService.logSentimentActivity('contact', newTicket.customerId, {
+                        //         old_sentiment: changeResult.changes.sentiment.old,
+                        //         new_sentiment: changeResult.changes.sentiment.new,
+                        //         ticket_id: newTicket.id,
+                        //         actor_id: newTicket.updatedBy || null,
+                        //         actor_name: null
+                        //     }, newTicket.workspaceId, newTicket.clientId);
+                        //     console.log('📊 Timeline: Sentiment change logged');
+                        // }
                     }
                 } catch (error) {
                     console.error('❌ Timeline: Error handling ticket update:', error);
@@ -431,6 +448,150 @@ class TimelineListener {
      */
     getTimelineService() {
         return this.timelineService;
+    }
+
+    /**
+     * Initialize custom field timeline listeners for tickets
+     */
+    initCustomFieldTimeline() {
+        console.log(`🔧 DEBUG [${this.instanceId}]: Initializing custom field timeline listeners`);
+
+        const customFieldChannel = this.supabase
+            .channel(`timeline-custom-field-events-${this.instanceId}`)
+            .on('postgres_changes', { event: 'insert', schema: 'public', table: 'customfielddata' }, async (payload) => {
+                try {
+                    const customFieldData = payload.new;
+                    console.log(`🔧 DEBUG [${this.instanceId}]: Custom field INSERT event triggered`, customFieldData);
+
+                    if (customFieldData.entityType === 'ticket' && customFieldData.ticketId) {
+                        // Get custom field details
+                        const { data: customField } = await this.supabase
+                            .from('customfields')
+                            .select('name, fieldType')
+                            .eq('id', customFieldData.customfieldId)
+                            .single();
+
+                        await this.timelineService.logCustomFieldActivity('ticket', customFieldData.ticketId, {
+                            action: 'created',
+                            custom_field_id: customFieldData.customfieldId,
+                            field_name: customField?.name || 'Custom Field',
+                            old_value: null,
+                            new_value: customFieldData.data,
+                            actor_id: customFieldData.createdBy,
+                            source: 'web'
+                        }, customFieldData.workspaceId, customFieldData.clientId);
+                        console.log('📝 Timeline: Custom field created logged');
+                    }
+                } catch (error) {
+                    console.error('❌ Timeline: Error handling custom field insert:', error);
+                }
+            })
+            .on('postgres_changes', { event: 'update', schema: 'public', table: 'customfielddata' }, async (payload) => {
+                try {
+                    const oldData = payload.old;
+                    const newData = payload.new;
+                    console.log(`🔧 DEBUG [${this.instanceId}]: Custom field UPDATE event triggered`, { oldData, newData });
+
+                    if (newData.entityType === 'ticket' && newData.ticketId && oldData.data !== newData.data) {
+                        // Get custom field details
+                        const { data: customField } = await this.supabase
+                            .from('customfields')
+                            .select('name, fieldType')
+                            .eq('id', newData.customfieldId)
+                            .single();
+
+                        await this.timelineService.logCustomFieldActivity('ticket', newData.ticketId, {
+                            action: 'updated',
+                            custom_field_id: newData.customfieldId,
+                            field_name: customField?.name || 'Custom Field',
+                            old_value: oldData.data,
+                            new_value: newData.data,
+                            actor_id: newData.updatedBy || newData.createdBy,
+                            source: 'web'
+                        }, newData.workspaceId, newData.clientId);
+                        console.log('📝 Timeline: Custom field update logged');
+                    }
+                } catch (error) {
+                    console.error('❌ Timeline: Error handling custom field update:', error);
+                }
+            })
+            .subscribe();
+
+        this.channels.push(customFieldChannel);
+    }
+
+    /**
+     * Initialize custom object timeline listeners for tickets
+     */
+    initCustomObjectTimeline() {
+        console.log(`🔧 DEBUG [${this.instanceId}]: Initializing custom object timeline listeners`);
+
+        const customObjectChannel = this.supabase
+            .channel(`timeline-custom-object-events-${this.instanceId}`)
+            .on('postgres_changes', { event: 'insert', schema: 'public', table: 'customobjectfielddata' }, async (payload) => {
+                try {
+                    const customObjectData = payload.new;
+                    console.log(`🔧 DEBUG [${this.instanceId}]: Custom object INSERT event triggered`, customObjectData);
+
+                    if (customObjectData.entityType === 'ticket' && customObjectData.ticketId) {
+                        // Get custom object field details
+                        const { data: customObjectField } = await this.supabase
+                            .from('customobjectfields')
+                            .select('name, fieldType, customobjects(name)')
+                            .eq('id', customObjectData.customObjectFieldId)
+                            .single();
+
+                        await this.timelineService.logCustomObjectActivity('ticket', customObjectData.ticketId, {
+                            action: 'created',
+                            custom_object_id: customObjectField?.customobjects?.id,
+                            custom_object_field_id: customObjectData.customObjectFieldId,
+                            object_name: customObjectField?.customobjects?.name || 'Custom Object',
+                            field_name: customObjectField?.name || 'Field',
+                            old_value: null,
+                            new_value: customObjectData.data,
+                            actor_id: customObjectData.createdBy,
+                            source: 'web'
+                        }, customObjectData.workspaceId, customObjectData.clientId);
+                        console.log('📝 Timeline: Custom object created logged');
+                    }
+                } catch (error) {
+                    console.error('❌ Timeline: Error handling custom object insert:', error);
+                }
+            })
+            .on('postgres_changes', { event: 'update', schema: 'public', table: 'customobjectfielddata' }, async (payload) => {
+                try {
+                    const oldData = payload.old;
+                    const newData = payload.new;
+                    console.log(`🔧 DEBUG [${this.instanceId}]: Custom object UPDATE event triggered`, { oldData, newData });
+
+                    if (newData.entityType === 'ticket' && newData.ticketId && oldData.data !== newData.data) {
+                        // Get custom object field details
+                        const { data: customObjectField } = await this.supabase
+                            .from('customobjectfields')
+                            .select('name, fieldType, customobjects(name)')
+                            .eq('id', newData.customObjectFieldId)
+                            .single();
+
+                        await this.timelineService.logCustomObjectActivity('ticket', newData.ticketId, {
+                            action: 'updated',
+                            custom_object_id: customObjectField?.customobjects?.id,
+                            custom_object_field_id: newData.customObjectFieldId,
+                            object_name: customObjectField?.customobjects?.name || 'Custom Object',
+                            field_name: customObjectField?.name || 'Field',
+                            old_value: oldData.data,
+                            new_value: newData.data,
+                            actor_id: newData.updatedBy || newData.createdBy,
+                            source: 'web'
+                        }, newData.workspaceId, newData.clientId);
+                        console.log('📝 Timeline: Custom object update logged');
+                    }
+                } catch (error) {
+                    console.error('❌ Timeline: Error handling custom object update:', error);
+                }
+            })
+            .subscribe();
+
+        this.channels.push(customObjectChannel);
     }
 }
 

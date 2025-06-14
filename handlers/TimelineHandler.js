@@ -463,6 +463,182 @@ class TimelineHandler extends BaseHandler {
             return this.responder(req, reply, Promise.reject(error));
         }
     }
+
+    /**
+     * GET /api/tickets/:ticket_id/timeline
+     */
+    async getTicketTimeline(req, reply) {
+        try {
+            const timelineService = new TimelineService();
+            const ticketId = req.params.ticket_id;
+            const workspaceId = req.query.workspace_id || req.authUser.workspaceId;
+            const clientId = req.authUser.clientId;
+
+            const filters = {
+                activity_type: req.query.activity_type || 'all',
+                date_from: req.query.date_from,
+                date_to: req.query.date_to,
+                limit: parseInt(req.query.limit) || 50,
+                offset: parseInt(req.query.offset) || 0,
+                exclude_internal: req.authUser.userType === 'customer'
+            };
+
+            const timeline = await timelineService.getEntityTimeline(
+                'ticket',
+                ticketId,
+                workspaceId,
+                clientId,
+                filters
+            );
+
+            // Simple response structure matching contact timeline format
+            const response = {
+                status: "success",
+                message: "Successfully done",
+                data: {
+                    timeline: timeline,
+                    has_more: timeline.length === filters.limit,
+                    total_count: timeline.length,
+                    filters_applied: {
+                        activity_type: filters.activity_type,
+                        date_range: {
+                            date_from: filters.date_from,
+                            date_to: filters.date_to
+                        }
+                    }
+                }
+            };
+
+            return this.responder(req, reply, Promise.resolve(response));
+        } catch (error) {
+            return this.responder(req, reply, Promise.reject(error));
+        }
+    }
+
+    /**
+     * GET /api/tickets/:ticket_id/timeline/stats
+     */
+    async getTicketTimelineStats(req, reply) {
+        try {
+            const timelineService = new TimelineService();
+            const ticketId = req.params.ticket_id;
+            const workspaceId = req.query.workspace_id || req.authUser.workspaceId;
+            const clientId = req.authUser.clientId;
+
+            const dateRange = req.query.date_from || req.query.date_to ? {
+                from: req.query.date_from,
+                to: req.query.date_to
+            } : null;
+
+            const stats = await timelineService.getTimelineStats(
+                'ticket',
+                ticketId,
+                workspaceId,
+                clientId,
+                dateRange
+            );
+
+            const response = {
+                status: "success",
+                message: "Successfully done",
+                data: stats
+            };
+
+            return this.responder(req, reply, Promise.resolve(response));
+        } catch (error) {
+            return this.responder(req, reply, Promise.reject(error));
+        }
+    }
+
+    /**
+     * Get available activity types for ticket filtering
+     */
+    async getAvailableTicketActivityTypes(timelineService, ticketId, workspaceId, clientId) {
+        try {
+            const { data, error } = await timelineService.supabase
+                .from('timeline')
+                .select('activity_type, activity_subtype')
+                .eq('entity_type', 'ticket')
+                .eq('entity_id', ticketId)
+                .eq('workspace_id', workspaceId)
+                .eq('client_id', clientId)
+                .is('deleted_at', null);
+
+            if (error) return this.getDefaultTicketActivityTypes();
+
+            // Group and count activity types
+            const activityCounts = {};
+            data.forEach(entry => {
+                const key = entry.activity_type;
+                activityCounts[key] = (activityCounts[key] || 0) + 1;
+            });
+
+            return [
+                { value: 'all', label: 'All Activities', count: data.length },
+                ...Object.keys(activityCounts).map(type => ({
+                    value: type,
+                    label: this.getTicketActivityTypeLabel(type),
+                    count: activityCounts[type],
+                    icon: this.getTicketActivityTypeIcon(type)
+                }))
+            ];
+        } catch (err) {
+            return this.getDefaultTicketActivityTypes();
+        }
+    }
+
+    /**
+     * Get default ticket activity types if query fails
+     */
+    getDefaultTicketActivityTypes() {
+        return [
+            { value: 'all', label: 'All Activities', count: 0 },
+            { value: 'ticket_update', label: 'Ticket Updates', count: 0, icon: 'edit' },
+            { value: 'note', label: 'Notes', count: 0, icon: 'note' },
+            { value: 'custom_field', label: 'Custom Fields', count: 0, icon: 'field' },
+            { value: 'custom_object', label: 'Custom Objects', count: 0, icon: 'object' },
+            { value: 'status_change', label: 'Status Changes', count: 0, icon: 'status' },
+            { value: 'assignment', label: 'Assignments', count: 0, icon: 'user' },
+            { value: 'priority_change', label: 'Priority Changes', count: 0, icon: 'priority' },
+            { value: 'tag_update', label: 'Tag Changes', count: 0, icon: 'tag' }
+        ];
+    }
+
+    /**
+     * Get ticket activity type labels
+     */
+    getTicketActivityTypeLabel(type) {
+        const labels = {
+            'ticket_update': 'Ticket Updates',
+            'note': 'Notes',
+            'custom_field': 'Custom Fields',
+            'custom_object': 'Custom Objects',
+            'status_change': 'Status Changes',
+            'assignment': 'Assignments',
+            'priority_change': 'Priority Changes',
+            'tag_update': 'Tag Changes',
+            'sentiment_update': 'Sentiment Analysis'
+        };
+        return labels[type] || type.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
+    }
+
+    /**
+     * Get ticket activity type icons
+     */
+    getTicketActivityTypeIcon(type) {
+        const icons = {
+            'ticket_update': 'edit',
+            'note': 'note',
+            'custom_field': 'field',
+            'custom_object': 'object',
+            'status_change': 'status',
+            'assignment': 'user',
+            'priority_change': 'priority',
+            'tag_update': 'tag',
+            'sentiment_update': 'chart-line'
+        };
+        return icons[type] || 'activity';
+    }
 }
 
 module.exports = TimelineHandler; 
