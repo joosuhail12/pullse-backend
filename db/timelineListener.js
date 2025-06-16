@@ -463,13 +463,36 @@ class TimelineListener {
                     const customFieldData = payload.new;
                     console.log(`🔧 DEBUG [${this.instanceId}]: Custom field INSERT event triggered`, customFieldData);
 
+                    // Add validation for required fields
+                    if (!customFieldData.customfieldId) {
+                        console.warn('❌ Custom field insert: Missing customfieldId');
+                        return;
+                    }
+
                     if (customFieldData.entityType === 'ticket' && customFieldData.ticketId) {
+                        // Get ticket details to extract workspaceId and clientId
+                        const { data: ticket, error: ticketError } = await this.supabase
+                            .from('tickets')
+                            .select('workspaceId, clientId')
+                            .eq('id', customFieldData.ticketId)
+                            .single();
+
+                        if (ticketError || !ticket) {
+                            console.error('❌ Timeline: Error fetching ticket details:', ticketError);
+                            return;
+                        }
+
                         // Get custom field details
-                        const { data: customField } = await this.supabase
+                        const { data: customField, error: fieldError } = await this.supabase
                             .from('customfields')
                             .select('name, fieldType')
                             .eq('id', customFieldData.customfieldId)
                             .single();
+
+                        if (fieldError) {
+                            console.error('❌ Timeline: Error fetching custom field:', fieldError);
+                            return;
+                        }
 
                         await this.timelineService.logCustomFieldActivity('ticket', customFieldData.ticketId, {
                             action: 'created',
@@ -479,7 +502,7 @@ class TimelineListener {
                             new_value: customFieldData.data,
                             actor_id: customFieldData.createdBy,
                             source: 'web'
-                        }, customFieldData.workspaceId, customFieldData.clientId);
+                        }, ticket.workspaceId, ticket.clientId);
                         console.log('📝 Timeline: Custom field created logged');
                     }
                 } catch (error) {
@@ -492,13 +515,36 @@ class TimelineListener {
                     const newData = payload.new;
                     console.log(`🔧 DEBUG [${this.instanceId}]: Custom field UPDATE event triggered`, { oldData, newData });
 
+                    // Add validation for required fields
+                    if (!newData.customfieldId) {
+                        console.warn('❌ Custom field update: Missing customfieldId');
+                        return;
+                    }
+
                     if (newData.entityType === 'ticket' && newData.ticketId && oldData.data !== newData.data) {
+                        // Get ticket details to extract workspaceId and clientId
+                        const { data: ticket, error: ticketError } = await this.supabase
+                            .from('tickets')
+                            .select('workspaceId, clientId')
+                            .eq('id', newData.ticketId)
+                            .single();
+
+                        if (ticketError || !ticket) {
+                            console.error('❌ Timeline: Error fetching ticket details:', ticketError);
+                            return;
+                        }
+
                         // Get custom field details
-                        const { data: customField } = await this.supabase
+                        const { data: customField, error: fieldError } = await this.supabase
                             .from('customfields')
                             .select('name, fieldType')
                             .eq('id', newData.customfieldId)
                             .single();
+
+                        if (fieldError) {
+                            console.error('❌ Timeline: Error fetching custom field:', fieldError);
+                            return;
+                        }
 
                         await this.timelineService.logCustomFieldActivity('ticket', newData.ticketId, {
                             action: 'updated',
@@ -508,7 +554,7 @@ class TimelineListener {
                             new_value: newData.data,
                             actor_id: newData.updatedBy || newData.createdBy,
                             source: 'web'
-                        }, newData.workspaceId, newData.clientId);
+                        }, ticket.workspaceId, ticket.clientId);
                         console.log('📝 Timeline: Custom field update logged');
                     }
                 } catch (error) {
@@ -533,13 +579,36 @@ class TimelineListener {
                     const customObjectData = payload.new;
                     console.log(`🔧 DEBUG [${this.instanceId}]: Custom object INSERT event triggered`, customObjectData);
 
+                    // Add validation for required fields
+                    if (!customObjectData.customObjectFieldId) {
+                        console.warn('❌ Custom object insert: Missing customObjectFieldId');
+                        return;
+                    }
+
                     if (customObjectData.entityType === 'ticket' && customObjectData.ticketId) {
+                        // Get ticket details to extract workspaceId and clientId
+                        const { data: ticket, error: ticketError } = await this.supabase
+                            .from('tickets')
+                            .select('workspaceId, clientId')
+                            .eq('id', customObjectData.ticketId)
+                            .single();
+
+                        if (ticketError || !ticket) {
+                            console.error('❌ Timeline: Error fetching ticket details:', ticketError);
+                            return;
+                        }
+
                         // Get custom object field details
-                        const { data: customObjectField } = await this.supabase
+                        const { data: customObjectField, error: fieldError } = await this.supabase
                             .from('customobjectfields')
-                            .select('name, fieldType, customobjects(name)')
+                            .select('name, fieldType, customobjects(id, name)')
                             .eq('id', customObjectData.customObjectFieldId)
                             .single();
+
+                        if (fieldError) {
+                            console.error('❌ Timeline: Error fetching custom object field:', fieldError);
+                            return;
+                        }
 
                         await this.timelineService.logCustomObjectActivity('ticket', customObjectData.ticketId, {
                             action: 'created',
@@ -551,7 +620,7 @@ class TimelineListener {
                             new_value: customObjectData.data,
                             actor_id: customObjectData.createdBy,
                             source: 'web'
-                        }, customObjectData.workspaceId, customObjectData.clientId);
+                        }, ticket.workspaceId, ticket.clientId);
                         console.log('📝 Timeline: Custom object created logged');
                     }
                 } catch (error) {
@@ -564,13 +633,36 @@ class TimelineListener {
                     const newData = payload.new;
                     console.log(`🔧 DEBUG [${this.instanceId}]: Custom object UPDATE event triggered`, { oldData, newData });
 
+                    // Add validation for required fields
+                    if (!newData.customObjectFieldId) {
+                        console.warn('❌ Custom object update: Missing customObjectFieldId');
+                        return;
+                    }
+
                     if (newData.entityType === 'ticket' && newData.ticketId && oldData.data !== newData.data) {
+                        // Get ticket details to extract workspaceId and clientId
+                        const { data: ticket, error: ticketError } = await this.supabase
+                            .from('tickets')
+                            .select('workspaceId, clientId')
+                            .eq('id', newData.ticketId)
+                            .single();
+
+                        if (ticketError || !ticket) {
+                            console.error('❌ Timeline: Error fetching ticket details:', ticketError);
+                            return;
+                        }
+
                         // Get custom object field details
-                        const { data: customObjectField } = await this.supabase
+                        const { data: customObjectField, error: fieldError } = await this.supabase
                             .from('customobjectfields')
-                            .select('name, fieldType, customobjects(name)')
+                            .select('name, fieldType, customobjects(id, name)')
                             .eq('id', newData.customObjectFieldId)
                             .single();
+
+                        if (fieldError) {
+                            console.error('❌ Timeline: Error fetching custom object field:', fieldError);
+                            return;
+                        }
 
                         await this.timelineService.logCustomObjectActivity('ticket', newData.ticketId, {
                             action: 'updated',
@@ -582,7 +674,7 @@ class TimelineListener {
                             new_value: newData.data,
                             actor_id: newData.updatedBy || newData.createdBy,
                             source: 'web'
-                        }, newData.workspaceId, newData.clientId);
+                        }, ticket.workspaceId, ticket.clientId);
                         console.log('📝 Timeline: Custom object update logged');
                     }
                 } catch (error) {
