@@ -259,7 +259,6 @@ async function activate(app) {
         url: base_url + "/createContactDevice/:api_key",
         method: "POST",
         name: "CreateContactDevice",
-        preHandler: authMiddlewares.verifyJWTToken(),
         schema: {
             tags: ["Widgets"],
             summary: "Create Contact Device",

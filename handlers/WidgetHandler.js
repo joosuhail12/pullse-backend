@@ -77,7 +77,6 @@ class WidgetHandler extends BaseHandler {
         req.body.operatingSystem = operatingSystem;
         req.body.publicIpAddress = publicIpAddress;
         req.body.apiKey = req.params.api_key;
-        req.body.authUser = req.authUser;
 
         return this.responder(req, reply, inst.createContactDevice(req.body));
     }
