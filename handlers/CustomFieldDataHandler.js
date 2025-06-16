@@ -47,6 +47,7 @@ class CustomFieldDataHandler extends BaseHandler {
     async updateCustomFieldData(req, reply) {
         let id = req.params.custom_field_data_id;
         let toUpdate = req.body;
+        toUpdate.updatedBy = req.authUser.id;
 
         let inst = new CustomFieldDataService();
         return this.responder(req, reply, inst.updateCustomFieldData(id, toUpdate));

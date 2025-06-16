@@ -62,7 +62,7 @@ class CustomFieldDataService extends BaseService {
                 customfieldId,
                 data,
                 entityType,
-                // createdBy currently not needed
+                createdBy,
             };
 
             // Set the appropriate entity ID field

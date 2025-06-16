@@ -521,7 +521,22 @@ class TimelineListener {
                         return;
                     }
 
-                    if (newData.entityType === 'ticket' && newData.ticketId && oldData.data !== newData.data) {
+                    if (newData.entityType === 'ticket' && newData.ticketId) {
+                        // Check if data actually changed - handle case where oldData might only have id
+                        const oldDataValue = oldData.data !== undefined ? oldData.data : null;
+                        const newDataValue = newData.data;
+
+                        if (oldDataValue === newDataValue) {
+                            console.log('📝 Timeline: Custom field data unchanged, skipping');
+                            return;
+                        }
+
+                        console.log('🔍 DEBUG: Custom field change detected:', {
+                            oldValue: oldDataValue,
+                            newValue: newDataValue,
+                            hasOldData: oldData.data !== undefined
+                        });
+
                         // Get ticket details to extract workspaceId and clientId
                         const { data: ticket, error: ticketError } = await this.supabase
                             .from('tickets')
@@ -546,12 +561,28 @@ class TimelineListener {
                             return;
                         }
 
+                        // If oldData doesn't have the data field, fetch it from database
+                        let actualOldValue = oldDataValue;
+                        if (oldData.data === undefined && oldData.id) {
+                            console.log('🔍 DEBUG: Fetching old custom field data from database');
+                            const { data: oldRecord, error: oldRecordError } = await this.supabase
+                                .from('customfielddata')
+                                .select('data')
+                                .eq('id', oldData.id)
+                                .single();
+
+                            if (!oldRecordError && oldRecord) {
+                                actualOldValue = oldRecord.data;
+                                console.log('🔍 DEBUG: Retrieved old value from database:', actualOldValue);
+                            }
+                        }
+
                         await this.timelineService.logCustomFieldActivity('ticket', newData.ticketId, {
                             action: 'updated',
                             custom_field_id: newData.customfieldId,
                             field_name: customField?.name || 'Custom Field',
-                            old_value: oldData.data,
-                            new_value: newData.data,
+                            old_value: actualOldValue,
+                            new_value: newDataValue,
                             actor_id: newData.updatedBy || newData.createdBy,
                             source: 'web'
                         }, ticket.workspaceId, ticket.clientId);
@@ -639,7 +670,22 @@ class TimelineListener {
                         return;
                     }
 
-                    if (newData.entityType === 'ticket' && newData.ticketId && oldData.data !== newData.data) {
+                    if (newData.entityType === 'ticket' && newData.ticketId) {
+                        // Check if data actually changed - handle case where oldData might only have id
+                        const oldDataValue = oldData.data !== undefined ? oldData.data : null;
+                        const newDataValue = newData.data;
+
+                        if (oldDataValue === newDataValue) {
+                            console.log('📝 Timeline: Custom object data unchanged, skipping');
+                            return;
+                        }
+
+                        console.log('🔍 DEBUG: Custom object change detected:', {
+                            oldValue: oldDataValue,
+                            newValue: newDataValue,
+                            hasOldData: oldData.data !== undefined
+                        });
+
                         // Get ticket details to extract workspaceId and clientId
                         const { data: ticket, error: ticketError } = await this.supabase
                             .from('tickets')
@@ -664,14 +710,30 @@ class TimelineListener {
                             return;
                         }
 
+                        // If oldData doesn't have the data field, fetch it from database
+                        let actualOldValue = oldDataValue;
+                        if (oldData.data === undefined && oldData.id) {
+                            console.log('🔍 DEBUG: Fetching old custom object data from database');
+                            const { data: oldRecord, error: oldRecordError } = await this.supabase
+                                .from('customobjectfielddata')
+                                .select('data')
+                                .eq('id', oldData.id)
+                                .single();
+
+                            if (!oldRecordError && oldRecord) {
+                                actualOldValue = oldRecord.data;
+                                console.log('🔍 DEBUG: Retrieved old value from database:', actualOldValue);
+                            }
+                        }
+
                         await this.timelineService.logCustomObjectActivity('ticket', newData.ticketId, {
                             action: 'updated',
                             custom_object_id: customObjectField?.customobjects?.id,
                             custom_object_field_id: newData.customObjectFieldId,
                             object_name: customObjectField?.customobjects?.name || 'Custom Object',
                             field_name: customObjectField?.name || 'Field',
-                            old_value: oldData.data,
-                            new_value: newData.data,
+                            old_value: actualOldValue,
+                            new_value: newDataValue,
                             actor_id: newData.updatedBy || newData.createdBy,
                             source: 'web'
                         }, ticket.workspaceId, ticket.clientId);

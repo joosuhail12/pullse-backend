@@ -62,6 +62,7 @@ class CustomObjectFieldDataService extends BaseService {
                 customObjectFieldId,
                 data,
                 entityType,
+                createdBy,
             };
 
             // Set the appropriate entity ID field
