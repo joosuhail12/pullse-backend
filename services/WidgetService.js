@@ -722,6 +722,8 @@ class WidgetService extends BaseService {
 
                 const token = this.authService.generateJWTToken({ widgetId: widgetApiKeyData.widgetId, ipAddress: publicIpAddress, workspaceId: widgetData.workspaceId, clientId: widgetData.clientId, sessionId: widgetSession.id, exp: Date.now() + (10 * 60 * 60 * 1000) });
 
+                initializeWidgetSession(widgetSession.id, widgetData.clientId, widgetData.workspaceId)
+
                 return {
                     ...contactDeviceData,
                     name: customer.firstname + " " + customer.lastname,
