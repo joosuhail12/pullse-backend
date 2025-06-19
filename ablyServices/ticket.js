@@ -7,7 +7,7 @@ const { ensureQaSubscription } = require('./qaSubscriptions');
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
 const ablyRest = new AblyRest(process.env.ABLY_API_KEY);
 
-exports.handleNewTicket = async function handleNewTicket ({ workspaceId, sessionId, firstMessage, userType }) {
+exports.handleNewTicket = async function handleNewTicket({ workspaceId, sessionId, firstMessage, userType }) {
   // parallel fetches
   const [sessionRow, chatChannelRow] = await Promise.all([
     supabase
@@ -83,7 +83,7 @@ exports.handleNewTicket = async function handleNewTicket ({ workspaceId, session
 
   // notify widget
   ablyRest.channels.get(`widget:contactevent:${sessionId}`)
-          .publish('new_ticket_reply', { ticketId });
+    .publish('new_ticket_reply', { ticketId });
 
   // notifications for humans (skip if goes to bot inbox)
   if (!aiEnabled) {
@@ -106,10 +106,10 @@ exports.handleNewTicket = async function handleNewTicket ({ workspaceId, session
       payload: { title: firstMessage.slice(0, 120), routingType },
       broadcastChannels: broadcast
     });
-  }else{
+  } else {
     ensureQaSubscription(ticketId, sessionId);
     const qaCh = ablyRest.channels.get(`document-qa`);
-    qaCh.publish('message', { query: firstMessage, id:ticketId, clientId:clientId });
+    qaCh.publish('message', { query: firstMessage, id: ticketId, clientId: clientId });
   }
 
   return { id: ticketId };

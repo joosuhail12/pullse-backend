@@ -9,7 +9,7 @@ const widgetSessionSubscriptions = new Set();
 const ticketChannelSubscriptions = new Set();
 const conversationChannelSubscriptions = new Set();
 
-exports.initializeWidgetSession = function initializeWidgetSession (sessionId, clientId, workspaceId) {
+exports.initializeWidgetSession = function initializeWidgetSession(sessionId, clientId, workspaceId) {
   if (widgetSessionSubscriptions.has(sessionId)) return;
   widgetSessionSubscriptions.add(sessionId);
 
@@ -38,6 +38,9 @@ exports.subscribeToConversationChannels = function subscribeToConversationChanne
   widgetCh.subscribe('message', m =>
     require('./routing').handleWidgetConversationEvent(ticketId, m.data, sessionId, ticketChannelSubscriptions)
   );
+  widgetCh.subscribe('user_action', async msg => {
+    require('./routing').handleUserAction(ticketId, msg.data, sessionId);
+  });
 
   const agentCh = ably.channels.get(`agent-conversation:${ticketId}`);
   agentCh.subscribe(m =>

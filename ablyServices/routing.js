@@ -17,8 +17,8 @@ function init(depInternalService) {
  * Handle incoming message from the user widget.
  * This will persist the message, forward it to agents, and trigger AI if enabled.
  */
-const handleWidgetConversationEvent =  async (ticketId, messageData, sessionId, ticketChannelSubscriptions) => {
-    const internalService = new InternalService();
+const handleWidgetConversationEvent = async (ticketId, messageData, sessionId, ticketChannelSubscriptions) => {
+  const internalService = new InternalService();
   try {
     // Validate ticketId format
     if (!safeUUID(ticketId)) {
@@ -66,8 +66,8 @@ const handleWidgetConversationEvent =  async (ticketId, messageData, sessionId, 
     if (ticket.aiEnabled && userText?.trim()) {
       ensureQaSubscription(ticketId, sessionId);
       const qaCh = ably.channels.get(`document-qa`);
-      qaCh.publish('message', { query:userText, id:ticketId, clientId:ticket.clientId });
-    }else{
+      qaCh.publish('message', { query: userText, id: ticketId, clientId: ticket.clientId });
+    } else {
       if (ticketChannelSubscriptions.has(`ticket:${ticketId}`)) {
         const ticketChannel = ably.channels.get(`ticket:${ticketId}`);
         const message = {
@@ -85,18 +85,18 @@ const handleWidgetConversationEvent =  async (ticketId, messageData, sessionId, 
         ticketChannel.publish('message', message, err => {
           if (err) console.error('Failed to publish agent message to widget channel:', err);
         });
-      }else{
+      } else {
         const { data: tickets, error: ticketErr } = await supabase
-      .from('tickets')
-      .select('id, aiEnabled, assigneeId, customers: customerId(id, firstname, lastname, email), clientId, workspaceId, users: assigneeId(id, fName, lName, clientId, defaultWorkspaceId), teamId')
-      .eq('id', ticketId)
-      .limit(1);
-        const {data: teamMembers, error: teamMembersError} = await supabase 
-        .from('teamMembers')
-        .select('user_id')
-        .eq('team_id', tickets[0].teamId);
-      const ticket = tickets ? tickets[0] : null;
-      const assignee = teamMembers ? teamMembers.map(member => member.user_id) : null;
+          .from('tickets')
+          .select('id, aiEnabled, assigneeId, customers: customerId(id, firstname, lastname, email), clientId, workspaceId, users: assigneeId(id, fName, lName, clientId, defaultWorkspaceId), teamId')
+          .eq('id', ticketId)
+          .limit(1);
+        const { data: teamMembers, error: teamMembersError } = await supabase
+          .from('teamMembers')
+          .select('user_id')
+          .eq('team_id', tickets[0].teamId);
+        const ticket = tickets ? tickets[0] : null;
+        const assignee = teamMembers ? teamMembers.map(member => member.user_id) : null;
         await createAndBroadcast({
           type: 'NEW_MESSAGE',
           entityId: ticketId,
@@ -198,10 +198,10 @@ const handleAgentConversationEvent = async (ticketId, messageData) => {
 
 const handleTicketMessage = async (ticketId, messageData, clientId, workspaceId, sessionId, userId) => {
   const { data: tickets, error: ticketErr } = await supabase
-      .from('tickets')
-      .select('id, aiEnabled, assigneeId, customers: customerId(id, firstname, lastname, email), clientId, workspaceId, users: assignedTo(id, fName, lName, clientId, defaultWorkspaceId)')
-      .eq('id', ticketId)
-      .limit(1);
+    .from('tickets')
+    .select('id, aiEnabled, assigneeId, customers: customerId(id, firstname, lastname, email), clientId, workspaceId, users: assignedTo(id, fName, lName, clientId, defaultWorkspaceId)')
+    .eq('id', ticketId)
+    .limit(1);
   const ticket = tickets ? tickets[0] : null;
   const userName = ticket.users ? ticket.users[0].fName + " " + ticket.users[0].lName : null;
   const internalService = new InternalService();
@@ -210,10 +210,11 @@ const handleTicketMessage = async (ticketId, messageData, clientId, workspaceId,
   internalService.saveConversation(ticketId, messageData.text, userId, 'agent', userName, clientId, workspaceId);
   const message = {
     ticketId,
-    message:messageData.text,
+    message: messageData.text,
     from: 'agent',
     to: 'customer',
-    sessionId: sessionId}
+    sessionId: sessionId
+  }
   widgetChannel.publish('message_reply', message, err => {
     if (err) console.error('Failed to publish agent message to widget channel:', err);
   });
@@ -243,11 +244,12 @@ const handleDocumentQAResult = async (ticketId, resultData, users, sessionId) =>
     const widgetChannel = ably.channels.get(`widget:conversation:ticket-${ticketId}`);
 
     const message = {
-        ticketId,
-        message:answerText,
-        from: 'agent',
-        to: 'customer',
-        sessionId: sessionId}
+      ticketId,
+      message: answerText,
+      from: 'agent',
+      to: 'customer',
+      sessionId: sessionId
+    }
     widgetChannel.publish('message_reply', message, err => {
       if (err) console.error('Failed to publish AI reply to widget:', err);
     });
@@ -265,9 +267,28 @@ const handleDocumentQAResult = async (ticketId, resultData, users, sessionId) =>
   }
 }
 
+const handleUserAction = async (ticketId, messageData, sessionId) => {
+  console.log('handleUserAction', ticketId, messageData, sessionId);
+  const internalService = new InternalService();
+  switch (messageData.action) {
+    case 'data_collection':
+      internalService.handleDataColletionForm(ticketId, messageData);
+      break;
+    case 'action_button':
+      internalService.handleActionButtonClick(ticketId, messageData);
+      break;
+    case 'csat':
+      internalService.updateCsatRating(ticketId, messageData);
+      break;
+    default:
+      console.log('Unknown action:', messageData.action);
+  }
+}
+
 module.exports = {
   handleWidgetConversationEvent,
   handleAgentConversationEvent,
   handleDocumentQAResult,
-  handleTicketMessage
+  handleTicketMessage,
+  handleUserAction
 };
