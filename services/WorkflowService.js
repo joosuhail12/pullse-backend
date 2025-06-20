@@ -42,7 +42,13 @@ class WorkflowService extends BaseService {
             const { data: newFolder, error } = await this.supabase
                 .from('workflowfolder')
                 .insert({ name, workspaceId, clientId, createdBy, description })
-                .select()
+                .select(
+                    `*,
+                    workflow (
+                        id
+                    )
+                `
+                )
                 .single();
             if (error) {
                 console.log("Error in createWorkflowFolder()", error);
@@ -63,7 +69,11 @@ class WorkflowService extends BaseService {
             const { workspaceId, clientId } = data;
             const { data: folders, error } = await this.supabase
                 .from('workflowfolder')
-                .select('*')
+                .select(`*,
+                    workflow (
+                        id
+                    )
+                `)
                 .eq('workspaceId', workspaceId)
                 .eq('clientId', clientId)
                 .is('deletedAt', null)
