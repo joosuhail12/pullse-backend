@@ -10,14 +10,14 @@ class TimelineListener {
         this.timelineService = new TimelineService();
         this.channels = [];
         this.instanceId = `TLI_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-        console.log(`🚀 DEBUG: TimelineListener instance created with ID: ${this.instanceId}`);
+        // console.log(`🚀 DEBUG: TimelineListener instance created with ID: ${this.instanceId}`);
     }
 
     /**
      * Initialize all timeline-related real-time listeners
      */
     init() {
-        console.log(`🚀 DEBUG: Initializing TimelineListener instance: ${this.instanceId}`);
+        // console.log(`🚀 DEBUG: Initializing TimelineListener instance: ${this.instanceId}`);
         this.initTicketTimeline();
         this.initContactTimeline();
         this.initCompanyTimeline();
@@ -25,7 +25,7 @@ class TimelineListener {
         this.initSentimentTimeline();
         this.initCustomFieldTimeline();
         this.initCustomObjectTimeline();
-        console.log(`✅ Timeline listeners initialized for instance: ${this.instanceId}`);
+        // console.log(`✅ Timeline listeners initialized for instance: ${this.instanceId}`);
     }
 
     /**
@@ -35,10 +35,10 @@ class TimelineListener {
         const ticketChannel = this.supabase
             .channel(`timeline-ticket-events-${this.instanceId}`)
             .on('postgres_changes', { event: 'insert', schema: 'public', table: 'tickets' }, async (payload) => {
-                console.log(`🔧 DEBUG [${this.instanceId}]: Ticket INSERT event triggered`);
+                // console.log(`🔧 DEBUG [${this.instanceId}]: Ticket INSERT event triggered`);
                 try {
                     const ticket = payload.new;
-                    console.log(`🔧 DEBUG [${this.instanceId}]: Ticket data:`, ticket);
+                    // console.log(`🔧 DEBUG [${this.instanceId}]: Ticket data:`, ticket);
                     if (ticket.customerId && ticket.workspaceId && ticket.clientId) {
                         await this.timelineService.logTicketActivity('contact', ticket.customerId, {
                             action: 'created',
@@ -49,7 +49,7 @@ class TimelineListener {
                             actor_name: ticket.ticketCreatedBy || 'System',
                             source: 'system'
                         }, ticket.workspaceId, ticket.clientId);
-                        console.log('📝 Timeline: Ticket created logged');
+                        // console.log('📝 Timeline: Ticket created logged');
                     }
                 } catch (error) {
                     console.error('❌ Timeline: Error handling ticket insert:', error);
@@ -80,7 +80,7 @@ class TimelineListener {
                             actor_name: null,
                             source: 'system'
                         }, newTicket.workspaceId, newTicket.clientId);
-                        console.log('📝 Timeline: Ticket update logged -', changeResult.summary);
+                        // console.log('📝 Timeline: Ticket update logged -', changeResult.summary);
 
                         // Also log to the ticket's own timeline
                         await this.timelineService.logTicketActivity('ticket', newTicket.id, {
@@ -95,7 +95,7 @@ class TimelineListener {
                             actor_name: null,
                             source: 'system'
                         }, newTicket.workspaceId, newTicket.clientId);
-                        console.log('📝 Timeline: Ticket self-timeline update logged');
+                        // console.log('📝 Timeline: Ticket self-timeline update logged');
 
                         // Log sentiment changes separately if present
                         // if (changeResult.changes.sentiment) {
@@ -122,13 +122,13 @@ class TimelineListener {
      * Initialize contact/customer timeline listeners
      */
     initContactTimeline() {
-        console.log(`🔧 DEBUG [${this.instanceId}]: Initializing contact timeline listeners`);
+        // console.log(`🔧 DEBUG [${this.instanceId}]: Initializing contact timeline listeners`);
 
         const contactChannel = this.supabase
             .channel(`timeline-contact-events-${this.instanceId}`) // Make channel name unique per instance
             .on('postgres_changes', { event: 'insert', schema: 'public', table: 'customers' }, async (payload) => {
                 try {
-                    console.log(`📝 DEBUG [${this.instanceId}]: Contact INSERT event triggered`);
+                    // console.log(`📝 DEBUG [${this.instanceId}]: Contact INSERT event triggered`);
                     const customer = payload.new;
                     if (customer.id && customer.workspaceId && customer.clientId) {
                         await this.timelineService.logEntityCreated(
@@ -139,7 +139,7 @@ class TimelineListener {
                             customer.createdBy || null,
                             (customer.firstname || '') + ' ' + (customer.lastname || '')
                         );
-                        console.log('📝 Timeline: Contact created logged');
+                        // console.log('📝 Timeline: Contact created logged');
                     }
                 } catch (error) {
                     console.error('❌ Timeline: Error handling customer insert:', error);
@@ -147,17 +147,17 @@ class TimelineListener {
             })
             .on('postgres_changes', { event: 'update', schema: 'public', table: 'customers' }, async (payload) => {
                 try {
-                    console.log(`📝 DEBUG [${this.instanceId}]: Contact UPDATE event triggered`);
+                    // console.log(`📝 DEBUG [${this.instanceId}]: Contact UPDATE event triggered`);
                     const oldCustomer = payload.old;
                     const newCustomer = payload.new;
 
-                    console.log('🔍 DEBUG: Customer update detected:', {
-                        instanceId: this.instanceId,
-                        customerId: newCustomer.id,
-                        oldData: Object.keys(oldCustomer),
-                        newData: Object.keys(newCustomer),
-                        timestamp: new Date().toISOString()
-                    });
+                    // console.log('🔍 DEBUG: Customer update detected:', {
+                    //     instanceId: this.instanceId,
+                    //     customerId: newCustomer.id,
+                    //     oldData: Object.keys(oldCustomer),
+                    //     newData: Object.keys(newCustomer),
+                    //     timestamp: new Date().toISOString()
+                    // });
 
                     // Fixed field names to match actual database schema
                     const changeResult = TimelineService.trackDetailedChanges(
@@ -166,21 +166,21 @@ class TimelineListener {
                         ['firstname', 'lastname', 'email', 'phone', 'status', 'title', 'about', 'companyId', 'assignedTo']
                     );
 
-                    console.log('🔍 DEBUG: Change result:', {
-                        instanceId: this.instanceId,
-                        hasChanges: !!changeResult.changes,
-                        summary: changeResult.summary,
-                        fieldsChanged: changeResult.fieldsChanged
-                    });
+                    // console.log('🔍 DEBUG: Change result:', {
+                    //     instanceId: this.instanceId,
+                    //     hasChanges: !!changeResult.changes,
+                    //     summary: changeResult.summary,
+                    //     fieldsChanged: changeResult.fieldsChanged
+                    // });
 
                     if (changeResult.changes && newCustomer.id && newCustomer.workspaceId && newCustomer.clientId) {
-                        console.log('🔍 DEBUG: About to create timeline entry with data:', {
-                            instanceId: this.instanceId,
-                            entityType: 'contact',
-                            entityId: newCustomer.id,
-                            changeData: changeResult.changeData,
-                            summary: changeResult.summary
-                        });
+                        // console.log('🔍 DEBUG: About to create timeline entry with data:', {
+                        //     instanceId: this.instanceId,
+                        //     entityType: 'contact',
+                        //     entityId: newCustomer.id,
+                        //     changeData: changeResult.changeData,
+                        //     summary: changeResult.summary
+                        // });
 
                         await this.timelineService.logEntityUpdated(
                             'contact',
@@ -194,7 +194,7 @@ class TimelineListener {
                                 changes_summary: changeResult.summary
                             }
                         );
-                        console.log(`📝 Timeline [${this.instanceId}]: Contact update logged -`, changeResult.summary);
+                        // console.log(`📝 Timeline [${this.instanceId}]: Contact update logged -`, changeResult.summary);
                     }
                 } catch (error) {
                     console.error('❌ Timeline: Error handling customer update:', error);
@@ -202,7 +202,7 @@ class TimelineListener {
             })
             .subscribe();
 
-        console.log(`🔧 DEBUG [${this.instanceId}]: Contact channel subscribed`);
+        // console.log(`🔧 DEBUG [${this.instanceId}]: Contact channel subscribed`);
         this.channels.push(contactChannel);
     }
 
@@ -210,7 +210,7 @@ class TimelineListener {
      * Initialize company timeline listeners
      */
     initCompanyTimeline() {
-        console.log(`🔧 DEBUG [${this.instanceId}]: Initializing company timeline listeners`);
+        // console.log(`🔧 DEBUG [${this.instanceId}]: Initializing company timeline listeners`);
 
         const companyChannel = this.supabase
             .channel(`timeline-company-events-${this.instanceId}`) // Make channel name unique per instance
@@ -226,7 +226,7 @@ class TimelineListener {
                             company.createdBy || null,
                             company.name || 'Company'
                         );
-                        console.log('📝 Timeline: Company created logged');
+                        // console.log('📝 Timeline: Company created logged');
                     }
                 } catch (error) {
                     console.error('❌ Timeline: Error handling company insert:', error);
@@ -234,17 +234,17 @@ class TimelineListener {
             })
             .on('postgres_changes', { event: 'update', schema: 'public', table: 'companies' }, async (payload) => {
                 try {
-                    console.log(`📝 DEBUG [${this.instanceId}]: Company UPDATE event triggered`);
+                    // console.log(`📝 DEBUG [${this.instanceId}]: Company UPDATE event triggered`);
                     const oldCompany = payload.old;
                     const newCompany = payload.new;
 
-                    console.log('🔍 DEBUG: Company update detected:', {
-                        instanceId: this.instanceId,
-                        companyId: newCompany.id,
-                        oldData: Object.keys(oldCompany),
-                        newData: Object.keys(newCompany),
-                        timestamp: new Date().toISOString()
-                    });
+                    // console.log('🔍 DEBUG: Company update detected:', {
+                    //     instanceId: this.instanceId,
+                    //     companyId: newCompany.id,
+                    //     oldData: Object.keys(oldCompany),
+                    //     newData: Object.keys(newCompany),
+                    //     timestamp: new Date().toISOString()
+                    // });
 
                     const changeResult = TimelineService.trackDetailedChanges(
                         oldCompany,
@@ -252,21 +252,21 @@ class TimelineListener {
                         ['name', 'description', 'phone', 'number_of_employees', 'annual_revenue', 'website', 'notes', 'industry', 'address', 'city', 'state', 'zipcode', 'country']
                     );
 
-                    console.log('🔍 DEBUG: Company change result:', {
-                        instanceId: this.instanceId,
-                        hasChanges: !!changeResult.changes,
-                        summary: changeResult.summary,
-                        fieldsChanged: changeResult.fieldsChanged
-                    });
+                    // console.log('🔍 DEBUG: Company change result:', {
+                    //     instanceId: this.instanceId,
+                    //     hasChanges: !!changeResult.changes,
+                    //     summary: changeResult.summary,
+                    //     fieldsChanged: changeResult.fieldsChanged
+                    // });
 
                     if (changeResult.changes && newCompany.id && newCompany.workspaceId && newCompany.clientId) {
-                        console.log('🔍 DEBUG: About to create company timeline entry with data:', {
-                            instanceId: this.instanceId,
-                            entityType: 'company',
-                            entityId: newCompany.id,
-                            changeData: changeResult.changeData,
-                            summary: changeResult.summary
-                        });
+                        // console.log('🔍 DEBUG: About to create company timeline entry with data:', {
+                        //     instanceId: this.instanceId,
+                        //     entityType: 'company',
+                        //     entityId: newCompany.id,
+                        //     changeData: changeResult.changeData,
+                        //     summary: changeResult.summary
+                        // });
 
                         await this.timelineService.logEntityUpdated(
                             'company',
@@ -280,7 +280,7 @@ class TimelineListener {
                                 changes_summary: changeResult.summary
                             }
                         );
-                        console.log(`📝 Timeline [${this.instanceId}]: Company update logged -`, changeResult.summary);
+                        // console.log(`📝 Timeline [${this.instanceId}]: Company update logged -`, changeResult.summary);
                     }
                 } catch (error) {
                     console.error('❌ Timeline: Error handling company update:', error);
@@ -288,7 +288,7 @@ class TimelineListener {
             })
             .subscribe();
 
-        console.log(`🔧 DEBUG [${this.instanceId}]: Company channel subscribed`);
+        // console.log(`🔧 DEBUG [${this.instanceId}]: Company channel subscribed`);
         this.channels.push(companyChannel);
     }
 
@@ -296,14 +296,14 @@ class TimelineListener {
      * Initialize tag timeline listeners for customer and company tags
      */
     initTagTimeline() {
-        console.log(`🔧 DEBUG [${this.instanceId}]: Initializing tag timeline listeners`);
+        // console.log(`🔧 DEBUG [${this.instanceId}]: Initializing tag timeline listeners`);
 
         // Customer tags listener
         const customerTagsChannel = this.supabase
             .channel(`timeline-customer-tags-${this.instanceId}`)
             .on('postgres_changes', { event: '*', schema: 'public', table: 'customerTags' }, async (payload) => {
                 try {
-                    console.log(`🏷️ DEBUG [${this.instanceId}]: Customer tag change event triggered`);
+                    // console.log(`🏷️ DEBUG [${this.instanceId}]: Customer tag change event triggered`);
                     await this.handleTagChange('contact', payload);
                 } catch (error) {
                     console.error('❌ Timeline: Error handling customer tag change:', error);
@@ -316,7 +316,7 @@ class TimelineListener {
             .channel(`timeline-company-tags-${this.instanceId}`)
             .on('postgres_changes', { event: '*', schema: 'public', table: 'companyTags' }, async (payload) => {
                 try {
-                    console.log(`🏷️ DEBUG [${this.instanceId}]: Company tag change event triggered`);
+                    // console.log(`🏷️ DEBUG [${this.instanceId}]: Company tag change event triggered`);
                     await this.handleTagChange('company', payload);
                 } catch (error) {
                     console.error('❌ Timeline: Error handling company tag change:', error);
@@ -324,7 +324,7 @@ class TimelineListener {
             })
             .subscribe();
 
-        console.log(`🔧 DEBUG [${this.instanceId}]: Tag channels subscribed`);
+        // console.log(`🔧 DEBUG [${this.instanceId}]: Tag channels subscribed`);
         this.channels.push(customerTagsChannel, companyTagsChannel);
     }
 
@@ -334,36 +334,36 @@ class TimelineListener {
     async handleTagChange(entityType, payload) {
         const { eventType, new: newRecord, old: oldRecord } = payload;
 
-        console.log(`🏷️ DEBUG [${this.instanceId}]: Processing ${eventType} tag change for ${entityType}`, {
-            instanceId: this.instanceId,
-            eventType,
-            hasNewRecord: !!newRecord,
-            hasOldRecord: !!oldRecord
-        });
+        // console.log(`🏷️ DEBUG [${this.instanceId}]: Processing ${eventType} tag change for ${entityType}`, {
+        //     instanceId: this.instanceId,
+        //     eventType,
+        //     hasNewRecord: !!newRecord,
+        //     hasOldRecord: !!oldRecord
+        // });
 
         if (eventType === 'INSERT' || eventType === 'DELETE') {
             const record = newRecord || oldRecord;
             const entityId = entityType === 'contact' ? record.customerId : record.companyId;
 
             if (!entityId || !record.workspaceId || !record.clientId) {
-                console.log(`⚠️ DEBUG [${this.instanceId}]: Missing required fields for tag change`, {
-                    entityId,
-                    workspaceId: record.workspaceId,
-                    clientId: record.clientId
-                });
+                // console.log(`⚠️ DEBUG [${this.instanceId}]: Missing required fields for tag change`, {
+                //     entityId,
+                //     workspaceId: record.workspaceId,
+                //     clientId: record.clientId
+                // });
                 return;
             }
 
             const actionDescription = eventType === 'INSERT' ? 'added' : 'removed';
             const tagName = await this.getTagName(record.tagId);
 
-            console.log(`🏷️ DEBUG [${this.instanceId}]: About to log tag activity`, {
-                entityType,
-                entityId,
-                actionDescription,
-                tagName,
-                tagId: record.tagId
-            });
+            // console.log(`🏷️ DEBUG [${this.instanceId}]: About to log tag activity`, {
+            //     entityType,
+            //     entityId,
+            //     actionDescription,
+            //     tagName,
+            //     tagId: record.tagId
+            // });
 
             await this.timelineService.logTagActivity(entityType, entityId, {
                 old_tag_ids: eventType === 'INSERT' ? [] : [record.tagId],
@@ -375,7 +375,7 @@ class TimelineListener {
                 source: 'system'
             }, record.workspaceId, record.clientId);
 
-            console.log(`🏷️ Timeline [${this.instanceId}]: Tag ${actionDescription} for ${entityType} - ${tagName}`);
+            // console.log(`🏷️ Timeline [${this.instanceId}]: Tag ${actionDescription} for ${entityType} - ${tagName}`);
         }
     }
 
@@ -385,7 +385,7 @@ class TimelineListener {
     initSentimentTimeline() {
         // Listen for ticket sentiment changes through ticket updates
         // This is already handled in the ticket update listener above
-        console.log('📊 Sentiment tracking initialized through ticket updates');
+        // console.log('📊 Sentiment tracking initialized through ticket updates');
     }
 
     /**
@@ -440,7 +440,7 @@ class TimelineListener {
             channel.unsubscribe();
         });
         this.channels = [];
-        console.log('🧹 Timeline listeners cleaned up');
+        // console.log('🧹 Timeline listeners cleaned up');
     }
 
     /**
@@ -454,14 +454,14 @@ class TimelineListener {
      * Initialize custom field timeline listeners for tickets
      */
     initCustomFieldTimeline() {
-        console.log(`🔧 DEBUG [${this.instanceId}]: Initializing custom field timeline listeners`);
+        // console.log(`🔧 DEBUG [${this.instanceId}]: Initializing custom field timeline listeners`);
 
         const customFieldChannel = this.supabase
             .channel(`timeline-custom-field-events-${this.instanceId}`)
             .on('postgres_changes', { event: 'insert', schema: 'public', table: 'customfielddata' }, async (payload) => {
                 try {
                     const customFieldData = payload.new;
-                    console.log(`🔧 DEBUG [${this.instanceId}]: Custom field INSERT event triggered`, customFieldData);
+                    // console.log(`🔧 DEBUG [${this.instanceId}]: Custom field INSERT event triggered`, customFieldData);
 
                     // Add validation for required fields
                     if (!customFieldData.customfieldId) {
@@ -503,7 +503,7 @@ class TimelineListener {
                             actor_id: customFieldData.createdBy,
                             source: 'web'
                         }, ticket.workspaceId, ticket.clientId);
-                        console.log('📝 Timeline: Custom field created logged');
+                        // console.log('📝 Timeline: Custom field created logged');
                     }
                 } catch (error) {
                     console.error('❌ Timeline: Error handling custom field insert:', error);
@@ -512,8 +512,9 @@ class TimelineListener {
             .on('postgres_changes', { event: 'update', schema: 'public', table: 'customfielddata' }, async (payload) => {
                 try {
                     const oldData = payload.old;
+                    // console.log('🔍 DEBUG: Old data:', oldData);
                     const newData = payload.new;
-                    console.log(`🔧 DEBUG [${this.instanceId}]: Custom field UPDATE event triggered`, { oldData, newData });
+                    // console.log(`🔧 DEBUG [${this.instanceId}]: Custom field UPDATE event triggered`, { oldData, newData });
 
                     // Add validation for required fields
                     if (!newData.customfieldId) {
@@ -527,15 +528,15 @@ class TimelineListener {
                         const newDataValue = newData.data;
 
                         if (oldDataValue === newDataValue) {
-                            console.log('📝 Timeline: Custom field data unchanged, skipping');
+                            // console.log('📝 Timeline: Custom field data unchanged, skipping');
                             return;
                         }
 
-                        console.log('🔍 DEBUG: Custom field change detected:', {
-                            oldValue: oldDataValue,
-                            newValue: newDataValue,
-                            hasOldData: oldData.data !== undefined
-                        });
+                        // console.log('🔍 DEBUG: Custom field change detected:', {
+                        //     oldValue: oldDataValue,
+                        //     newValue: newDataValue,
+                        //     hasOldData: oldData.data !== undefined
+                        // });
 
                         // Get ticket details to extract workspaceId and clientId
                         const { data: ticket, error: ticketError } = await this.supabase
@@ -564,7 +565,7 @@ class TimelineListener {
                         // If oldData doesn't have the data field, fetch it from database
                         let actualOldValue = oldDataValue;
                         if (oldData.data === undefined && oldData.id) {
-                            console.log('🔍 DEBUG: Fetching old custom field data from database');
+                            // console.log('🔍 DEBUG: Fetching old custom field data from database');
                             const { data: oldRecord, error: oldRecordError } = await this.supabase
                                 .from('customfielddata')
                                 .select('data')
@@ -573,7 +574,7 @@ class TimelineListener {
 
                             if (!oldRecordError && oldRecord) {
                                 actualOldValue = oldRecord.data;
-                                console.log('🔍 DEBUG: Retrieved old value from database:', actualOldValue);
+                                // console.log('🔍 DEBUG: Retrieved old value from database:', actualOldValue);
                             }
                         }
 
@@ -586,7 +587,7 @@ class TimelineListener {
                             actor_id: newData.updatedBy || newData.createdBy,
                             source: 'web'
                         }, ticket.workspaceId, ticket.clientId);
-                        console.log('📝 Timeline: Custom field update logged');
+                        // console.log('📝 Timeline: Custom field update logged');
                     }
                 } catch (error) {
                     console.error('❌ Timeline: Error handling custom field update:', error);
@@ -601,14 +602,14 @@ class TimelineListener {
      * Initialize custom object timeline listeners for tickets
      */
     initCustomObjectTimeline() {
-        console.log(`🔧 DEBUG [${this.instanceId}]: Initializing custom object timeline listeners`);
+        // console.log(`🔧 DEBUG [${this.instanceId}]: Initializing custom object timeline listeners`);
 
         const customObjectChannel = this.supabase
             .channel(`timeline-custom-object-events-${this.instanceId}`)
             .on('postgres_changes', { event: 'insert', schema: 'public', table: 'customobjectfielddata' }, async (payload) => {
                 try {
                     const customObjectData = payload.new;
-                    console.log(`🔧 DEBUG [${this.instanceId}]: Custom object INSERT event triggered`, customObjectData);
+                    // console.log(`🔧 DEBUG [${this.instanceId}]: Custom object INSERT event triggered`, customObjectData);
 
                     // Add validation for required fields
                     if (!customObjectData.customObjectFieldId) {
@@ -652,7 +653,7 @@ class TimelineListener {
                             actor_id: customObjectData.createdBy,
                             source: 'web'
                         }, ticket.workspaceId, ticket.clientId);
-                        console.log('📝 Timeline: Custom object created logged');
+                        // console.log('📝 Timeline: Custom object created logged');
                     }
                 } catch (error) {
                     console.error('❌ Timeline: Error handling custom object insert:', error);
@@ -662,7 +663,7 @@ class TimelineListener {
                 try {
                     const oldData = payload.old;
                     const newData = payload.new;
-                    console.log(`🔧 DEBUG [${this.instanceId}]: Custom object UPDATE event triggered`, { oldData, newData });
+                    // console.log(`🔧 DEBUG [${this.instanceId}]: Custom object UPDATE event triggered`, { oldData, newData });
 
                     // Add validation for required fields
                     if (!newData.customObjectFieldId) {
@@ -676,15 +677,15 @@ class TimelineListener {
                         const newDataValue = newData.data;
 
                         if (oldDataValue === newDataValue) {
-                            console.log('📝 Timeline: Custom object data unchanged, skipping');
+                            // console.log('📝 Timeline: Custom object data unchanged, skipping');
                             return;
                         }
 
-                        console.log('🔍 DEBUG: Custom object change detected:', {
-                            oldValue: oldDataValue,
-                            newValue: newDataValue,
-                            hasOldData: oldData.data !== undefined
-                        });
+                        // console.log('🔍 DEBUG: Custom object change detected:', {
+                        //     oldValue: oldDataValue,
+                        //     newValue: newDataValue,
+                        //     hasOldData: oldData.data !== undefined
+                        // });
 
                         // Get ticket details to extract workspaceId and clientId
                         const { data: ticket, error: ticketError } = await this.supabase
@@ -713,7 +714,7 @@ class TimelineListener {
                         // If oldData doesn't have the data field, fetch it from database
                         let actualOldValue = oldDataValue;
                         if (oldData.data === undefined && oldData.id) {
-                            console.log('🔍 DEBUG: Fetching old custom object data from database');
+                            // console.log('🔍 DEBUG: Fetching old custom object data from database');
                             const { data: oldRecord, error: oldRecordError } = await this.supabase
                                 .from('customobjectfielddata')
                                 .select('data')
@@ -722,7 +723,7 @@ class TimelineListener {
 
                             if (!oldRecordError && oldRecord) {
                                 actualOldValue = oldRecord.data;
-                                console.log('🔍 DEBUG: Retrieved old value from database:', actualOldValue);
+                                // console.log('🔍 DEBUG: Retrieved old value from database:', actualOldValue);
                             }
                         }
 
@@ -737,7 +738,7 @@ class TimelineListener {
                             actor_id: newData.updatedBy || newData.createdBy,
                             source: 'web'
                         }, ticket.workspaceId, ticket.clientId);
-                        console.log('📝 Timeline: Custom object update logged');
+                        // console.log('📝 Timeline: Custom object update logged');
                     }
                 } catch (error) {
                     console.error('❌ Timeline: Error handling custom object update:', error);

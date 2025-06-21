@@ -79,7 +79,7 @@ class CustomerService extends BaseService {
     }
 
     async updateCustomer({ id, workspaceId, clientId }, updateValues) {
-        console.log("🔍 INCOMING UPDATE VALUES:", JSON.stringify(updateValues));
+        // console.log("🔍 INCOMING UPDATE VALUES:", JSON.stringify(updateValues));
         try {
             // Map API field names to database column names
             if (updateValues.linkedinUrl !== undefined) {
@@ -106,7 +106,7 @@ class CustomerService extends BaseService {
 
             // 2. If company name is being updated, handle that separately
             if (updateValues.company && existingCustomer.companyId) {
-                console.log(`Updating company name to: ${updateValues.company}`);
+                // console.log(`Updating company name to: ${updateValues.company}`);
 
                 // Update the company name in the companies table
                 const { error: companyUpdateError } = await this.supabase
@@ -187,7 +187,7 @@ class CustomerService extends BaseService {
                 delete updateValues.tags; // Remove tags from the update object
 
                 // 4. Check if there are any actual updates to the customer data
-                console.log("Final update values being sent to database:", updateValues);
+                // console.log("Final update values being sent to database:", updateValues);
 
                 // Only attempt customer update if there are other fields to update
                 if (Object.keys(updateValues).length > 0) {

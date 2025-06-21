@@ -118,7 +118,7 @@ class TicketService {
 
             // 7. Publish event
             const eventPublisher = new TicketEventPublisher();
-            console.log("insertedTicket", insertedTicket);
+            // console.log("insertedTicket", insertedTicket);
             await eventPublisher.created(insertedTicket);
 
             // 8. Prepare response
@@ -141,7 +141,7 @@ class TicketService {
             };
 
         } catch (err) {
-            console.log(err, "err---");
+            // console.log(err, "err---");
             throw err;
         }
     }
@@ -556,7 +556,7 @@ class TicketService {
             const { data: ticket, error } = await query.single();
 
             if (error) {
-                console.log("Error fetching ticket:", error);
+                // console.log("Error fetching ticket:", error);
                 throw new errors.DBError(error.message);
             }
 
@@ -787,7 +787,7 @@ class TicketService {
 
             return result.data;
         } catch (err) {
-            console.log("getDetails error:", err);
+            // console.log("getDetails error:", err);
             throw err;
         }
     }
@@ -1221,7 +1221,7 @@ class TicketService {
                     .single();
 
                 if (assigneeError) {
-                    console.log(`Warning: Could not create ticketAssignees entry: ${assigneeError.message}`);
+                    // console.log(`Warning: Could not create ticketAssignees entry: ${assigneeError.message}`);
                     // Don't fail the whole operation if just the join table update fails
                 }
             }
@@ -1294,7 +1294,7 @@ class TicketService {
      * Helper method to handle errors
      */
     handleError(error) {
-        console.log(error);
+        // console.log(error);
         if (error.code === "PGRST116") {
             return new errors.NotFound(`${this.entityName} not found.`);
         }
@@ -1526,7 +1526,7 @@ class TicketService {
 
             //Update notification for unassigned tickets
             const ticketIds = tickets.map(ticket => ticket.id);
-            console.log("ticketIds", ticketIds)
+            // console.log("ticketIds", ticketIds)
             for (const ticketId of ticketIds) {
                 const { data: notifications, error: notificationsError } = await supabase
                     .from('notifications')
@@ -1540,7 +1540,7 @@ class TicketService {
                 if (notifications) {
                     const { data: notificationRecipients, error: notificationRecipientsError } = await supabase
                 }
-                console.log("notifications", notifications)
+                // console.log("notifications", notifications)
                 if (notifications) {
                     await supabase
                         .from('notification_recipients')
@@ -1618,7 +1618,7 @@ class TicketService {
             }
 
             if (!botUsers || botUsers.length === 0) {
-                console.log("No bot users found");
+                // console.log("No bot users found");
                 return [];
             }
 
