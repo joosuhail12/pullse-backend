@@ -63,7 +63,9 @@ const handleWidgetConversationEvent = async (ticketId, messageData, sessionId, t
     // });
 
     // 3. If the ticket is AI-enabled, also forward the message to the AI (document-qa) service.
+    console.log("XXXXXXXXXXXXXTICKET", ticket.aiEnabled, ticket.id, ticket.title);
     if (ticket.aiEnabled && userText?.trim()) {
+
       ensureQaSubscription(ticketId, sessionId);
       const qaCh = ably.channels.get(`document-qa`);
       qaCh.publish('message', { query: userText, id: ticketId, clientId: ticket.clientId });
