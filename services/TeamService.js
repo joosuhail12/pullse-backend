@@ -21,7 +21,7 @@ class TeamService {
         try {
             const { members, workspaceId, clientId, ...teamData } = data;
             // remove channels if it has empty objects
-            console.log(teamData, members, workspaceId, clientId, "teamData---")
+            // console.log(teamData, members, workspaceId, clientId, "teamData---")
             if (teamData.channels && Object.keys(teamData.channels).length > 0) {
                 teamData.channels = teamData.channels.filter(channel => channel === "email" || channel === "chat");
                 teamData.channels.length === 0 && delete teamData.channels
@@ -81,7 +81,7 @@ class TeamService {
                 teamMembers: fullTeam.teamMembers ? fullTeam.teamMembers.map(m => m.users) : []
             };
         } catch (error) {
-            console.log(error)
+            // console.log(error)
             this.handleError(error)
         }
     }
@@ -116,7 +116,7 @@ class TeamService {
             }));
 
         } catch (error) {
-            console.log(error);
+            // console.log(error);
             this.handleError(error);
         }
     }
@@ -151,7 +151,7 @@ class TeamService {
                 teamMembers: team.teamMembers ? team.teamMembers.map(m => m.users) : []
             };
         } catch (error) {
-            console.log(error);
+            // console.log(error);
             this.handleError(error);
         }
     }
@@ -179,7 +179,7 @@ class TeamService {
                     teamUpdateValues.channels = channelData.id;
                 } else {
                     // Email channel doesn't exist, skip setting channels
-                    console.log(`Email channel ${channels.email[0]} not found, skipping channel update`);
+                    // console.log(`Email channel ${channels.email[0]} not found, skipping channel update`);
                     delete teamUpdateValues.channels;
                 }
             } else {
@@ -250,7 +250,7 @@ class TeamService {
                 }
             };
         } catch (error) {
-            console.log(error, "error---");
+            // console.log(error, "error---");
             return Promise.reject(this.handleError(error));
         }
     }
@@ -368,7 +368,7 @@ class TeamService {
                 }
             };
         } catch (error) {
-            console.log(error);
+            // console.log(error);
             return Promise.reject(this.handleError(error));
         }
     }
@@ -415,7 +415,7 @@ class TeamService {
 
             return data;
         } catch (error) {
-            console.log(error);
+            // console.log(error);
             this.handleError(error);
         }
     }
@@ -423,7 +423,7 @@ class TeamService {
     // Get all teams that a user belongs to
     async getUserTeams(userId, workspaceId, clientId) {
         try {
-            console.log(`Getting teams for user ${userId}`);
+            // console.log(`Getting teams for user ${userId}`);
 
             // Query to get all team_ids from teamMembers where user_id = userId
             const { data: userTeamMemberships, error: membershipError } = await supabase
@@ -443,7 +443,7 @@ class TeamService {
 
             // Extract team IDs
             const teamIds = userTeamMemberships.map(membership => membership.team_id);
-            console.log(`Found ${teamIds.length} teams for user ${userId}:`, teamIds);
+            // console.log(`Found ${teamIds.length} teams for user ${userId}:`, teamIds);
 
             // Fetch team details
             const { data: teams, error: teamsError } = await supabase
@@ -459,7 +459,7 @@ class TeamService {
                 throw teamsError;
             }
 
-            console.log(`Returning ${teams.length} teams for user ${userId}`);
+            // console.log(`Returning ${teams.length} teams for user ${userId}`);
             return teams;
         } catch (error) {
             console.error('Error getting user teams:', error);
@@ -470,7 +470,7 @@ class TeamService {
     // Get all teammates for a user across all teams
     async getUserTeammates(userId, workspaceId, clientId) {
         try {
-            console.log(`Getting all teammates for user ${userId}`);
+            // console.log(`Getting all teammates for user ${userId}`);
 
             // Step 1: Find all teams the user belongs to
             const { data: userTeamMemberships, error: membershipError } = await supabase
@@ -490,7 +490,7 @@ class TeamService {
 
             // Extract team IDs
             const teamIds = userTeamMemberships.map(membership => membership.team_id);
-            console.log(`Found ${teamIds.length} teams for user ${userId}`);
+            // console.log(`Found ${teamIds.length} teams for user ${userId}`);
 
             // Step 2: Find all user_ids in these teams (excluding the original user)
             const { data: teammates, error: teammatesError } = await supabase
@@ -506,7 +506,7 @@ class TeamService {
 
             // Extract unique user IDs
             const teammateIds = [...new Set(teammates.map(tm => tm.user_id))];
-            console.log(`Found ${teammateIds.length} unique teammates`);
+            // console.log(`Found ${teammateIds.length} unique teammates`);
 
             if (teammateIds.length === 0) {
                 return [];
@@ -540,7 +540,7 @@ class TeamService {
                 avatar: user.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(user.name)}`
             }));
 
-            console.log(`Returning ${formattedTeammates.length} teammates for user ${userId}`);
+            // console.log(`Returning ${formattedTeammates.length} teammates for user ${userId}`);
             return formattedTeammates;
         } catch (error) {
             console.error('Error getting user teammates:', error);
@@ -551,7 +551,7 @@ class TeamService {
     // Get all teammates/members of a specific team with detailed info
     async getTeamMembersDetailed(teamId, workspaceId, clientId) {
         try {
-            console.log(`Getting detailed team members for team ${teamId}`);
+            // console.log(`Getting detailed team members for team ${teamId}`);
 
             // First verify the team exists and belongs to the client/workspace
             const { data: team, error: teamError } = await supabase
@@ -597,7 +597,7 @@ class TeamService {
                 membershipId: member.id
             }));
 
-            console.log(`Returning ${formattedMembers.length} team members for team ${teamId}`);
+            // console.log(`Returning ${formattedMembers.length} team members for team ${teamId}`);
             return formattedMembers;
         } catch (error) {
             console.error('Error getting team members:', error);
@@ -609,7 +609,7 @@ class TeamService {
      * Helper method to handle errors
      */
     handleError(error) {
-        console.log(error);
+        // console.log(error);
         if (error.code === "PGRST116") {
             return new errors.NotFound(`${this.entityName} not found.`);
         }

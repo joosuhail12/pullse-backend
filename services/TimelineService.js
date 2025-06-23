@@ -201,8 +201,8 @@ class TimelineService extends BaseService {
                 console.error('Error fetching ticket details for timeline:', err);
             }
         }
-        console.log('🔧 DEBUG: Ticket data:', ticketData);
-        console.log('🔧 DEBUG: Ticket details:', ticketDetails);
+        // console.log('🔧 DEBUG: Ticket data:', ticketData);
+        // console.log('🔧 DEBUG: Ticket details:', ticketDetails);
 
         // Use ticket details first, fallback to ticket data
         const ticketTitle = ticketDetails?.title || 'Ticket';
@@ -230,7 +230,7 @@ class TimelineService extends BaseService {
                 description = ticketDetails?.description || ticketTitle;
         }
 
-        console.log('🔧 DEBUG: Final values:', { title, summary, description, ticketTitle, ticketNumber });
+        // console.log('🔧 DEBUG: Final values:', { title, summary, description, ticketTitle, ticketNumber });
 
         // Fetch actual user name if actor_id is provided
         const actorName = ticketData.actor_name || await this.getUserName(ticketData.actor_id);
@@ -545,12 +545,12 @@ class TimelineService extends BaseService {
             // Use the standardized data structure
             const cleanedData = TimelineService.createTimelineEntryData(data);
 
-            console.log(`🔍 DEBUG [${trackingId}]: Timeline createEntry called with:`, {
-                originalData: data,
-                cleanedData: cleanedData,
-                timestamp: new Date().toISOString(),
-                fullStackTrace: new Error().stack
-            });
+            // console.log(`🔍 DEBUG [${trackingId}]: Timeline createEntry called with:`, {
+            //     originalData: data,
+            //     cleanedData: cleanedData,
+            //     timestamp: new Date().toISOString(),
+            //     fullStackTrace: new Error().stack
+            // });
 
             // Enhanced duplicate check - look for recent entries with same entity and activity
             if (cleanedData.entity_type && cleanedData.entity_id && cleanedData.activity_type) {
@@ -564,7 +564,7 @@ class TimelineService extends BaseService {
                     .order('created_at', { ascending: false });
 
                 if (recentEntries.data && recentEntries.data.length > 0) {
-                    console.log(`⚠️ WARNING [${trackingId}]: Found ${recentEntries.data.length} recent similar entries:`, recentEntries.data);
+                    // console.log(`⚠️ WARNING [${trackingId}]: Found ${recentEntries.data.length} recent similar entries:`, recentEntries.data);
 
                     // Check for duplicates based on multiple criteria
                     const duplicateEntry = recentEntries.data.find(entry => {
@@ -582,18 +582,18 @@ class TimelineService extends BaseService {
                     });
 
                     if (duplicateEntry) {
-                        console.log(`🚫 BLOCKING DUPLICATE [${trackingId}]: Found very similar entry created recently:`, {
-                            existingId: duplicateEntry.id,
-                            existingCreatedAt: duplicateEntry.created_at,
-                            existingActorType: duplicateEntry.actor_type,
-                            newActorType: cleanedData.actor_type,
-                            timeDiff: new Date() - new Date(duplicateEntry.created_at),
-                            reason: 'Preventing duplicate timeline entry'
-                        });
+                        // console.log(`🚫 BLOCKING DUPLICATE [${trackingId}]: Found very similar entry created recently:`, {
+                        //     existingId: duplicateEntry.id,
+                        //     existingCreatedAt: duplicateEntry.created_at,
+                        //     existingActorType: duplicateEntry.actor_type,
+                        //     newActorType: cleanedData.actor_type,
+                        //     timeDiff: new Date() - new Date(duplicateEntry.created_at),
+                        //     reason: 'Preventing duplicate timeline entry'
+                        // });
 
                         // If the new entry has better actor info (user vs system), update the existing entry
                         if (cleanedData.actor_type === 'user' && duplicateEntry.actor_type === 'system' && cleanedData.actor_id) {
-                            console.log(`🔄 UPDATING EXISTING ENTRY [${trackingId}]: Enhancing system entry with user actor info`);
+                            // console.log(`🔄 UPDATING EXISTING ENTRY [${trackingId}]: Enhancing system entry with user actor info`);
 
                             const { data: updatedEntry, error: updateError } = await this.supabase
                                 .from(this.entityName)
@@ -608,7 +608,7 @@ class TimelineService extends BaseService {
                                 .single();
 
                             if (!updateError && updatedEntry) {
-                                console.log(`✅ ENHANCED EXISTING ENTRY [${trackingId}]: Updated entry with proper actor info`);
+                                // console.log(`✅ ENHANCED EXISTING ENTRY [${trackingId}]: Updated entry with proper actor info`);
                                 return updatedEntry;
                             }
                         }
@@ -635,14 +635,14 @@ class TimelineService extends BaseService {
 
             if (error) throw error;
 
-            console.log(`✅ DEBUG [${trackingId}]: Timeline entry created successfully:`, {
-                id: result.id,
-                activity_type: result.activity_type,
-                field_changed: result.field_changed,
-                hasOldValue: !!result.old_value,
-                hasNewValue: !!result.new_value,
-                created_at: result.created_at
-            });
+            // console.log(`✅ DEBUG [${trackingId}]: Timeline entry created successfully:`, {
+            //     id: result.id,
+            //     activity_type: result.activity_type,
+            //     field_changed: result.field_changed,
+            //     hasOldValue: !!result.old_value,
+            //     hasNewValue: !!result.new_value,
+            //     created_at: result.created_at
+            // });
 
             return result;
         } catch (err) {
@@ -1595,11 +1595,11 @@ class TimelineService extends BaseService {
      */
     async fixNullTicketTimelineEntries(workspaceId, clientId) {
         try {
-            console.log('🔄 Starting to fix null ticket timeline entries...', {
-                workspaceId,
-                clientId,
-                entityName: this.entityName
-            });
+            // console.log('🔄 Starting to fix null ticket timeline entries...', {
+            //     workspaceId,
+            //     clientId,
+            //     entityName: this.entityName
+            // });
 
             // Find timeline entries with null titles but have related_ticket_id
             const { data: nullEntries, error } = await this.supabase
@@ -1613,13 +1613,13 @@ class TimelineService extends BaseService {
 
             if (error) throw error;
 
-            console.log(`📊 Found ${nullEntries?.length || 0} timeline entries to fix`);
+            // console.log(`📊 Found ${nullEntries?.length || 0} timeline entries to fix`);
 
             if (!nullEntries || nullEntries.length === 0) {
                 return { updated: 0, total: 0, message: 'No entries to fix' };
             }
 
-            console.log(`📊 Processing all ${nullEntries.length} timeline entries with ticket IDs`);
+            // console.log(`📊 Processing all ${nullEntries.length} timeline entries with ticket IDs`);
 
             let updatedCount = 0;
 
@@ -1639,20 +1639,20 @@ class TimelineService extends BaseService {
                         continue;
                     }
 
-                    console.log(`Processing entry ${entry.id}:`, {
-                        currentTitle: entry.title,
-                        currentSummary: entry.summary,
-                        currentDescription: entry.description,
-                        ticketTitle: ticket.title,
-                        ticketSno: ticket.sno
-                    });
+                    // console.log(`Processing entry ${entry.id}:`, {
+                    //     currentTitle: entry.title,
+                    //     currentSummary: entry.summary,
+                    //     currentDescription: entry.description,
+                    //     ticketTitle: ticket.title,
+                    //     ticketSno: ticket.sno
+                    // });
 
                     const updates = {};
 
                     // Always update title if it's null or empty
                     if (!entry.title || entry.title === 'null' || entry.title.trim() === '' || entry.title === null) {
                         updates.title = ticket.title || `Ticket #${ticket.sno}`;
-                        console.log(`Will update title to: ${updates.title}`);
+                        // console.log(`Will update title to: ${updates.title}`);
                     }
 
                     // Always update summary if it's null or empty
@@ -1660,13 +1660,13 @@ class TimelineService extends BaseService {
                         updates.summary = ticket.title ?
                             `Support ticket #${ticket.sno}: ${ticket.title}` :
                             `Support ticket #${ticket.sno}`;
-                        console.log(`Will update summary to: ${updates.summary}`);
+                        // console.log(`Will update summary to: ${updates.summary}`);
                     }
 
                     // Always update description if it's null or empty
                     if (!entry.description || entry.description === 'null' || entry.description.trim() === '' || entry.description === null) {
                         updates.description = ticket.description || ticket.title || 'Ticket activity';
-                        console.log(`Will update description to: ${updates.description}`);
+                        // console.log(`Will update description to: ${updates.description}`);
                     }
 
                     if (Object.keys(updates).length > 0) {
@@ -1679,7 +1679,7 @@ class TimelineService extends BaseService {
                             console.error(`❌ Error updating timeline entry ${entry.id}:`, updateError);
                         } else {
                             updatedCount++;
-                            console.log(`✅ Updated timeline entry ${entry.id} with ticket data`);
+                            // console.log(`✅ Updated timeline entry ${entry.id} with ticket data`);
                         }
                     }
                 } catch (err) {
@@ -1687,7 +1687,7 @@ class TimelineService extends BaseService {
                 }
             }
 
-            console.log(`🎉 Fixed ${updatedCount} timeline entries`);
+            // console.log(`🎉 Fixed ${updatedCount} timeline entries`);
             return { updated: updatedCount, total: nullEntries.length, found: nullEntries.length };
 
         } catch (err) {
