@@ -59,3 +59,15 @@ exports.subscribeToTicketChannels = function subscribeToTicketChannels(ticketId,
     require('./routing').handleTicketMessage(ticketId, m.data, clientId, workspaceId, sessionId, userId)
   );
 };
+
+exports.publishToCopilotConversationChannels = function publishToCopilotConversationChannels(message, conversationId) {
+  const key = `chatbot:primary`;
+  // if (conversationChannelSubscriptions.has(key)) return;
+  // conversationChannelSubscriptions.add(key);
+
+  const widgetCh = ably.channels.get(`chatbot:primary`);
+  widgetCh.publish('user-message', {content: message, copilot_conversation_id: conversationId}, err => {
+    if (err) console.error('Failed to publish agent message to widget channel:', err);
+  });
+  return true;
+};
