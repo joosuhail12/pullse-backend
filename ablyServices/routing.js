@@ -52,9 +52,9 @@ const handleWidgetConversationEvent = async (ticketId, messageData, sessionId, t
     // await supabase.from('messages').insert(messageRecord);
     internalService.saveConversation(ticketId, userText, ticket.customers.id, 'customer', ticket.customers.firstname + " " + ticket.customers.lastname, ticket.clientId, ticket.workspaceId);
 
-    if (conversationId) {
-      internalService.updateConversationMessage(conversationId, userText);
-    }
+    // if (conversationId) {
+    //   internalService.updateConversationMessage(conversationId, userText);
+    // }
 
     // 2. Forward the message to the agent's channel so any online agent clients receive it
     const agentChannel = ably.channels.get(`agent-conversation:${ticketId}`);
