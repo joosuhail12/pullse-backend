@@ -100,6 +100,8 @@ function defineAbilityFor(user) {
     can('manage', 'Notifications', { clientId: user.clientId });
     can('manage', 'CopilotProfile', { clientId: user.clientId });
     can('manage', 'CopilotChat', { clientId: user.clientId });
+    can('manage', 'Tools', { clientId: user.clientId });
+
     // can('manage', 'Profile');
     // can('manage', 'ChatbotManagement', { clientId: user.clientId });
     // can('manage', 'Workflow', { clientId: user.clientId });

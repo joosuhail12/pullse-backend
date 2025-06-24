@@ -63,7 +63,6 @@ const handleWidgetConversationEvent = async (ticketId, messageData, sessionId, t
     // });
 
     // 3. If the ticket is AI-enabled, also forward the message to the AI (document-qa) service.
-    console.log("XXXXXXXXXXXXXTICKET", ticket.aiEnabled, ticket.id, ticket.title);
     if (ticket.aiEnabled && userText?.trim()) {
 
       ensureQaSubscription(ticketId, sessionId);
