@@ -198,27 +198,46 @@ const handleAgentConversationEvent = async (ticketId, messageData) => {
 }
 
 const handleTicketMessage = async (ticketId, messageData, clientId, workspaceId, sessionId, userId) => {
-  const { data: tickets, error: ticketErr } = await supabase
-    .from('tickets')
-    .select('id, aiEnabled, assigneeId, customers: customerId(id, firstname, lastname, email), clientId, workspaceId, users: assignedTo(id, fName, lName, clientId, defaultWorkspaceId)')
-    .eq('id', ticketId)
-    .limit(1);
-  const ticket = tickets ? tickets[0] : null;
-  const userName = ticket.users ? ticket.users[0].fName + " " + ticket.users[0].lName : null;
-  const internalService = new InternalService();
-  //send message back to widget
-  const widgetChannel = ably.channels.get(`widget:conversation:ticket-${ticketId}`);
-  internalService.saveConversation(ticketId, messageData.text, userId, 'agent', userName, clientId, workspaceId);
-  const message = {
-    ticketId,
-    message: messageData.text,
-    from: 'agent',
-    to: 'customer',
-    sessionId: sessionId
+  try {
+    console.log('Message data', messageData);
+    // Validate ticketId format
+    if (!safeUUID(ticketId)) {
+      console.warn(`Received message for invalid ticketId: ${ticketId}`);
+      return;
+    }
+
+    // Extract senderId and senderName directly from messageData (sent from frontend)
+    const senderId = messageData.senderId || userId;
+    const userName = messageData.senderName || messageData.extras?.senderName || null;
+
+    const internalService = new InternalService();
+
+    // Send message back to widget
+    const widgetChannel = ably.channels.get(`widget:conversation:ticket-${ticketId}`);
+
+    // Save conversation with proper error handling
+    try {
+      await internalService.saveConversation(ticketId, messageData.text, userId, 'agent', userName, clientId, workspaceId);
+    } catch (saveErr) {
+      console.error('Error saving conversation:', saveErr);
+      // Continue with message publishing even if save fails
+    }
+
+    const message = {
+      ticketId,
+      message: messageData.text,
+      from: 'agent',
+      to: 'customer',
+      sessionId: sessionId
+    };
+
+    widgetChannel.publish('message_reply', message, err => {
+      if (err) console.error('Failed to publish agent message to widget channel:', err);
+    });
+
+  } catch (err) {
+    console.error('Error in handleTicketMessage:', err);
   }
-  widgetChannel.publish('message_reply', message, err => {
-    if (err) console.error('Failed to publish agent message to widget channel:', err);
-  });
 }
 
 /**
