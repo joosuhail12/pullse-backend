@@ -209,6 +209,7 @@ const handleTicketMessage = async (ticketId, messageData, clientId, workspaceId,
     // Extract senderId and senderName directly from messageData (sent from frontend)
     const senderId = messageData.senderId || userId;
     const userName = messageData.senderName || messageData.extras?.senderName || null;
+    const type = messageData.type || 'chat';
 
     const internalService = new InternalService();
 
@@ -217,7 +218,7 @@ const handleTicketMessage = async (ticketId, messageData, clientId, workspaceId,
 
     // Save conversation with proper error handling
     try {
-      await internalService.saveConversation(ticketId, messageData.text, userId, 'agent', userName, clientId, workspaceId);
+      await internalService.saveConversation(ticketId, messageData.text, type, userId, 'agent', userName, clientId, workspaceId);
     } catch (saveErr) {
       console.error('Error saving conversation:', saveErr);
       // Continue with message publishing even if save fails
