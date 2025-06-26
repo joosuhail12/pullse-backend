@@ -816,11 +816,14 @@ class WidgetService extends BaseService {
                 throw new errors.NotFound("Ticket not found");
             }
 
-            const { data: conversations, error: conversationsError } = await this.supabase.from("conversations").select("*").eq("ticketId", ticketId).is("deletedAt", null).order("createdAt", { ascending: true }).limit(20);
+            const { data: conversations, error: conversationsError } = await this.supabase.from("conversations").select("*").eq("ticketId", ticketId).is("deletedAt", null).order("createdAt", { ascending: false }).limit(20);
 
             if (conversationsError) {
                 throw new errors.Internal(conversationsError.message);
             }
+
+            // Reverse the conversation array
+            let reversedConversations = conversations.reverse();
 
             // Step: Fire new_convo event if first access
             // const eventPublisher = new ConversationEventPublisher();
@@ -837,7 +840,7 @@ class WidgetService extends BaseService {
             // handleWidgetConversationEvent(ticketId, clientId, workspaceId, sessionId)
             subscribeToConversationChannels(ticketId, sessionId)
 
-            return conversations;
+            return reversedConversations;
 
         } catch (error) {
             console.error(error);
