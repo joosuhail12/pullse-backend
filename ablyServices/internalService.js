@@ -187,11 +187,11 @@ class InternalService {
     // TODO: Trigger Slack/email notifications here
   }
 
-  async saveConversation(ticketId, firstMessage, type, customerId, senderType, senderName, clientId, workspaceId) {
+  async saveConversation(ticketId, firstMessage, customerId, senderType, senderName, clientId, workspaceId, type = 'chat') {
     const { data: conversation, error: conversationError } = await supabase.from('conversations').insert({
       message: firstMessage,
       createdBy: customerId,
-      type: type || 'chat',
+      type: type,
       ticketId,
       userType: senderType,
       senderName: senderName, // Add this!

@@ -218,7 +218,7 @@ const handleTicketMessage = async (ticketId, messageData, clientId, workspaceId,
 
     // Save conversation with proper error handling
     try {
-      await internalService.saveConversation(ticketId, messageData.text, type, userId, 'agent', userName, clientId, workspaceId);
+      await internalService.saveConversation(ticketId, messageData.text, senderId, 'agent', userName, clientId, workspaceId, type);
     } catch (saveErr) {
       console.error('Error saving conversation:', saveErr);
       // Continue with message publishing even if save fails
