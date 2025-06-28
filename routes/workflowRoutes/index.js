@@ -588,6 +588,33 @@ async function activate(app) {
       return handler.getWorkflowReusableNodes(req, reply);
     }
   });
+
+  //Notification api for temporal server to get workflow status
+  app.route({
+    url: base_url + "/notify",
+    method: 'POST',
+    name: "NotifyWorkflowStatus",
+    preHandler: authMiddlewares.checkToken(AuthType.user),
+    schema: {
+      tags: ['Ticket'],
+      summary: 'Notify Workflow Status',
+      description: 'API to notify workflow status from temporal server.',
+      body: {
+        type: 'object',
+        required: ['workflow_id', 'status', 'ticket_id'],
+        properties: {
+          workflow_id: { type: 'string' },
+          ticket_id: { type: 'string' },
+          contact_id: { type: 'string' },
+          company_id: { type: 'string' },
+          is_completed: { type: 'boolean' },
+        }
+      }
+    },
+    handler: async (req, reply) => {
+      return handler.notifyWorkflowStatus(req, reply);
+    }
+  });
 }
 
 module.exports = { activate };

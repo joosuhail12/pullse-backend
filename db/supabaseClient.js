@@ -55,6 +55,10 @@ const updateTicketChannel = supabase
             const dataChanged = Object.keys(payload.new).filter(key => payload.new[key] !== payload.old[key]);
             if (dataChanged.length === 1 && dataChanged[0] === 'assignedTo') {
                 workflowService.handleTicketReassigned(payload);
+                if (payload.new.channel === "chat") {
+                    // Chat ticket is reassigned, so we need to update the conversation
+                    workflowService.handleChatTicketReassigned(payload);
+                }
             } else if (dataChanged.length > 1 && dataChanged.includes('assignedTo')) {
                 workflowService.handleTicketReassigned(payload);
                 workflowService.handleTicketDataChanged(payload);

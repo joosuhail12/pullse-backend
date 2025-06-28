@@ -53,7 +53,8 @@ exports.handleNewTicket = async function handleNewTicket({ workspaceId, sessionI
       title: firstMessage,
       deviceId,
       aiEnabled,
-      status: 'open'
+      status: 'open',
+      channel: "chat"
     })
     .select()
     .single();
