@@ -199,7 +199,7 @@ const handleAgentConversationEvent = async (ticketId, messageData) => {
 
 const handleTicketMessage = async (ticketId, messageData, clientId, workspaceId, sessionId, userId) => {
   try {
-    console.log('Message data', messageData);
+    // console.log('Message data', messageData);
     // Validate ticketId format
     if (!safeUUID(ticketId)) {
       console.warn(`Received message for invalid ticketId: ${ticketId}`);
