@@ -2591,10 +2591,10 @@ class WorkflowService extends BaseService {
                     ticketId,
                     senderName: senderName,
                     clientId: clientId,
-                    userType: "system",
+                    userType: "system-notice",
                     workspaceId: workspaceId,
                     messageType: "text",
-                    senderType: "system",
+                    senderType: "system-notice",
                 }).select('id').single();
 
             if (conversationErrorInsert) {
@@ -2608,8 +2608,8 @@ class WorkflowService extends BaseService {
                 ticketId: ticketId,
                 id: conversationDataInsert && conversationDataInsert.id,
                 message: "Ticket reassigned to " + senderName,
-                type: "system",
-                senderType: "system",
+                type: "system-notice",
+                senderType: "system-notice",
                 messageType: "text"
             });
 
