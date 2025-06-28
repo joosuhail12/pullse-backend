@@ -124,6 +124,14 @@ class WorkflowHandler extends BaseHandler {
     let inst = new WorkflowService();
     return this.responder(req, res, inst.getWorkflowReusableNodes(workspaceId, clientId));
   }
+
+  async notifyWorkflowStatus(req, reply) {
+    console.log(req.body);
+    return {
+      message: "Workflow status notified",
+      data: req.body
+    }
+  }
 }
 
 module.exports = WorkflowHandler;

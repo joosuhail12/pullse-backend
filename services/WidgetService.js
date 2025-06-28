@@ -3,7 +3,6 @@ const BaseService = require("./BaseService");
 const _ = require("lodash");
 const AuthService = require("./AuthService");
 const ConversationEventPublisher = require("../Events/ConversationEvent/ConversationEventPublisher");
-const { handleWidgetConversationEvent } = require("../ExternalService/ablyListener");
 const { initializeWidgetSession, subscribeToConversationChannels } = require("../ablyServices/listeners");
 const { S3Client, PutObjectCommand } = require("@aws-sdk/client-s3");
 const fs = require('fs').promises;
@@ -523,7 +522,7 @@ class WidgetService extends BaseService {
             if (authUser) {
                 // Create a token here! JWT
                 // Expiry time is 10 hours
-                const token = this.authService.generateJWTToken({ widgetId: data.widgetId, ipAddress: publicIpAddress, timezone, workspaceId, clientId: widgetData.clientId, domain, sessionId: authUser.sessionId, exp: Date.now() + (10 * 60 * 60 * 1000) });
+                const token = this.authService.generateJWTToken({ widgetId: data.widgetId, ipAddress: publicIpAddress, timezone, workspaceId, clientId: widgetData.clientId, domain, sessionId: authUser.sessionId, exp: Date.now() + (48 * 60 * 60 * 1000) }); // 48 hours
 
                 const { data: updatedSessionData, error: updateSessionError } = await this.supabase.from("widgetsessions").update({ token: token }).eq("id", authUser.sessionId).select().single();
                 if (updateSessionError) {
@@ -720,7 +719,7 @@ class WidgetService extends BaseService {
                     throw new errors.Internal(widgetSessionError.message);
                 }
 
-                const token = this.authService.generateJWTToken({ widgetId: widgetApiKeyData.widgetId, ipAddress: publicIpAddress, workspaceId: widgetData.workspaceId, clientId: widgetData.clientId, sessionId: widgetSession.id, exp: Date.now() + (10 * 60 * 60 * 1000) });
+                const token = this.authService.generateJWTToken({ widgetId: widgetApiKeyData.widgetId, ipAddress: publicIpAddress, workspaceId: widgetData.workspaceId, clientId: widgetData.clientId, sessionId: widgetSession.id, exp: Date.now() + (48 * 60 * 60 * 1000) }); // 48 hours
 
                 initializeWidgetSession(widgetSession.id, widgetData.clientId, widgetData.workspaceId)
 
