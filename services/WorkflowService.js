@@ -6,6 +6,7 @@ const { v4: uuid } = require("uuid");
 const Ajv = require('ajv');
 const { Engine, Rule, Operator } = require('json-rules-engine');
 const TemporalServerUtils = require("../Utils/TemporalServerUtils");
+const Ably = require('ably');
 
 class WorkflowService extends BaseService {
     constructor() {
@@ -2554,6 +2555,67 @@ class WorkflowService extends BaseService {
             return;
         } catch (e) {
             console.log("Error in handleCompanyDataChanged()", e);
+            return;
+        }
+    }
+
+    async handleChatTicketReassigned(payload) {
+        try {
+            const ticketId = payload.new.id;
+            const workspaceId = payload.new.workspaceId;
+            const clientId = payload.new.clientId;
+            const assignedTo = payload.new.assignedTo;
+
+            // Fetch the user from user table to get the name of the user
+            const { data: user, error: userError } = await this.supabase
+                .from('users')
+                .select('name')
+                .eq('id', assignedTo)
+                .single();
+
+            if (userError) throw new Error(`Fetch failed at handleChatTicketReassigned(): ${userError.message}`);
+
+            if (!user) {
+                console.log("User not found");
+                return;
+            }
+
+            console.log("User found", user);
+
+            const senderName = user && user?.name || "System";
+
+            const { data: conversationDataInsert, error: conversationErrorInsert } = await this.supabase
+                .from('conversations').insert({
+                    message: "Ticket reassigned to " + senderName,
+                    type: 'chat',
+                    ticketId,
+                    senderName: senderName,
+                    clientId: clientId,
+                    userType: "system-notice",
+                    workspaceId: workspaceId,
+                    messageType: "text",
+                    senderType: "system-notice",
+                }).select('id').single();
+
+            if (conversationErrorInsert) {
+                console.error('Error saving conversation at handleChatTicketReassigned():', conversationErrorInsert);
+                return;
+            }
+
+            const ably = new Ably.Rest(process.env.ABLY_API_KEY);
+            const ch = ably.channels.get(`widget:conversation:ticket-${ticketId}`);
+            await ch.publish('message_reply', {
+                ticketId: ticketId,
+                id: conversationDataInsert && conversationDataInsert.id,
+                message: "Ticket reassigned to " + senderName,
+                type: "system-notice",
+                senderType: "system-notice",
+                messageType: "text"
+            });
+
+            return;
+        } catch (e) {
+            console.log("Error in handleChatTicketReassigned()", e);
             return;
         }
     }
