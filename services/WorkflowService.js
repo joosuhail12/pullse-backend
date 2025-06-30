@@ -1525,6 +1525,7 @@ class WorkflowService extends BaseService {
 
             if (workflows.length === 0) {
                 console.log("No active workflows found");
+                this.handleTicketCompleted({ id: ticketId, workspaceId: workspaceId, clientId: clientId });
                 return;
             }
 
@@ -2263,11 +2264,6 @@ class WorkflowService extends BaseService {
 
             if (workflows.length === 0) {
                 console.log("No active workflows found");
-                this.handleTicketCompleted({
-                    id: ticketId,
-                    workspaceId: workspaceId,
-                    clientId: clientId
-                })
                 return;
             }
 

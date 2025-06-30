@@ -601,7 +601,7 @@ async function activate(app) {
       description: 'API to notify workflow status from temporal server.',
       body: {
         type: 'object',
-        required: ['workflow_id', 'status', 'ticket_id'],
+        required: ['workflow_id', 'ticket_id'],
         properties: {
           workflow_id: { type: 'string' },
           ticket_id: { type: 'string' },
