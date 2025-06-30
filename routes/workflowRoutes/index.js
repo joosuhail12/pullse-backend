@@ -594,7 +594,6 @@ async function activate(app) {
     url: base_url + "/notify",
     method: 'POST',
     name: "NotifyWorkflowStatus",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
     schema: {
       tags: ['Ticket'],
       summary: 'Notify Workflow Status',
