@@ -6,7 +6,8 @@ const { v4: uuid } = require("uuid");
 const Ajv = require('ajv');
 const { Engine, Rule, Operator } = require('json-rules-engine');
 const TemporalServerUtils = require("../Utils/TemporalServerUtils");
-const Ably = require('ably');
+const axios = require('axios');
+const { subscribeToChatbotPrimary } = require("../ablyServices/listeners");
 
 class WorkflowService extends BaseService {
     constructor() {
@@ -14,6 +15,186 @@ class WorkflowService extends BaseService {
         this.entityName = 'Workflow';
         this.listingFields = ["id", "name", "description", "status", "affectedTicketsCount"];
         this.updatableFields = ["name", "summary", "description", "status", "ruleIds", "actionIds", "lastUpdatedBy"];
+    }
+
+    async validateAudienceRules(audienceRules, customerData) {
+        try {
+            if (!audienceRules || !audienceRules.rules || !Array.isArray(audienceRules.rules)) {
+                return false;
+            }
+
+            const { rules, combinator = 'and' } = audienceRules;
+            
+            // Evaluate each rule against customer data
+            const ruleResults = rules.map(rule => {
+                const { field, table, value, operator, customFieldId, customObjectId, customObjectFieldId } = rule;
+                
+                let fieldValue = null;
+                
+                // Get the field value based on the table and field
+                if (table === 'customer') {
+                    fieldValue = customerData[field];
+                } else if (table === 'company' && customerData.companyId) {
+                    // For company fields, we'd need to fetch company data
+                    // For now, we'll handle this in the main method
+                    return false;
+                }
+                
+                if (fieldValue === null || fieldValue === undefined) {
+                    return false;
+                }
+                
+                // Apply the operator
+                switch (operator) {
+                    case 'equals':
+                        return fieldValue === value;
+                    case 'contains':
+                        return String(fieldValue).includes(value);
+                    case 'starts_with':
+                        return String(fieldValue).startsWith(value);
+                    case 'ends_with':
+                        return String(fieldValue).endsWith(value);
+                    case 'not_equals':
+                        return fieldValue !== value;
+                    case 'not_contains':
+                        return !String(fieldValue).includes(value);
+                    default:
+                        return false;
+                }
+            });
+            
+            // Apply combinator
+            if (combinator === 'and') {
+                return ruleResults.every(result => result === true);
+            } else if (combinator === 'or') {
+                return ruleResults.some(result => result === true);
+            }
+            
+            return false;
+        } catch (error) {
+            console.log("Error in validateAudienceRules()", error);
+            return false;
+        }
+    }
+
+    async handleTicketCompleted(payload) {
+        try {
+            const ticketId = payload.id;
+            const workspaceId = payload.workspaceId;
+            const clientId = payload.clientId;
+            console.log("handleTicketCompleted()", ticketId, workspaceId, clientId);
+            // fetch the ticket
+            const { data: ticket, error: ticketError } = await this.supabase
+                .from('tickets')
+                .select('*')
+                .eq('id', ticketId)
+                .is('deletedAt', null)
+                .single();
+
+            if (ticketError) throw new Error(`Fetch failed: ${ticketError.message}`);
+            console.log("ticket", ticket);
+            if (!ticket.assigneeId) {
+                // then check from the client if the ticket_ai_enabled is true
+                const { data: client, error: clientError } = await this.supabase    
+                    .from('clients')
+                    .select('*')
+                    .eq('id', clientId)
+                    .single();
+
+                if(client.ticket_ai_enabled) {
+                    // fetch the customer data related to the ticket
+                    const { data: customer, error: customerError } = await this.supabase
+                        .from('customers')
+                        .select('*')
+                        .eq('id', ticket.customerId)
+                        .single();
+
+                    if (customerError) throw new Error(`Fetch failed: ${customerError.message}`);
+
+                    // fetch all chatbots with their audience_rules
+                    const { data: chatbots, error: chatbotsError } = await this.supabase
+                        .from('chatbots')
+                        .select('id, name, audience_rules')
+                        .eq('workspaceId', workspaceId)
+                        .eq('clientId', clientId)
+
+                    if (chatbotsError) throw new Error(`Fetch failed: ${chatbotsError.message}`);
+
+                    // Check if any chatbot's audience rules match the customer data
+                    let matchingChatbot = null;
+                    
+                    for (const chatbot of chatbots) {
+                        if (chatbot.audience_rules) {
+                            const audienceRules = typeof chatbot.audience_rules === 'string' 
+                                ? JSON.parse(chatbot.audience_rules) 
+                                : chatbot.audience_rules;
+                            
+                            // For rules that reference company data, fetch company data
+                            let customerDataWithCompany = { ...customer };
+                            
+                            if (audienceRules.rules && audienceRules.rules.some(rule => rule.table === 'company')) {
+                                if (customer.companyId) {
+                                    const { data: company, error: companyError } = await this.supabase
+                                        .from('companies')
+                                        .select('*')
+                                        .eq('id', customer.companyId)
+                                        .single();
+                                    
+                                    if (!companyError && company) {
+                                        customerDataWithCompany = { ...customer, ...company };
+                                    }
+                                }
+                            }
+                            
+                            const isMatch = await this.validateAudienceRules(audienceRules, customerDataWithCompany);
+                            
+                            if (isMatch) {
+                                matchingChatbot = chatbot;
+                                break;
+                            }
+                        }
+                    }
+
+                    if (matchingChatbot) {
+                        console.log("Matching chatbot found:", matchingChatbot);
+                        // Update ticket with matching chatbot
+                        const { data: updateTicketData, error: updateTicketDataError } = await this.supabase
+                            .from('tickets')
+                            .update({
+                                chatbotId: matchingChatbot.id,
+                                aiEnabled: true
+                            })
+                            .eq('id', ticketId);
+
+                        if (updateTicketDataError) throw new Error(`Fetch failed: ${updateTicketDataError.message}`);
+                        
+                        // send this data to ably listener
+                        // send a post request to https://prodai.pullseai.com/api/v1/chatbot/primary/message
+                        const response = await axios.post('prodai.pullseai.com/api/v1/chatbot/primary/message', {
+                            chatbotProfileId: matchingChatbot.id,
+                            ticketId: ticketId,
+                            message: ticket.title  
+                        })
+                            .catch(error => {
+                                console.log("Error in handleTicketCompleted()", error);
+                            });
+
+                        if (response && response.status === 200) {
+                            console.log("Ticket updated successfully with chatbot:", matchingChatbot.name);
+                            // send the response to the ably listener
+                            subscribeToChatbotPrimary(matchingChatbot.id, ticketId);
+                        } else {
+                            console.log("Ticket update failed");
+                        }
+                    } else {
+                        console.log("No matching chatbot found for customer:", customer.email);
+                    }
+                }
+            }
+        } catch (e) {
+            console.log("Error in handleTicketCompleted()", e);
+            return;
+        }
     }
 
     async createWorkflowFolder(data) {
@@ -2082,6 +2263,11 @@ class WorkflowService extends BaseService {
 
             if (workflows.length === 0) {
                 console.log("No active workflows found");
+                this.handleTicketCompleted({
+                    id: ticketId,
+                    workspaceId: workspaceId,
+                    clientId: clientId
+                })
                 return;
             }
 
@@ -2555,67 +2741,6 @@ class WorkflowService extends BaseService {
             return;
         } catch (e) {
             console.log("Error in handleCompanyDataChanged()", e);
-            return;
-        }
-    }
-
-    async handleChatTicketReassigned(payload) {
-        try {
-            const ticketId = payload.new.id;
-            const workspaceId = payload.new.workspaceId;
-            const clientId = payload.new.clientId;
-            const assignedTo = payload.new.assignedTo;
-
-            // Fetch the user from user table to get the name of the user
-            const { data: user, error: userError } = await this.supabase
-                .from('users')
-                .select('name')
-                .eq('id', assignedTo)
-                .single();
-
-            if (userError) throw new Error(`Fetch failed at handleChatTicketReassigned(): ${userError.message}`);
-
-            if (!user) {
-                console.log("User not found");
-                return;
-            }
-
-            console.log("User found", user);
-
-            const senderName = user && user?.name || "System";
-
-            const { data: conversationDataInsert, error: conversationErrorInsert } = await this.supabase
-                .from('conversations').insert({
-                    message: "Ticket reassigned to " + senderName,
-                    type: 'chat',
-                    ticketId,
-                    senderName: senderName,
-                    clientId: clientId,
-                    userType: "system",
-                    workspaceId: workspaceId,
-                    messageType: "text",
-                    senderType: "system",
-                }).select('id').single();
-
-            if (conversationErrorInsert) {
-                console.error('Error saving conversation at handleChatTicketReassigned():', conversationErrorInsert);
-                return;
-            }
-
-            const ably = new Ably.Rest(process.env.ABLY_API_KEY);
-            const ch = ably.channels.get(`widget:conversation:ticket-${ticketId}`);
-            await ch.publish('message_reply', {
-                ticketId: ticketId,
-                id: conversationDataInsert && conversationDataInsert.id,
-                message: "Ticket reassigned to " + senderName,
-                type: "system",
-                senderType: "system",
-                messageType: "text"
-            });
-
-            return;
-        } catch (e) {
-            console.log("Error in handleChatTicketReassigned()", e);
             return;
         }
     }

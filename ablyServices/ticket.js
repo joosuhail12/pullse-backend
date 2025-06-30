@@ -49,10 +49,8 @@ exports.handleNewTicket = async function handleNewTicket({ workspaceId, sessionI
       clientId,
       workspaceId,
       lastMessage: firstMessage,
-      teamId,
       title: firstMessage,
       deviceId,
-      aiEnabled,
       status: 'open',
       channel: "chat"
     })

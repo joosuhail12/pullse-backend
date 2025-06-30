@@ -126,11 +126,9 @@ class WorkflowHandler extends BaseHandler {
   }
 
   async notifyWorkflowStatus(req, reply) {
-    console.log(req.body);
-    return {
-      message: "Workflow status notified",
-      data: req.body
-    }
+    const data = { id: req.body.id, workspaceId: req.body.workspaceId, clientId: req.body.clientId };
+    let inst = new WorkflowService();
+    return this.responder(req, res, inst.handleTicketCompleted(data));
   }
 }
 

@@ -3,7 +3,7 @@ const BaseService = require("./BaseService");
 const _ = require("lodash");
 const AuthService = require("./AuthService");
 const ConversationEventPublisher = require("../Events/ConversationEvent/ConversationEventPublisher");
-const { initializeWidgetSession, subscribeToConversationChannels } = require("../ablyServices/listeners");
+const { initializeWidgetSession, subscribeToConversationChannels, subscribeToChatbotPrimary } = require("../ablyServices/listeners");
 const { S3Client, PutObjectCommand } = require("@aws-sdk/client-s3");
 const fs = require('fs').promises;
 
