@@ -169,8 +169,8 @@ class WorkflowService extends BaseService {
                         if (updateTicketDataError) throw new Error(`Fetch failed: ${updateTicketDataError.message}`);
                         
                         // send this data to ably listener
-                        // send a post request to https://prodai.pullseai.com/api/v1/chatbot/primary/message
-                        const response = await axios.post('prodai.pullseai.com/api/v1/chatbot/primary/message', {
+                        // send a post request to https://https://prodai.pullseai.com/api/v1/chatbot/primary/message
+                        const response = await axios.post('https://prodai.pullseai.com/api/v1/chatbot/primary/message', {
                             chatbotProfileId: matchingChatbot.id,
                             ticketId: ticketId,
                             message: ticket.title  

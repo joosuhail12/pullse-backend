@@ -111,7 +111,7 @@ class ChatbotDocumentService extends BaseService {
                 let config = {
                     method: 'post',
                     maxBodyLength: Infinity,
-                    url: 'prodai.pullseai.com/ingest/',
+                    url: 'https://prodai.pullseai.com/ingest/',
                     headers: { 
                         'x-api-key': 'letmein123', 
                         'Content-Type': 'application/json'
@@ -342,7 +342,7 @@ class ChatbotDocumentService extends BaseService {
                 let config = {
                     method: 'post',
                     maxBodyLength: Infinity,
-                    url: 'prodai.pullseai.com/ingest/',
+                    url: 'https://prodai.pullseai.com/ingest/',
                     headers: { 
                         'x-api-key': 'letmein123', 
                         'Content-Type': 'application/json'
@@ -464,7 +464,7 @@ class ChatbotDocumentService extends BaseService {
                 let config = {
                     method: 'post',
                     maxBodyLength: Infinity,
-                    url: 'prodai.pullseai.com/ingest/',
+                    url: 'https://prodai.pullseai.com/ingest/',
                     headers: { 
                         'x-api-key': 'letmein123', 
                         ...ingestionData.getHeaders()
