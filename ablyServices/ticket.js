@@ -85,31 +85,31 @@ exports.handleNewTicket = async function handleNewTicket({ workspaceId, sessionI
     .publish('new_ticket_reply', { ticketId });
 
   // notifications for humans (skip if goes to bot inbox)
-  if (!aiEnabled) {
-    let recipients = [];
-    if (routingType === 'manual' || routingType === 'unassigned') {
-      const { data } = await supabase.from('teamMembers').select('user_id').eq('team_id', teamId);
-      recipients = data.map(r => r.user_id);
-    } else if (assigneeId) {
-      recipients = [assigneeId];
-    }
+  // if (!aiEnabled) {
+  //   let recipients = [];
+  //   if (routingType === 'manual' || routingType === 'unassigned') {
+  //     const { data } = await supabase.from('teamMembers').select('user_id').eq('team_id', teamId);
+  //     recipients = data.map(r => r.user_id);
+  //   } else if (assigneeId) {
+  //     recipients = [assigneeId];
+  //   }
 
-    // decide broadcast channel
-    const broadcast = routingType === 'manual' ? [`notifications:org:${clientId}:unassigned`] : [];
+  //   // decide broadcast channel
+  //   const broadcast = routingType === 'manual' ? [`notifications:org:${clientId}:unassigned`] : [];
 
-    await Notifications.createAndBroadcast({
-      type: 'NEW_TICKET',
-      entityId: ticketId,
-      actorId: customerId,
-      recipientIds: recipients,
-      payload: { title: firstMessage.slice(0, 120), routingType },
-      broadcastChannels: broadcast
-    });
-  } else {
-    ensureQaSubscription(ticketId, sessionId);
-    const qaCh = ablyRest.channels.get(`document-qa`);
-    qaCh.publish('message', { query: firstMessage, id: ticketId, clientId: clientId });
-  }
+  //   await Notifications.createAndBroadcast({
+  //     type: 'NEW_TICKET',
+  //     entityId: ticketId,
+  //     actorId: customerId,
+  //     recipientIds: recipients,
+  //     payload: { title: firstMessage.slice(0, 120), routingType },
+  //     broadcastChannels: broadcast
+  //   });
+  // } else {
+  //   ensureQaSubscription(ticketId, sessionId);
+  //   const qaCh = ablyRest.channels.get(`document-qa`);
+  //   qaCh.publish('message', { query: firstMessage, id: ticketId, clientId: clientId });
+  // }
 
   return { id: ticketId };
 };
