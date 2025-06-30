@@ -73,6 +73,18 @@ class UserService extends BaseService {
                 }
             }
 
+            // Fetch role name from roleIds
+            const roleName = await this.supabase
+                .from("userRoles")
+                .select("name")
+                .eq("id", fetchedRoles[0])
+                .single();
+
+            // Don't allow user to create user if role name is not present
+            if (!roleName.data?.name) {
+                return new errors.BadRequest("Role name is not present.");
+            }
+
             // Insert User into Supabase
             const { data: user, error: userError } = await this.supabase
                 .from("users")
@@ -97,6 +109,26 @@ class UserService extends BaseService {
                     return new errors.AlreadyExist("User already exists.");
                 }
                 throw userError;
+            }
+
+            // Create workspace permission for the user if defaultWorkSpace is provided
+            if (defaultWorkSpace && user.id) {
+                const { error: permissionError } = await this.supabase
+                    .from('workspacePermissions')
+                    .insert({
+                        userId: user.id,
+                        workspaceId: defaultWorkSpace,
+                        access: true,
+                        role: roleName.data?.name || null,
+                        createdBy: createdBy,
+                        created_at: new Date().toISOString(),
+                        updated_at: new Date().toISOString()
+                    });
+
+                if (permissionError) {
+                    console.error("Error creating workspace permission:", permissionError);
+                    // Don't throw here to avoid breaking user creation, but log the error
+                }
             }
 
             return user;
