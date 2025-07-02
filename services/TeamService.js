@@ -22,12 +22,16 @@ class TeamService {
             const { members, workspaceId, clientId, ...teamData } = data;
             // remove channels if it has empty objects
             // console.log(teamData, members, workspaceId, clientId, "teamData---")
-            if (teamData.channels && Object.keys(teamData.channels).length > 0) {
-                teamData.channels = teamData.channels.filter(channel => channel === "email" || channel === "chat");
-                teamData.channels.length === 0 && delete teamData.channels
-            } else {
-                delete teamData.channels
-            }
+            // if (teamData.channels && Object.keys(teamData.channels).length > 0) {
+            //     teamData.channels = teamData.channels.filter(channel => channel === "email" || channel === "chat");
+            //     teamData.channels.length === 0 && delete teamData.channels
+            // } else {
+            //     delete teamData.channels
+            // }
+            const emailChannel = teamData.channels?.email?.[0];
+            const chatChannel = teamData.channels?.chat;
+            console.log(emailChannel, chatChannel, "teamData---")
+            delete teamData.channels;
             teamData.workspaceId = workspaceId
             teamData.clientId = clientId
 
@@ -41,7 +45,19 @@ class TeamService {
                 .single();
 
             if (teamError) throw teamError;
-
+            console.log(createdTeam, "createdTeam---")
+            if(chatChannel && chatChannel.length > 0){
+                for(const chat of chatChannel){
+                    const { data: chatChannelData, error: chatError } = await supabase
+                        .from('teamChannels')
+                        .insert([{
+                            teamId: createdTeam.id,
+                            chatChannelId: chat
+                        }])
+                        .select('teamId');
+                    if (chatError) throw chatError;
+                }
+            }
             // Fetch available team members
             const { data: availableMembers, error: availableMembersError } = await supabase
                 .from(this.usersTable)
@@ -49,7 +65,7 @@ class TeamService {
                 .is("deletedAt", null);
 
             if (availableMembersError) throw availableMembersError;
-
+            
             const selectedMembers = availableMembers.map(user => members.includes(user.id) ? user.id : null).filter(Boolean);
             const memberEntries = selectedMembers.map(userId => ({
                 team_id: createdTeam.id,
@@ -81,7 +97,7 @@ class TeamService {
                 teamMembers: fullTeam.teamMembers ? fullTeam.teamMembers.map(m => m.users) : []
             };
         } catch (error) {
-            // console.log(error)
+            console.log(error)
             this.handleError(error)
         }
     }
@@ -103,16 +119,23 @@ class TeamService {
 
             if (filters.name) {
                 query = query.ilike("name", `%${filters.name}%`);
-            }
+            }   
+
+            //list team channels
+            const { data: teamChannels, error: teamChannelsError } = await supabase
+                .from('teamChannels')
+                .select('teamId, channels:chatChannelId(name,id)')
+                .eq('teamId', filters.id);
 
             const { data, error } = await query;
-
+            const chatChannels = teamChannels ? teamChannels.map(c => c.channels) : [];
             if (error) throw error;
 
             // Transform response to ensure `teamMembers` is an array
             return data.map(team => ({
                 ...team,
-                teamMembers: team.teamMembers ? team.teamMembers.map(m => m.users) : []
+                teamMembers: team.teamMembers ? team.teamMembers.map(m => m.users) : [],
+                channels: {chat: chatChannels}
             }));
 
         } catch (error) {
@@ -145,10 +168,17 @@ class TeamService {
                 }
                 throw error;
             }
+            //list team channels
+            const { data: teamChannels, error: teamChannelsError } = await supabase
+                .from('teamChannels')
+                .select('teamId, channels:chatChannelId(name,id)')
+                .eq('teamId', id);
+            const chatChannels = teamChannels ? teamChannels.map(c => c.channels) : [];
 
             return {
                 ...team,
-                teamMembers: team.teamMembers ? team.teamMembers.map(m => m.users) : []
+                teamMembers: team.teamMembers ? team.teamMembers.map(m => m.users) : [],
+                channels: {chat: chatChannels}
             };
         } catch (error) {
             // console.log(error);
@@ -182,8 +212,25 @@ class TeamService {
                     // console.log(`Email channel ${channels.email[0]} not found, skipping channel update`);
                     delete teamUpdateValues.channels;
                 }
-            } else {
-                delete teamUpdateValues.channels;
+            } else if (channels && channels.chat && channels.chat.length > 0) {
+                // add chat channel to team in loop of chat channels
+                for (const chatChannel of channels.chat) {
+                    const { data: chatChannelData, error: chatError } = await supabase
+                        .from('teamChannels')
+                        .insert([{
+                            teamId: id,
+                            chatChannelId: chatChannel
+                        }])
+                        .select('teamId');
+
+                    if (chatError) throw chatError;
+
+                    if (chatChannelData) {
+                        teamUpdateValues.channels = chatChannelData.teamId;
+                    } else {
+                        delete teamUpdateValues.channels;
+                    }
+                }
             }
 
             // Update the team data without members

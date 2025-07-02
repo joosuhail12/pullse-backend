@@ -46,6 +46,7 @@ const actionCenterRoute = require('./actionCenterRoutes');
 const copilotProfileRoute = require('./copioltRoutes');
 const copilotChatRoute = require('./copilotchatRoutes');
 const preBuildActionRoute = require('./preBuildActions/index');
+const channelRoute = require('./channelRoutes');
 
 module.exports = {
   async activate(app) {
@@ -95,5 +96,6 @@ module.exports = {
     await timelineRoutes.activate(app);
     await copilotChatRoute.activate(app);
     await preBuildActionRoute.activate(app);
+    await channelRoute.activate(app);
   }
 };

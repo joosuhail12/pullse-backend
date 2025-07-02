@@ -81,7 +81,7 @@ class WorkflowService extends BaseService {
         try {
             const ticketId = payload.id;
             const workspaceId = payload.workspaceId;
-            const clientId = payload.clientId;
+            const clientId = payload?.clientId ?? null ;
             console.log("handleTicketCompleted()", ticketId, workspaceId, clientId);
             // fetch the ticket
             const { data: ticket, error: ticketError } = await this.supabase
@@ -93,12 +93,12 @@ class WorkflowService extends BaseService {
 
             if (ticketError) throw new Error(`Fetch failed: ${ticketError.message}`);
             console.log("ticket", ticket);
-            if (!ticket.assigneeId) {
+            if (ticket.assigneeId) {
                 // then check from the client if the ticket_ai_enabled is true
                 const { data: client, error: clientError } = await this.supabase    
                     .from('clients')
                     .select('*')
-                    .eq('id', clientId)
+                    .eq('id', ticket.clientId)
                     .single();
 
                 if(client.ticket_ai_enabled) {
@@ -188,6 +188,46 @@ class WorkflowService extends BaseService {
                         }
                     } else {
                         console.log("No matching chatbot found for customer:", customer.email);
+                    }
+                }
+            } else {
+                // handle team level routing
+                const { data: channel, error: channelError } = await this.supabase
+                    .from('channels')
+                    .select('*')
+                    .eq('clientid', ticket.clientId)
+                    .single();
+
+                if (channelError) throw new Error(`Fetch failed: ${channelError.message}`);
+
+                if (channel) {
+                    console.log("Channel found:", channel);
+                }
+                // get teams from this channel
+                const { data: teams, error: teamsError } = await this.supabase
+                    .from('teamChannels')
+                    .select('teamId')
+                    .eq('chatChannelId', channel.id);
+
+                if (teamsError) throw new Error(`Fetch failed: ${teamsError.message}`);
+                console.log("Teams found:", teams);
+                if(teams && teams.length > 0){
+                    // create a row for each team in ticket_team table
+                    for(const team of teams){
+                        const { data: ticketTeam, error: ticketTeamError } = await this.supabase
+                            .from('ticket_teams')
+                            .insert(
+                                { 
+                                    ticket_id: ticketId, 
+                                    team_id: team.teamId, 
+                                    client_id: ticket.clientId,
+                                    workspace_id: workspaceId,
+                                    created_at: new Date(), 
+                                    updated_at: new Date()
+                                });
+
+                        if (ticketTeamError) throw new Error(`Fetch failed: ${ticketTeamError.message}`);
+                        console.log("Ticket team created:", ticketTeam);
                     }
                 }
             }

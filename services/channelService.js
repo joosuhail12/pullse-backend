@@ -9,14 +9,14 @@ class ChannelService extends BaseService {
         this.entityName = "channels";
         this.listingFields = [
             "id",
-            "clientId",
-            "workspaceId",
+            "clientid",
+            "workspaceid",
             "name",
             "type",
             "config",
-            "isActive",
-            "createdAt",
-            "updatedAt"
+            "isactive",
+            "createdat",
+            "updatedat"
         ];
         if (fields) {
             this.listingFields = fields;
@@ -47,8 +47,8 @@ class ChannelService extends BaseService {
             const query = this.supabase
                 .from(this.entityName)
                 .select(this.listingFields.join(","))
-                .eq('clientId', filters.clientId || null)
-                .order('createdAt', { ascending: false });
+                .eq('clientid', filters.clientId || null)
+                .order('createdat', { ascending: false });
 
             const { data, error } = await query;
             if (error) throw error;
