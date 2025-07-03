@@ -1,91 +1,188 @@
 const { handleNewTicket } = require('./ticket');
 const Ably = require('ably');
 const { createClient } = require('@supabase/supabase-js');
+const channelManager = require('./channelManager');
 const ably = new Ably.Realtime(process.env.ABLY_API_KEY);
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
-const widgetSessionSubscriptions = new Set();
 
-
-const ticketChannelSubscriptions = new Set();
-const conversationChannelSubscriptions = new Set();
-const chatbotChannelSubscriptions = new Set();
-exports.initializeWidgetSession = function initializeWidgetSession(sessionId, clientId, workspaceId) {
-  if (widgetSessionSubscriptions.has(sessionId)) return;
-  widgetSessionSubscriptions.add(sessionId);
-
-  const ch = ably.channels.get(`widget:contactevent:${sessionId}`);
-  ch.subscribe('new_ticket', async msg => {
-    const d = typeof msg.data === 'string' ? JSON.parse(msg.data) : msg.data;
-    try {
-      const ticket = await handleNewTicket({
-        workspaceId,
-        sessionId,
-        firstMessage: d.text || d.message,
-        userType: 'customer'
-      });
-    } catch (e) {
-      console.error('[listeners] ticket create failed', e);
-    }
-  });
-};
-
-exports.subscribeToConversationChannels = function subscribeToConversationChannels(ticketId, sessionId) {
-  const key = `conversation:${ticketId}`;
-  if (conversationChannelSubscriptions.has(key)) return;
-  conversationChannelSubscriptions.add(key);
-
-  const widgetCh = ably.channels.get(`widget:conversation:ticket-${ticketId}`);
-  widgetCh.subscribe('message', m =>
-    require('./routing').handleWidgetConversationEvent(ticketId, m.data, sessionId, ticketChannelSubscriptions)
-  );
-  widgetCh.subscribe('user_action', async msg => {
-    require('./routing').handleUserAction(ticketId, msg.data, sessionId);
-  });
-
-  const agentCh = ably.channels.get(`agent-conversation:${ticketId}`);
-  agentCh.subscribe(m =>
-    require('./routing').handleAgentConversationEvent(ticketId, m.data)
-  );
-};
-
-
-exports.subscribeToTicketChannels = function subscribeToTicketChannels(ticketId, clientId, workspaceId, sessionId, userId) {
-  const key = `ticket:${ticketId}`;
-  if (ticketChannelSubscriptions.has(key)) return;
-  ticketChannelSubscriptions.add(key);
-
-  const ticketCh = ably.channels.get(`ticket:${ticketId}`);
-  ticketCh.subscribe('message', m =>
-    require('./routing').handleTicketMessage(ticketId, m.data, clientId, workspaceId, sessionId, userId)
-  );
-};
-
-exports.publishToCopilotConversationChannels = function publishToCopilotConversationChannels(message, conversationId) {
-  const key = `chatbot:primary`;
-  // if (conversationChannelSubscriptions.has(key)) return;
-  // conversationChannelSubscriptions.add(key);
-
-  const widgetCh = ably.channels.get(`chatbot:primary`);
-  widgetCh.publish('user-message', {content: message, copilot_conversation_id: conversationId}, err => {
-    if (err) console.error('Failed to publish agent message to widget channel:', err);
-  });
-  return true;
-};
-
-
-exports.subscribeToChatbotPrimary = function subscribeToChatbotPrimary(chatbotProfileId, ticket_id) {
-  const key = `chatbot:${chatbotProfileId}:${ticket_id}`;
-  if (chatbotChannelSubscriptions.has(key)) return;
-  chatbotChannelSubscriptions.add(key);
-
-  const chatbotCh = ably.channels.get(`chatbot:${chatbotProfileId}:${ticket_id}`);
-  chatbotCh.subscribe('chatbot_response', msg => {
-    const message = typeof msg.data === 'string' ? JSON.parse(msg.data) : msg.data;
-    console.log("Chatbot response received:", message);
-    // send the message to the ticket channel
-    const ticketCh = ably.channels.get(`ticket:${ticket_id}`);
-    ticketCh.publish('message', message, err => {
-      if (err) console.error('Failed to publish agent message to widget channel:', err);
+exports.initializeWidgetSession = async function initializeWidgetSession(sessionId, clientId, workspaceId) {
+  try {
+    await channelManager.addSubscription({
+      channelName: `widget:contactevent:${sessionId}`,
+      channelType: 'widget_session',
+      subscriberId: sessionId,
+      subscriberType: 'session',
+      workspaceId,
+      sessionId,
+      clientId,
+      metadata: { sessionType: 'widget' }
     });
-  });
+  } catch (error) {
+    console.error('Error initializing widget session:', error);
+  }
+};
+
+exports.subscribeToConversationChannels = async function subscribeToConversationChannels(ticketId, sessionId) {
+  try {
+    // Get ticket details for additional context
+    const { data: ticket, error: ticketError } = await supabase
+      .from('tickets')
+      .select('clientId, workspaceId, customerId')
+      .eq('id', ticketId)
+      .single();
+
+    if (ticketError) {
+      console.error('Error fetching ticket details:', ticketError);
+      return;
+    }
+
+    // Subscribe to widget conversation channel
+    await channelManager.addSubscription({
+      channelName: `widget:conversation:ticket-${ticketId}`,
+      channelType: 'conversation',
+      subscriberId: sessionId,
+      subscriberType: 'session',
+      ticketId,
+      sessionId,
+      workspaceId: ticket.workspaceId,
+      clientId: ticket.clientId,
+      metadata: { conversationType: 'widget' }
+    });
+
+    // Subscribe to agent conversation channel
+    await channelManager.addSubscription({
+      channelName: `agent-conversation:${ticketId}`,
+      channelType: 'conversation',
+      subscriberId: `agent-${ticketId}`,
+      subscriberType: 'agent',
+      ticketId,
+      workspaceId: ticket.workspaceId,
+      clientId: ticket.clientId,
+      metadata: { conversationType: 'agent' }
+    });
+  } catch (error) {
+    console.error('Error subscribing to conversation channels:', error);
+  }
+};
+
+exports.subscribeToTicketChannels = async function subscribeToTicketChannels(ticketId, clientId, workspaceId, sessionId, userId) {
+  try {
+    // Remove any existing subscriptions for this user on different tickets
+    await channelManager.removeSubscriberSubscriptions(userId, 'user', ticketId);
+
+    // Subscribe to ticket channel
+    await channelManager.addSubscription({
+      channelName: `ticket:${ticketId}`,
+      channelType: 'ticket',
+      subscriberId: userId,
+      subscriberType: 'user',
+      ticketId,
+      sessionId,
+      workspaceId,
+      clientId,
+      userId,
+      metadata: { ticketAccess: 'agent' }
+    });
+  } catch (error) {
+    console.error('Error subscribing to ticket channels:', error);
+  }
+};
+
+// Updated to use new chatbot channel pattern
+exports.subscribeToChatbotPrimary = async function subscribeToChatbotPrimary(chatbotProfileId, ticket_id) {
+  try {
+    // Get ticket details for context
+    const { data: ticket, error: ticketError } = await supabase
+      .from('tickets')
+      .select('clientId, workspaceId')
+      .eq('id', ticket_id)
+      .single();
+
+    if (ticketError) {
+      console.error('Error fetching ticket details for chatbot:', ticketError);
+      return;
+    }
+
+    await channelManager.addSubscription({
+      channelName: `chatbot:${chatbotProfileId}:${ticket_id}`,
+      channelType: 'chatbot',
+      subscriberId: `chatbot-${chatbotProfileId}-${ticket_id}`,
+      subscriberType: 'chatbot',
+      ticketId: ticket_id,
+      workspaceId: ticket.workspaceId,
+      clientId: ticket.clientId,
+      chatbotProfileId,
+      metadata: { chatbotProfile: chatbotProfileId }
+    });
+  } catch (error) {
+    console.error('Error subscribing to chatbot channel:', error);
+  }
+};
+
+// Simplified function to publish to chatbot channels
+exports.publishToChatbotConversation = async function publishToChatbotConversation(message, chatbotProfileId, ticket_id) {
+  try {
+    const chatbotCh = ably.channels.get(`chatbot:${chatbotProfileId}:${ticket_id}`);
+    chatbotCh.publish('user-message', { content: message }, err => {
+      if (err) console.error('Failed to publish message to chatbot channel:', err);
+    });
+    return true;
+  } catch (error) {
+    console.error('Error publishing to chatbot conversation:', error);
+    return false;
+  }
+};
+
+// Legacy function for backward compatibility - now redirects to new pattern
+exports.publishToCopilotConversationChannels = async function publishToCopilotConversationChannels(message, conversationId) {
+  console.warn('publishToCopilotConversationChannels is deprecated. Use publishToChatbotConversation instead.');
+  // Extract chatbotProfileId and ticket_id from conversationId or use defaults
+  const chatbotProfileId = 'default'; // You may need to extract this from conversationId
+  const ticket_id = conversationId; // Assuming conversationId is the ticket_id for now
+  
+  return await exports.publishToChatbotConversation(message, chatbotProfileId, ticket_id);
+};
+
+// Additional utility functions for channel management
+
+exports.removeTicketSubscriptions = async function removeTicketSubscriptions(ticketId) {
+  try {
+    const subscriptions = await channelManager.getTicketSubscriptions(ticketId);
+    
+    for (const subscription of subscriptions) {
+      await channelManager.removeSubscription(
+        subscription.channel_name,
+        subscription.subscriber_id,
+        subscription.subscriber_type
+      );
+    }
+    
+  } catch (error) {
+    console.error('Error removing ticket subscriptions:', error);
+  }
+};
+
+exports.removeSessionSubscriptions = async function removeSessionSubscriptions(sessionId) {
+  try {
+    const subscriptions = await channelManager.getSubscriberSubscriptions(sessionId, 'session');
+    
+    for (const subscription of subscriptions) {
+      await channelManager.removeSubscription(
+        subscription.channel_name,
+        subscription.subscriber_id,
+        subscription.subscriber_type
+      );
+    }
+    
+  } catch (error) {
+    console.error('Error removing session subscriptions:', error);
+  }
+};
+
+exports.getChannelStats = async function getChannelStats() {
+  return await channelManager.getStats();
+};
+
+exports.cleanupInactiveSubscriptions = async function cleanupInactiveSubscriptions() {
+  return await channelManager.cleanupInactiveSubscriptions();
 };

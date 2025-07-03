@@ -193,11 +193,10 @@ class WorkflowService extends BaseService {
             } else {
                 // handle team level routing
                 const { data: channel, error: channelError } = await this.supabase
-                    .from('channels')
+                    .from('widget')
                     .select('*')
-                    .eq('clientid', ticket.clientId)
-                    .single();
-
+                    .eq('clientId', ticket.clientId)
+                    .eq('workspaceId', workspaceId)
                 if (channelError) throw new Error(`Fetch failed: ${channelError.message}`);
 
                 if (channel) {
@@ -207,10 +206,9 @@ class WorkflowService extends BaseService {
                 const { data: teams, error: teamsError } = await this.supabase
                     .from('teamChannels')
                     .select('teamId')
-                    .eq('chatChannelId', channel.id);
+                    .in('widgetId', channel.map(c => c.id));
 
                 if (teamsError) throw new Error(`Fetch failed: ${teamsError.message}`);
-                console.log("Teams found:", teams);
                 if(teams && teams.length > 0){
                     // create a row for each team in ticket_team table
                     for(const team of teams){
