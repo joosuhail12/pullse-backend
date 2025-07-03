@@ -39,7 +39,6 @@ exports.handleNewTicket = async function handleNewTicket({ workspaceId, sessionI
     .single();
   if (tErr) throw tErr;
   const ticketId = ticket.id;
-  console.log(ticket, "ticket---");
   // routing decision
   // const IS = new InternalService();
   // let assigneeId;

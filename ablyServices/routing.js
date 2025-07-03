@@ -5,6 +5,7 @@ const Ably = require('ably');
 const InternalService = require('./internalService.js');
 const { ensureQaSubscription } = require('./qaSubscriptions.js');
 const { createAndBroadcast } = require('./notificationsService.js');
+const channelManager = require('./channelManager');
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
 const ably = new Ably.Realtime(process.env.ABLY_API_KEY);
 /** Initialize dependencies for routing module */
@@ -17,7 +18,7 @@ function init(depInternalService) {
  * Handle incoming message from the user widget.
  * This will persist the message, forward it to agents, and trigger AI if enabled.
  */
-const handleWidgetConversationEvent = async (ticketId, messageData, sessionId, ticketChannelSubscriptions) => {
+const handleWidgetConversationEvent = async (ticketId, messageData, sessionId, channelManagerInstance) => {
   const internalService = new InternalService();
   try {
     // Validate ticketId format
@@ -69,7 +70,10 @@ const handleWidgetConversationEvent = async (ticketId, messageData, sessionId, t
       const qaCh = ably.channels.get(`document-qa`);
       qaCh.publish('message', { query: userText, id: ticketId, clientId: ticket.clientId });
     } else {
-      if (ticketChannelSubscriptions.has(`ticket:${ticketId}`)) {
+      // Check if there are active ticket channel subscriptions using channel manager
+      const ticketSubscriptions = await channelManagerInstance.getChannelSubscriptions(`ticket:${ticketId}`);
+      
+      if (ticketSubscriptions && ticketSubscriptions.length > 0) {
         const ticketChannel = ably.channels.get(`ticket:${ticketId}`);
         const message = {
           id: ticketId,
@@ -98,13 +102,13 @@ const handleWidgetConversationEvent = async (ticketId, messageData, sessionId, t
           .eq('team_id', tickets[0].teamId);
         const ticket = tickets ? tickets[0] : null;
         const assignee = teamMembers ? teamMembers.map(member => member.user_id) : null;
-        await createAndBroadcast({
-          type: 'NEW_MESSAGE',
-          entityId: ticketId,
-          actorId: ticket.customers.id,
-          recipientIds: assignee,
-          payload: { title: userText, routingType: 'new_response' },
-        });
+        // await createAndBroadcast({
+        //   type: 'NEW_MESSAGE',
+        //   entityId: ticketId,
+        //   actorId: ticket.customers.id,
+        //   recipientIds: assignee,
+        //   payload: { title: userText, routingType: 'new_response' },
+        // });
       }
     }
 
@@ -289,7 +293,6 @@ const handleDocumentQAResult = async (ticketId, resultData, users, sessionId) =>
 }
 
 const handleUserAction = async (ticketId, messageData, sessionId) => {
-  console.log('handleUserAction', ticketId, messageData, sessionId);
   const internalService = new InternalService();
   switch (messageData.action) {
     case 'data_collection':
