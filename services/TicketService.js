@@ -157,27 +157,28 @@ class TicketService {
                 throw new errors.ValidationFailed(`Invalid workspaceId: ${workspaceId}`);
             }
             // get all teams for the user
-            const {data:teams, error:teamsError} = await supabase
+            const { data: teams, error: teamsError } = await supabase
                 .from('teamMembers')
                 .select('team_id')
                 .eq('user_id', userId);
-            if(teamsError) throw new errors.DBError(teamsError.message);
+            if (teamsError) throw new errors.DBError(teamsError.message);
             const teamIds = teams.map(team => team.team_id);
             // get all tickets id from ticket_teams for the teams in loop
             const tickets = [];
-            for(const teamId of teamIds){
-                const {data:teamTickets, error:ticketsError} = await supabase
+            for (const teamId of teamIds) {
+                const { data: teamTickets, error: ticketsError } = await supabase
                     .from('ticket_teams')
                     .select('ticket_id, teams(id, name)')
                     .eq('team_id', teamId)
-                if(ticketsError) throw new errors.DBError(ticketsError.message);
+                if (ticketsError) throw new errors.DBError(ticketsError.message);
                 //[ { ticket_id: '02325182-2095-4b8a-81a8-929cdd9227f5' } ] tickets---------------
-                if(teamTickets && teamTickets.length > 0){
-                    tickets.push(...teamTickets.map(ticket => ({ticket_id: ticket.ticket_id, team_id: ticket.teams.id, team_name: ticket.teams.name})));
+                if (teamTickets && teamTickets.length > 0) {
+                    tickets.push(...teamTickets.map(ticket => ({ ticket_id: ticket.ticket_id, team_id: ticket.teams.id, team_name: ticket.teams.name })));
                 }
+
             }
             // get all tickets from the tickets table
-            const {data:ticketsData, error:ticketsDataError} = await supabase
+            const { data: ticketsData, error: ticketsDataError } = await supabase
                 .from(this.entityName)
                 .select('*, assignedTo(id, bot_enabled)')
                 .in('id', tickets.map(ticket => ticket.ticket_id))
@@ -190,7 +191,7 @@ class TicketService {
             //     .eq('clientId', clientId)
             //     .single();
             // console.log(teamId, "teamId---");
-            
+
             // const { data: tickets, error } = await supabase
             //     .from(this.entityName)
             //     .select('*, assignedTo(id, bot_enabled)')
@@ -269,7 +270,7 @@ class TicketService {
                     .from('conversations')
                     .select('*', { count: 'exact', head: true })
                     .match({ ticket_id: ticket.id });
-                console.log(customers,"customers---");
+                // console.log(customers, "customers---");
                 const primaryCustomer = customers;
                 const primaryCompany = companies?.[0]?.companies ||
                     (primaryCustomer?.company ? primaryCustomer.company : null);
@@ -364,7 +365,22 @@ class TicketService {
                 };
             });
 
-            return enrichedTickets;
+            // Add a count query for total tickets
+            const { count: totalCount, error: countError } = await supabase
+                .from(this.entityName)
+                .select('*', { count: 'exact', head: true })
+                .in('id', tickets.map(ticket => ticket.ticket_id))
+            // .not("assignedTo.bot_enabled", "is", true);
+
+            if (countError) throw new errors.DBError(countError.message);
+
+            // Return enriched tickets with total count outside of data
+            return {
+                status: "success",
+                message: "Successfully done",
+                data: enrichedTickets,
+                total: totalCount || 0
+            };
         } catch (err) {
             console.log(err, "err---");
             throw err;
@@ -1438,13 +1454,10 @@ class TicketService {
                     notificationType: null,
                     customerId: ticket.customerId,
                     teamId: ticket.teamId,
-                    team: teamData ? {
-                        id: teamData.id,
-                        name: teamData.name
-                    } : (ticket.teams ? {
-                        id: ticket.teams.id,
-                        name: ticket.teams.name
-                    } : null),
+                    team: teamData ? teamData.map(team => ({
+                        id: team.id,
+                        name: team.name
+                    })) : null,
                     assignedTo: ticket.assignedTo,
                     assignedToUser: assigneeUser ? {
                         id: assigneeUser.id,
@@ -1453,15 +1466,26 @@ class TicketService {
                     } : null,
                     customer: customer ? {
                         id: customer.id,
-                        name: customer.name || `${customer.firstname || ''} ${customer.lastname || ''}`.trim() || customer.email || 'Unknown',
+                        name: `${customer.firstname || ''} ${customer.lastname || ''}`.trim() || customer.email || 'Unknown',
                         email: customer.email,
-                        phone: customer.phone,
-                        type: customer.type
+                        phone: customer.phone
                     } : {}
                 };
             });
 
-            return result;
+            // Add a count query for total assigned tickets
+            const { count: totalCount, error: countError } = await supabase
+                .from(this.entityName)
+                .select('*', { count: 'exact', head: true })
+                .eq('assignedTo', userId)
+                .eq('clientId', clientId)
+            // .eq('assignedTo.bot_enabled', false)
+            // .is('deletedAt', null);
+
+            if (countError) throw new errors.DBError(countError.message);
+
+            // Return tickets with total count
+            return { data: result, total: totalCount || 0 };
         } catch (error) {
             console.error('Error listing assigned tickets:', error);
             return Promise.reject(this.handleError(error));
@@ -1486,12 +1510,12 @@ class TicketService {
                 .select('ticket_id')
                 .in('team_id', team_ids);
             const ticket_ids = ticketTeams.map(ticket => ticket.ticket_id);
-            const {data: teamData, error: teamDataError} = await supabase
+            const { data: teamData, error: teamDataError } = await supabase
                 .from('teams')
                 .select('*')
                 .in('id', team_ids);
             console.log(teamData, "teamData---");
-            
+
             let query = supabase
                 .from(this.entityName)
                 .select(`
@@ -1597,12 +1621,13 @@ class TicketService {
                 }
             }
 
-
-
-
-
-
-
+            // Total count
+            const { count: totalCount, error: totalCountError } = await supabase
+                .from(this.entityName)
+                .select('*', { count: 'exact', head: true })
+                .is('assignedTo', null)
+                .eq('clientId', clientId)
+                .in('id', ticket_ids)
 
             // Format ticket response
             const result = tickets.map(ticket => {
@@ -1630,13 +1655,6 @@ class TicketService {
                         id: team.id,
                         name: team.name
                     })) : null,
-                    // team: teamData ? {
-                    //     id: teamData.id,
-                    //     name: teamData.name
-                    // } : (ticket.teams ? {
-                    //     id: ticket.teams.id,
-                    //     name: ticket.teams.name
-                    // } : null),
                     customer: customer ? {
                         id: customer.id,
                         name: `${customer.firstname || ''} ${customer.lastname || ''}`.trim() || customer.email || 'Unknown',
@@ -1646,7 +1664,8 @@ class TicketService {
                 };
             });
 
-            return result;
+            // Total count to response
+            return { data: result, total: totalCount || 0 };
         } catch (error) {
             console.error('Error listing unassigned tickets:', error);
             return Promise.reject(this.handleError(error));
@@ -1892,7 +1911,17 @@ class TicketService {
                 };
             });
 
-            return enrichedTickets;
+            // Add a count query for total bot tickets
+            const { count: totalCount, error: countError } = await supabase
+                .from(this.entityName)
+                .select('*', { count: 'exact', head: true })
+                .in('assignedTo', botUserIds)
+                .match({ workspaceId: req.workspaceId, clientId: req.clientId });
+
+            if (countError) throw new errors.DBError(countError.message);
+
+            // Return tickets with total count
+            return { data: enrichedTickets, total: totalCount || 0 };
         } catch (err) {
             console.error("Error in listBotTickets:", err);
             throw err;

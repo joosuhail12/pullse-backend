@@ -6,7 +6,10 @@ class ResponseHandler {
             message: "Successfully done",
         };
         if (data) {
-            response.data = data;
+            response.data = data.data || data;
+            if (data.total !== undefined) {
+                response.total = data.total;
+            }
         }
         return Promise.resolve(response);
     }
