@@ -32,7 +32,7 @@ class TicketHandler extends BaseHandler {
 
   async listTickets(req, reply) {
     let inst = this.ticketServiceInst;
-    req.query.customer_id = req.authUser.id;
+    req.query.user_id = req.authUser.id;
     req.query.session_id = req.authUser.sessionId;
     req.query.client_id = req.authUser.clientId;
     let filters = {
@@ -40,7 +40,7 @@ class TicketHandler extends BaseHandler {
       teamId: req.query.team_id,
       typeId: req.query.type_id,
       companyId: req.query.company_id,
-      customerId: req.query.customer_id,
+      userId: req.query.user_id,
       assigneeId: req.query.assignee_id,
       createdFrom: req.query.created_from,
       createdTo: req.query.created_to,

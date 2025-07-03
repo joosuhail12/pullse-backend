@@ -21,6 +21,8 @@ async function caslPlugin(fastify) {
       '/api/ably/widgetToken',
       '/api/widgets/getConversationWithTicketId',
       '/api/widgets/updateTicketRating',
+      '/api/workflow/notify',
+      '/api/pullse/create-new-user',
       // TEMP: Remove this line when done with Swagger documentation
       // '/api-docs'
     ];

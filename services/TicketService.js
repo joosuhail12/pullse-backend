@@ -148,7 +148,7 @@ class TicketService {
 
     async listTickets(req) {
         try {
-            const { clientId, workspaceId } = req;
+            const { clientId, workspaceId, userId } = req;
             const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
             if (!uuidRegex.test(clientId)) {
                 throw new errors.ValidationFailed(`Invalid clientId: ${clientId}`);
@@ -156,31 +156,58 @@ class TicketService {
             if (!uuidRegex.test(workspaceId)) {
                 throw new errors.ValidationFailed(`Invalid workspaceId: ${workspaceId}`);
             }
-            const { data: tickets, error } = await supabase
+            // get all teams for the user
+            const {data:teams, error:teamsError} = await supabase
+                .from('teamMembers')
+                .select('team_id')
+                .eq('user_id', userId);
+            if(teamsError) throw new errors.DBError(teamsError.message);
+            const teamIds = teams.map(team => team.team_id);
+            // get all tickets id from ticket_teams for the teams in loop
+            const tickets = [];
+            for(const teamId of teamIds){
+                const {data:teamTickets, error:ticketsError} = await supabase
+                    .from('ticket_teams')
+                    .select('ticket_id, teams(id, name)')
+                    .eq('team_id', teamId)
+                if(ticketsError) throw new errors.DBError(ticketsError.message);
+                //[ { ticket_id: '02325182-2095-4b8a-81a8-929cdd9227f5' } ] tickets---------------
+                if(teamTickets && teamTickets.length > 0){
+                    tickets.push(...teamTickets.map(ticket => ({ticket_id: ticket.ticket_id, team_id: ticket.teams.id, team_name: ticket.teams.name})));
+                }
+            }
+            // get all tickets from the tickets table
+            const {data:ticketsData, error:ticketsDataError} = await supabase
                 .from(this.entityName)
                 .select('*, assignedTo(id, bot_enabled)')
-                .match({ workspaceId, clientId })
+                .in('id', tickets.map(ticket => ticket.ticket_id))
                 .not("assignedTo.bot_enabled", "is", true)
                 .order('updatedAt', { ascending: false });
+            // const {data:teamId, error:teamIdError} = await supabase
+            //     .from('ticket_team')
+            //     .select('teamId')
+            //     .eq('workspaceId', workspaceId)
+            //     .eq('clientId', clientId)
+            //     .single();
+            // console.log(teamId, "teamId---");
+            
+            // const { data: tickets, error } = await supabase
+            //     .from(this.entityName)
+            //     .select('*, assignedTo(id, bot_enabled)')
+            //     .match({ workspaceId, clientId })
+            //     .not("assignedTo.bot_enabled", "is", true)
+            //     .order('updatedAt', { ascending: false });
 
-            if (error) {
-                throw new errors.DBError(error.message);
-            }
+            // if (error) {
+            //     throw new errors.DBError(error.message);
+            // }
 
-            const enrichedTickets = await Promise.map(tickets, async (ticket) => {
+            const enrichedTickets = await Promise.map(ticketsData, async (ticket) => {
                 const { data: customers } = await supabase
-                    .from('ticketCustomers')
-                    .select(`
-                        customerId, 
-                        customers(
-                            id, 
-                            email, 
-                            firstname, 
-                            lastname, 
-                            phone
-                        )
-                    `)
-                    .eq('ticketId', ticket.id);
+                    .from('customers')
+                    .select(`*`)
+                    .eq('id', ticket.customerId)
+                    .single();
 
                 const { data: assignees } = await supabase
                     .from('ticketAssignees')
@@ -242,8 +269,8 @@ class TicketService {
                     .from('conversations')
                     .select('*', { count: 'exact', head: true })
                     .match({ ticket_id: ticket.id });
-
-                const primaryCustomer = customers?.[0]?.customers;
+                console.log(customers,"customers---");
+                const primaryCustomer = customers;
                 const primaryCompany = companies?.[0]?.companies ||
                     (primaryCustomer?.company ? primaryCustomer.company : null);
                 const recipientEmails = mentions?.map(m => m.users?.email).filter(Boolean) || [];
@@ -252,7 +279,6 @@ class TicketService {
                     name: tag.name,
                     color: tag.color
                 })) || [];
-
                 return {
                     id: ticket.id,
                     sno: ticket.sno,
@@ -266,7 +292,7 @@ class TicketService {
                     customerId: ticket.customerId,
                     customer: {
                         id: primaryCustomer?.id,
-                        name: `${primaryCustomer?.firstname || ''} ${primaryCustomer?.lastname || ''}`.trim() || primaryCustomer?.email || 'Unknown',
+                        name: primaryCustomer?.email,
                         email: primaryCustomer?.email,
                         phone: primaryCustomer?.phone
                     },
@@ -294,11 +320,11 @@ class TicketService {
                         email: assignedToUser.email
                     } : null,
 
-                    teamId: ticket.teamId,
-                    team: teamData ? {
-                        id: teamData.id,
-                        name: teamData.name
-                    } : null,
+                    teamId: tickets.map(ticket => ticket.team_id),
+                    team: tickets.map(ticket => ticket.team_id ? {
+                        id: ticket.team_id,
+                        name: ticket.team_name
+                    } : null),
 
                     lastMessage: ticket.lastMessage,
                     lastMessageAt: ticket.lastMessageAt,
@@ -1447,6 +1473,25 @@ class TicketService {
             const { status, workspaceId, clientId, priority, skip = 0, limit = 10, userId } = filters;
 
             // Get tickets with no assignedTo value
+            // get all tickets from ticket_teams table
+            // get all team ids for this user
+            const { data: teamRows, error: teamIdsError } = await supabase
+                .from('teamMembers')
+                .select('*')
+                .eq('user_id', userId);
+            const team_ids = teamRows.map(team => team.team_id);
+            // get all tickets from ticket_teams table
+            const { data: ticketTeams, error: ticketTeamsError } = await supabase
+                .from('ticket_teams')
+                .select('ticket_id')
+                .in('team_id', team_ids);
+            const ticket_ids = ticketTeams.map(ticket => ticket.ticket_id);
+            const {data: teamData, error: teamDataError} = await supabase
+                .from('teams')
+                .select('*')
+                .in('id', team_ids);
+            console.log(teamData, "teamData---");
+            
             let query = supabase
                 .from(this.entityName)
                 .select(`
@@ -1456,6 +1501,7 @@ class TicketService {
                 `)
                 .is('assignedTo', null)
                 .eq('clientId', clientId)
+                .in('id', ticket_ids)
                 .is('deletedAt', null)
                 .order('updatedAt', { ascending: false });
 
@@ -1580,13 +1626,17 @@ class TicketService {
                     teamId: ticket.teamId,
                     assignedTo: null,
                     assignedToUser: null,
-                    team: teamData ? {
-                        id: teamData.id,
-                        name: teamData.name
-                    } : (ticket.teams ? {
-                        id: ticket.teams.id,
-                        name: ticket.teams.name
-                    } : null),
+                    team: teamData ? teamData.map(team => ({
+                        id: team.id,
+                        name: team.name
+                    })) : null,
+                    // team: teamData ? {
+                    //     id: teamData.id,
+                    //     name: teamData.name
+                    // } : (ticket.teams ? {
+                    //     id: ticket.teams.id,
+                    //     name: ticket.teams.name
+                    // } : null),
                     customer: customer ? {
                         id: customer.id,
                         name: `${customer.firstname || ''} ${customer.lastname || ''}`.trim() || customer.email || 'Unknown',

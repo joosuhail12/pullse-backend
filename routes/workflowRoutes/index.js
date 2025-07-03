@@ -594,14 +594,13 @@ async function activate(app) {
     url: base_url + "/notify",
     method: 'POST',
     name: "NotifyWorkflowStatus",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
     schema: {
       tags: ['Ticket'],
       summary: 'Notify Workflow Status',
       description: 'API to notify workflow status from temporal server.',
       body: {
         type: 'object',
-        required: ['workflow_id', 'status', 'ticket_id'],
+        required: ['workflow_id', 'ticket_id'],
         properties: {
           workflow_id: { type: 'string' },
           ticket_id: { type: 'string' },

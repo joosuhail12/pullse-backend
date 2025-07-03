@@ -107,7 +107,7 @@ class ChatBotProfileService extends BaseService {
 
               // if (lcErr) throw lcErr;
 
-              /* Actions count (comment out if you don’t track actions separately) */
+              /* Actions count (comment out if you don't track actions separately) */
               let actionsCount = 0;
               // const [{ count: actCount, error: actErr }] =
               //   await supabase
@@ -117,7 +117,7 @@ class ChatBotProfileService extends BaseService {
               // if (actErr) throw actErr;
               // actionsCount = actCount ?? 0;
 
-              /* Assemble in the UI’s exact shape */
+              /* Assemble in the UI's exact shape */
               return {
                 id:                     botRow.id,
                 name:                   botRow.name,
@@ -213,7 +213,7 @@ class ChatBotProfileService extends BaseService {
             .select();
 
           if (botErr) throw botErr;
-          const chatbotId = botRows[0].id;            // we’ll need this below
+          const chatbotId = botRows[0].id;            // we'll need this below
 
           /* ──────────────────────────────────────────────
             4. Persist the Audience-Rule tree
@@ -247,6 +247,56 @@ class ChatBotProfileService extends BaseService {
                 await saveGroup(rule, groupId);
               } else {
                 // ─ leaf rule
+                
+                // Handle customObjectId and customObjectFieldId - convert string identifiers to UUIDs or set to null
+                let customObjectId = null;
+                let customObjectFieldId = null;
+                
+                // If customObjectId is provided and not a UUID, try to look it up
+                if (rule.customObjectId && rule.customObjectId !== 'customer') {
+                  // Check if it's a valid UUID
+                  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+                  if (uuidRegex.test(rule.customObjectId)) {
+                    customObjectId = rule.customObjectId;
+                  } else {
+                    // Try to find the custom object by name
+                    const { data: customObject } = await supabase
+                      .from('customobjects')
+                      .select('id')
+                      .eq('name', rule.customObjectId)
+                      .eq('workspaceId', workspaceId)
+                      .eq('clientId', clientId)
+                      .single();
+                    
+                    if (customObject) {
+                      customObjectId = customObject.id;
+                    }
+                  }
+                }
+                
+                // If customObjectFieldId is provided and not a UUID, try to look it up
+                if (rule.customObjectFieldId && rule.customObjectFieldId !== 'email') {
+                  // Check if it's a valid UUID
+                  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+                  if (uuidRegex.test(rule.customObjectFieldId)) {
+                    customObjectFieldId = rule.customObjectFieldId;
+                  } else if (customObjectId) {
+                    // Try to find the custom object field by name
+                    const { data: customObjectField } = await supabase
+                      .from('customobjectfields')
+                      .select('id')
+                      .eq('name', rule.customObjectFieldId)
+                      .eq('customObjectId', customObjectId)
+                      .eq('workspaceId', workspaceId)
+                      .eq('clientId', clientId)
+                      .single();
+                    
+                    if (customObjectField) {
+                      customObjectFieldId = customObjectField.id;
+                    }
+                  }
+                }
+                
                 const { error: leafErr } = await supabase
                   .from('chatbot_rules')
                   .insert([{
@@ -256,8 +306,8 @@ class ChatBotProfileService extends BaseService {
                     value:                  rule.value,             // stored as JSONB
                     source_table:           rule.table,
                     custom_field_id:        rule.customFieldId,
-                    custom_object_id:       rule.customObjectId,
-                    custom_object_field_id: rule.customObjectFieldId,
+                    custom_object_id:       customObjectId,
+                    custom_object_field_id: customObjectFieldId,
                     created_by:             createdBy
                   }]);
 

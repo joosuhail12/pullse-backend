@@ -1,6 +1,5 @@
 const BaseHandler = require('./BaseHandler');
 const ChannelService = require('../services/channelService');
-
 class ChannelHandler extends BaseHandler {
 
   constructor() {
@@ -18,7 +17,7 @@ class ChannelHandler extends BaseHandler {
   async getAllChannels(req, reply) {
     let inst = new ChannelService();
     req.query.clientId = req.authUser.clientId;
-    return this.responder(req, reply, inst.getAllChannels(req.query));
+    return this.responder(req, reply, inst.getChannels(req.query));
   }
 
   async addEmailToChannel(req, reply) {

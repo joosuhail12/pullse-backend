@@ -8,7 +8,7 @@ const widgetSessionSubscriptions = new Set();
 
 const ticketChannelSubscriptions = new Set();
 const conversationChannelSubscriptions = new Set();
-
+const chatbotChannelSubscriptions = new Set();
 exports.initializeWidgetSession = function initializeWidgetSession(sessionId, clientId, workspaceId) {
   if (widgetSessionSubscriptions.has(sessionId)) return;
   widgetSessionSubscriptions.add(sessionId);
@@ -70,4 +70,22 @@ exports.publishToCopilotConversationChannels = function publishToCopilotConversa
     if (err) console.error('Failed to publish agent message to widget channel:', err);
   });
   return true;
+};
+
+
+exports.subscribeToChatbotPrimary = function subscribeToChatbotPrimary(chatbotProfileId, ticket_id) {
+  const key = `chatbot:${chatbotProfileId}:${ticket_id}`;
+  if (chatbotChannelSubscriptions.has(key)) return;
+  chatbotChannelSubscriptions.add(key);
+
+  const chatbotCh = ably.channels.get(`chatbot:${chatbotProfileId}:${ticket_id}`);
+  chatbotCh.subscribe('chatbot_response', msg => {
+    const message = typeof msg.data === 'string' ? JSON.parse(msg.data) : msg.data;
+    console.log("Chatbot response received:", message);
+    // send the message to the ticket channel
+    const ticketCh = ably.channels.get(`ticket:${ticket_id}`);
+    ticketCh.publish('message', message, err => {
+      if (err) console.error('Failed to publish agent message to widget channel:', err);
+    });
+  });
 };
