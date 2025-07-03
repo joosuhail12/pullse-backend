@@ -82,7 +82,7 @@ class AblyService extends BaseService {
             }
 
             // Create a fresh instance with the Ably key
-            const ably = new Ably.Rest({ key: "4_E1dA.cVZodg:Y-WcsfvXdmeJ-JXUrUJ6X6LIodTCGZ-T8C0dZey1hlQ" });
+            const ably = new Ably.Rest({ key: process.env.ABLY_API_KEY });
 
             // For agent clients, create a specific client ID
             const clientId = `agent_${user.id}_workspace_${workspaceId}`;
