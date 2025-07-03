@@ -30,7 +30,6 @@ class TeamService {
             // }
             const emailChannel = teamData.channels?.email?.[0];
             const chatChannel = teamData.channels?.chat;
-            console.log(emailChannel, chatChannel, "teamData---")
             delete teamData.channels;
             teamData.workspaceId = workspaceId
             teamData.clientId = clientId
@@ -45,14 +44,13 @@ class TeamService {
                 .single();
 
             if (teamError) throw teamError;
-            console.log(createdTeam, "createdTeam---")
             if(chatChannel && chatChannel.length > 0){
                 for(const chat of chatChannel){
                     const { data: chatChannelData, error: chatError } = await supabase
                         .from('teamChannels')
                         .insert([{
                             teamId: createdTeam.id,
-                            chatChannelId: chat
+                            widgetId: chat
                         }])
                         .select('teamId');
                     if (chatError) throw chatError;
@@ -124,13 +122,13 @@ class TeamService {
             //list team channels
             const { data: teamChannels, error: teamChannelsError } = await supabase
                 .from('teamChannels')
-                .select('teamId, channels:chatChannelId(name,id)')
+                .select('teamId, widget:widgetId(id, name)')
                 .eq('teamId', filters.id);
 
             const { data, error } = await query;
-            const chatChannels = teamChannels ? teamChannels.map(c => c.channels) : [];
+            
+            const chatChannels = teamChannels ? teamChannels.map(c => c.widget) : [];   
             if (error) throw error;
-
             // Transform response to ensure `teamMembers` is an array
             return data.map(team => ({
                 ...team,
@@ -171,10 +169,9 @@ class TeamService {
             //list team channels
             const { data: teamChannels, error: teamChannelsError } = await supabase
                 .from('teamChannels')
-                .select('teamId, channels:chatChannelId(name,id)')
+                .select('teamId, widget:widgetId(id, name)')
                 .eq('teamId', id);
-            const chatChannels = teamChannels ? teamChannels.map(c => c.channels) : [];
-
+            const chatChannels = teamChannels ? teamChannels.map(c => c.widget) : [];
             return {
                 ...team,
                 teamMembers: team.teamMembers ? team.teamMembers.map(m => m.users) : [],
@@ -219,7 +216,7 @@ class TeamService {
                         .from('teamChannels')
                         .insert([{
                             teamId: id,
-                            chatChannelId: chatChannel
+                            widgetId: chatChannel
                         }])
                         .select('teamId');
 
