@@ -263,6 +263,26 @@ class TicketHandler extends BaseHandler {
     let inst = this.ticketServiceInst;
     return this.responder(req, reply, inst.updateTicketTagsById(ticketId, tagIds, workspaceId, clientId, req.authUser.id));
   }
+
+  // Ticket Teams Handler Methods
+  async getTicketTeamsById(req, reply) {
+    const workspaceId = req.query.workspace_id;
+    const clientId = req.authUser.clientId;
+    const ticketId = req.params.ticket_id;
+
+    const inst = this.ticketServiceInst;
+    return this.responder(req, reply, inst.getTicketTeamsById(ticketId, workspaceId, clientId));
+  }
+
+  async updateTicketTeamsById(req, reply) {
+    const workspaceId = req.query.workspace_id;
+    const clientId = req.authUser.clientId;
+    const ticketId = req.params.ticket_id;
+    const { teamIds } = req.body;
+
+    const inst = this.ticketServiceInst;
+    return this.responder(req, reply, inst.updateTicketTeamsById(ticketId, teamIds, workspaceId, clientId, req.authUser.id));
+  }
 }
 
 module.exports = TicketHandler;

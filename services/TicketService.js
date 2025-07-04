@@ -203,6 +203,19 @@ class TicketService {
             //     throw new errors.DBError(error.message);
             // }
 
+            // Before enriching tickets, fetch full team mappings for the relevant ticket IDs
+            const { data: ticketTeamsData, error: ticketTeamsErr } = await supabase
+                .from('ticket_teams')
+                .select('ticket_id, teams(id,name)')
+                .in('ticket_id', tickets.map(t => t.ticket_id));
+            if (ticketTeamsErr) throw new errors.DBError(ticketTeamsErr.message);
+
+            const ticketTeamsMap = ticketTeamsData?.reduce((acc, row) => {
+                if (!acc[row.ticket_id]) acc[row.ticket_id] = [];
+                acc[row.ticket_id].push({ id: row.teams.id, name: row.teams.name });
+                return acc;
+            }, {}) || {};
+
             const enrichedTickets = await Promise.map(ticketsData, async (ticket) => {
                 const { data: customers } = await supabase
                     .from('customers')
@@ -293,7 +306,7 @@ class TicketService {
                     customerId: ticket.customerId,
                     customer: {
                         id: primaryCustomer?.id,
-                        name: primaryCustomer?.email,
+                        name: `${primaryCustomer?.firstname || ''} ${primaryCustomer?.lastname || ''}`.trim() || primaryCustomer?.email || 'Unknown',
                         email: primaryCustomer?.email,
                         phone: primaryCustomer?.phone
                     },
@@ -321,11 +334,11 @@ class TicketService {
                         email: assignedToUser.email
                     } : null,
 
-                    teamId: tickets.map(ticket => ticket.team_id),
-                    team: tickets.map(ticket => ticket.team_id ? {
-                        id: ticket.team_id,
-                        name: ticket.team_name
-                    } : null),
+                    teamIds: (ticketTeamsMap[ticket.id] || []).map(t => t.id),
+                    teams: ticketTeamsMap[ticket.id] || [],
+                    // legacy single team fields kept for backward compatibility
+                    teamId: ticket.teamId,
+                    team: ticketTeamsMap[ticket.id] || [],
 
                     lastMessage: ticket.lastMessage,
                     lastMessageAt: ticket.lastMessageAt,
@@ -1434,11 +1447,27 @@ class TicketService {
                 }
             }
 
+            // Build mapping of ticket -> teams
+            const ticketIdsForTeamFetch = tickets.map(t => t.id);
+            const { data: ticketTeamsData, error: ttErr } = await supabase
+                .from('ticket_teams')
+                .select('ticket_id, teams(id,name)')
+                .in('ticket_id', ticketIdsForTeamFetch);
+            if (ttErr) {
+                console.error("Error fetching ticket teams:", ttErr);
+                throw ttErr;
+            }
+            const ticketTeamsMap = ticketTeamsData?.reduce((acc, row) => {
+                if (!acc[row.ticket_id]) acc[row.ticket_id] = [];
+                acc[row.ticket_id].push({ id: row.teams.id, name: row.teams.name });
+                return acc;
+            }, {}) || {};
+
             // Format ticket response
             const result = tickets.map(ticket => {
                 const priority = ticket.priority === 2 ? 'high' : ticket.priority === 1 ? 'medium' : 'low';
                 const customer = ticket.customerId ? customerMap[ticket.customerId] : null;
-                const teamData = ticket.teamId ? teamMap[ticket.teamId] : ticket.teams;
+                const teamData = ticketTeamsMap[ticket.id] || [];
 
                 return {
                     id: ticket.id,
@@ -1453,11 +1482,10 @@ class TicketService {
                     hasNotification: false,
                     notificationType: null,
                     customerId: ticket.customerId,
+                    teamIds: teamData.map(t => t.id),
+                    teams: teamData,
                     teamId: ticket.teamId,
-                    team: teamData ? teamData.map(team => ({
-                        id: team.id,
-                        name: team.name
-                    })) : null,
+                    team: teamData,
                     assignedTo: ticket.assignedTo,
                     assignedToUser: assigneeUser ? {
                         id: assigneeUser.id,
@@ -1621,6 +1649,22 @@ class TicketService {
                 }
             }
 
+            // Build mapping of ticket -> teams for unassigned tickets
+            const unassignedTicketIds = tickets.map(t => t.id);
+            const { data: unassignedTicketTeams, error: unassignedTeamsErr } = await supabase
+                .from('ticket_teams')
+                .select('ticket_id, teams(id,name)')
+                .in('ticket_id', unassignedTicketIds);
+            if (unassignedTeamsErr) {
+                console.error("Error fetching ticket teams (unassigned):", unassignedTeamsErr);
+                throw unassignedTeamsErr;
+            }
+            const ticketTeamsMap = unassignedTicketTeams?.reduce((acc, row) => {
+                if (!acc[row.ticket_id]) acc[row.ticket_id] = [];
+                acc[row.ticket_id].push({ id: row.teams.id, name: row.teams.name });
+                return acc;
+            }, {}) || {};
+
             // Total count
             const { count: totalCount, error: totalCountError } = await supabase
                 .from(this.entityName)
@@ -1633,7 +1677,7 @@ class TicketService {
             const result = tickets.map(ticket => {
                 const priority = ticket.priority === 2 ? 'high' : ticket.priority === 1 ? 'medium' : 'low';
                 const customer = ticket.customerId ? customerMap[ticket.customerId] : null;
-                const teamData = ticket.teamId ? teamMap[ticket.teamId] : ticket.teams;
+                const teamData = ticketTeamsMap[ticket.id] || [];
 
                 return {
                     id: ticket.id,
@@ -1648,13 +1692,12 @@ class TicketService {
                     hasNotification: false,
                     notificationType: null,
                     customerId: ticket.customerId,
+                    teamIds: teamData.map(t => t.id),
+                    teams: teamData,
                     teamId: ticket.teamId,
+                    team: teamData,
                     assignedTo: null,
                     assignedToUser: null,
-                    team: teamData ? teamData.map(team => ({
-                        id: team.id,
-                        name: team.name
-                    })) : null,
                     customer: customer ? {
                         id: customer.id,
                         name: `${customer.firstname || ''} ${customer.lastname || ''}`.trim() || customer.email || 'Unknown',
@@ -1867,11 +1910,11 @@ class TicketService {
                         email: assignedToUser.email
                     } : null,
 
+                    teamIds: (ticketTeamsMap[ticket.id] || []).map(t => t.id),
+                    teams: ticketTeamsMap[ticket.id] || [],
+                    // legacy single team fields kept for backward compatibility
                     teamId: ticket.teamId,
-                    team: teamData ? {
-                        id: teamData.id,
-                        name: teamData.name
-                    } : null,
+                    team: ticketTeamsMap[ticket.id] || [],
 
                     lastMessage: ticket.lastMessage,
                     lastMessageAt: ticket.lastMessageAt,
@@ -2017,6 +2060,95 @@ class TicketService {
             return await this.getTicketTagsById(ticketId, workspaceId, clientId);
         } catch (err) {
             console.error("Error updating ticket tags:", err);
+            throw err;
+        }
+    }
+
+    async getTicketTeamsById(ticketId, workspaceId, clientId) {
+        try {
+            const { data: ticketTeams, error } = await supabase
+                .from('ticket_teams')
+                .select(`
+                    team_id,
+                    teams (
+                        id,
+                        name
+                    )
+                `)
+                .eq('ticket_id', ticketId)
+                .eq('workspace_id', workspaceId)
+                .eq('client_id', clientId);
+
+            if (error) {
+                throw new errors.DBError(error.message);
+            }
+
+            const teams = ticketTeams?.map(tt => ({
+                id: tt.teams.id,
+                name: tt.teams.name
+            })) || [];
+
+            return {
+                ticketId,
+                teams,
+                count: teams.length
+            };
+        } catch (err) {
+            console.error("Error getting ticket teams:", err);
+            throw err;
+        }
+    }
+
+    async updateTicketTeamsById(ticketId, teamIds, workspaceId, clientId, userId) {
+        try {
+            // Verify ticket exists
+            const { data: ticket, error: ticketError } = await supabase
+                .from('tickets')
+                .select('id')
+                .eq('id', ticketId)
+                .eq('workspaceId', workspaceId)
+                .eq('clientId', clientId)
+                .single();
+
+            if (ticketError) {
+                throw new errors.NotFound("Ticket not found");
+            }
+
+            // Delete existing team mappings for this ticket
+            const { error: deleteError } = await supabase
+                .from('ticket_teams')
+                .delete()
+                .eq('ticket_id', ticketId)
+                .eq('workspace_id', workspaceId)
+                .eq('client_id', clientId);
+
+            if (deleteError) {
+                throw new errors.DBError(deleteError.message);
+            }
+
+            // Insert new team mappings if provided
+            if (teamIds && teamIds.length > 0) {
+                const teamEntries = teamIds.map(teamId => ({
+                    ticket_id: ticketId,
+                    team_id: teamId,
+                    workspace_id: workspaceId,
+                    client_id: clientId,
+                    created_at: new Date().toISOString(),
+                }));
+
+                const { error: insertError } = await supabase
+                    .from('ticket_teams')
+                    .insert(teamEntries);
+
+                if (insertError) {
+                    throw new errors.DBError(insertError.message);
+                }
+            }
+
+            // Return updated list of teams
+            return await this.getTicketTeamsById(ticketId, workspaceId, clientId);
+        } catch (err) {
+            console.error("Error updating ticket teams:", err);
             throw err;
         }
     }
