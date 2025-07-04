@@ -180,7 +180,7 @@ class TicketService {
             // get all tickets from the tickets table
             const { data: ticketsData, error: ticketsDataError } = await supabase
                 .from(this.entityName)
-                .select('*, assignedTo(id, bot_enabled)')
+                .select('*, assignedTo(id, name, email, bot_enabled)')
                 .in('id', tickets.map(ticket => ticket.ticket_id))
                 .not("assignedTo.bot_enabled", "is", true)
                 .order('updatedAt', { ascending: false });
@@ -238,22 +238,35 @@ class TicketService {
                     .select('companyId, companies(id, name, domain)')
                     .eq('ticketId', ticket.id);
 
-                const { data: tagData } = await supabase
-                    .from('tags')
-                    .select('id, name, color')
-                    .in('id', ticket.tagIds || []);
+                // Fetch tags via join table ticketTags
+                const { data: tagRows } = await supabase
+                    .from('ticketTags')
+                    .select('tags(id, name, color)')
+                    .eq('ticketId', ticket.id);
+
+                const formattedTags = tagRows?.map(tr => ({
+                    id: tr.tags.id,
+                    name: tr.tags.name,
+                    color: tr.tags.color
+                })) || [];
 
                 // Fetch assignedTo user details if assignedTo exists
-                let assignedToUser = null;
-                if (ticket.assignedTo) {
+                let assignedToObj = null;
+                if (ticket.assignedTo && typeof ticket.assignedTo === 'object') {
+                    assignedToObj = {
+                        id: ticket.assignedTo.id,
+                        name: ticket.assignedTo.name,
+                        email: ticket.assignedTo.email,
+                        bot_enabled: ticket.assignedTo.bot_enabled
+                    };
+                } else if (ticket.assignedTo) {
                     const { data: user } = await supabase
                         .from('users')
                         .select('id, name, email')
                         .eq('id', ticket.assignedTo)
                         .single();
-
                     if (user) {
-                        assignedToUser = user;
+                        assignedToObj = { ...user };
                     }
                 }
 
@@ -288,11 +301,6 @@ class TicketService {
                 const primaryCompany = companies?.[0]?.companies ||
                     (primaryCustomer?.company ? primaryCustomer.company : null);
                 const recipientEmails = mentions?.map(m => m.users?.email).filter(Boolean) || [];
-                const formattedTags = tagData?.map(tag => ({
-                    id: tag.id,
-                    name: tag.name,
-                    color: tag.color
-                })) || [];
                 return {
                     id: ticket.id,
                     sno: ticket.sno,
@@ -328,11 +336,7 @@ class TicketService {
                     assigneeStatus: assignees?.[0]?.users ? 'Assigned' : 'Unassigned',
 
                     assignedTo: ticket.assignedTo,
-                    assignedToUser: assignedToUser ? {
-                        id: assignedToUser.id,
-                        name: assignedToUser.name,
-                        email: assignedToUser.email
-                    } : null,
+                    assignedToUser: assignedToObj,
 
                     teamIds: (ticketTeamsMap[ticket.id] || []).map(t => t.id),
                     teams: ticketTeamsMap[ticket.id] || [],
@@ -732,12 +736,12 @@ class TicketService {
                         )
                         : Promise.resolve({ data: null });
 
-                    // Fetch tags if the ticket has tagIds
-                    const tagsPromise = ticket.tagIds && ticket.tagIds.length > 0
-                        ? fetchWithErrorHandling(
-                            supabase.from('tags').select('id, name, color').in('id', ticket.tagIds)
-                        )
-                        : Promise.resolve({ data: [] });
+                    // Fetch tags via ticketTags join table
+                    const tagsPromise = fetchWithErrorHandling(
+                        supabase.from('ticketTags')
+                            .select('tags(id, name, color)')
+                            .eq('ticketId', ticket.id)
+                    );
 
                     // Fetch conversation count if detailed info is requested
                     const messageCountPromise = includeDetails
@@ -776,10 +780,10 @@ class TicketService {
                     const primaryCompany = companies?.[0]?.companies ||
                         (primaryCustomer?.company ? primaryCustomer.company : null);
                     const recipientEmails = mentions?.map(m => m.users?.email).filter(Boolean) || [];
-                    const formattedTags = tagData?.map(tag => ({
-                        id: tag.id,
-                        name: tag.name,
-                        color: tag.color
+                    const formattedTags = tagData?.map(tt => ({
+                        id: tt.tags.id,
+                        name: tt.tags.name,
+                        color: tt.tags.color
                     })) || [];
 
                     // Build the complete response
@@ -1781,6 +1785,18 @@ class TicketService {
                 throw new errors.DBError(error.message);
             }
 
+            // Build ticket -> teams map for bot tickets
+            const ticketIdsForTeams = tickets.map(t => t.id);
+            const { data: botTicketTeams, error: botTeamsErr } = await supabase
+                .from('ticket_teams')
+                .select('ticket_id, teams(id,name)')
+                .in('ticket_id', ticketIdsForTeams);
+            if (botTeamsErr) throw new errors.DBError(botTeamsErr.message);
+            const ticketTeamsMap = botTicketTeams?.reduce((acc, row) => {
+                if (!acc[row.ticket_id]) acc[row.ticket_id] = [];
+                acc[row.ticket_id].push({ id: row.teams.id, name: row.teams.name });
+                return acc;
+            }, {}) || {};
 
             // Use the same enrichment process as listTickets
             const enrichedTickets = await Promise.map(tickets, async (ticket) => {
@@ -1813,22 +1829,34 @@ class TicketService {
                     .select('companyId, companies(id, name, domain)')
                     .eq('ticketId', ticket.id);
 
-                const { data: tagData } = await supabase
-                    .from('tags')
-                    .select('id, name, color')
-                    .in('id', ticket.tagIds || []);
+                const { data: tagRows } = await supabase
+                    .from('ticketTags')
+                    .select('tags(id, name, color)')
+                    .eq('ticketId', ticket.id);
+
+                const formattedTags = tagRows?.map(tr => ({
+                    id: tr.tags.id,
+                    name: tr.tags.name,
+                    color: tr.tags.color
+                })) || [];
 
                 // Fetch assignedTo user details if assignedTo exists
-                let assignedToUser = null;
-                if (ticket.assignedTo) {
+                let assignedToObj = null;
+                if (ticket.assignedTo && typeof ticket.assignedTo === 'object') {
+                    assignedToObj = {
+                        id: ticket.assignedTo.id,
+                        name: ticket.assignedTo.name,
+                        email: ticket.assignedTo.email,
+                        bot_enabled: ticket.assignedTo.bot_enabled
+                    };
+                } else if (ticket.assignedTo) {
                     const { data: user } = await supabase
                         .from('users')
                         .select('id, name, email')
                         .eq('id', ticket.assignedTo)
                         .single();
-
                     if (user) {
-                        assignedToUser = user;
+                        assignedToObj = { ...user };
                     }
                 }
 
@@ -1862,11 +1890,6 @@ class TicketService {
                 const primaryCompany = companies?.[0]?.companies ||
                     (primaryCustomer?.company ? primaryCustomer.company : null);
                 const recipientEmails = mentions?.map(m => m.users?.email).filter(Boolean) || [];
-                const formattedTags = tagData?.map(tag => ({
-                    id: tag.id,
-                    name: tag.name,
-                    color: tag.color
-                })) || [];
 
                 return {
                     id: ticket.id,
@@ -1904,11 +1927,7 @@ class TicketService {
                     assigneeStatus: assignees?.[0]?.users ? 'Assigned' : 'Unassigned',
 
                     assignedTo: ticket.assignedTo,
-                    assignedToUser: assignedToUser ? {
-                        id: assignedToUser.id,
-                        name: assignedToUser.name,
-                        email: assignedToUser.email
-                    } : null,
+                    assignedToUser: assignedToObj,
 
                     teamIds: (ticketTeamsMap[ticket.id] || []).map(t => t.id),
                     teams: ticketTeamsMap[ticket.id] || [],
