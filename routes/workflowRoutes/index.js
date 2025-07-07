@@ -357,6 +357,32 @@ async function activate(app) {
     }
   });
 
+
+  // Disable a workflow
+  app.route({
+    url: base_url + '/:id/disable',
+    method: 'POST',
+    name: "DisableWorkflow",
+    preHandler: authMiddlewares.checkToken(AuthType.user),
+    schema: {
+      query: {
+        type: 'object',
+        required: ['workspace_id'],
+        properties: {
+          workspace_id: { type: 'string' },
+        },
+      },
+      params: {
+        type: 'object',
+        required: ['id'],
+        properties: { id: { type: 'string' } },
+      },
+    },
+    handler: async (req, reply) => {
+      return handler.disableWorkflow(req, reply);
+    }
+  });
+
   app.route({
     url: base_url + '/:id/update-configuration',
     method: 'POST',
