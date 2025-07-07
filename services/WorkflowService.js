@@ -24,13 +24,13 @@ class WorkflowService extends BaseService {
             }
 
             const { rules, combinator = 'and' } = audienceRules;
-            
+
             // Evaluate each rule against customer data
             const ruleResults = rules.map(rule => {
                 const { field, table, value, operator, customFieldId, customObjectId, customObjectFieldId } = rule;
-                
+
                 let fieldValue = null;
-                
+
                 // Get the field value based on the table and field
                 if (table === 'customer') {
                     fieldValue = customerData[field];
@@ -39,11 +39,11 @@ class WorkflowService extends BaseService {
                     // For now, we'll handle this in the main method
                     return false;
                 }
-                
+
                 if (fieldValue === null || fieldValue === undefined) {
                     return false;
                 }
-                
+
                 // Apply the operator
                 switch (operator) {
                     case 'equals':
@@ -62,14 +62,14 @@ class WorkflowService extends BaseService {
                         return false;
                 }
             });
-            
+
             // Apply combinator
             if (combinator === 'and') {
                 return ruleResults.every(result => result === true);
             } else if (combinator === 'or') {
                 return ruleResults.some(result => result === true);
             }
-            
+
             return false;
         } catch (error) {
             console.log("Error in validateAudienceRules()", error);
@@ -81,7 +81,7 @@ class WorkflowService extends BaseService {
         try {
             const ticketId = payload.id;
             const workspaceId = payload.workspaceId;
-            const clientId = payload?.clientId ?? null ;
+            const clientId = payload?.clientId ?? null;
             console.log("handleTicketCompleted()", ticketId, workspaceId, clientId);
             // fetch the ticket
             const { data: ticket, error: ticketError } = await this.supabase
@@ -95,13 +95,13 @@ class WorkflowService extends BaseService {
             console.log("ticket", ticket);
             if (ticket.assigneeId) {
                 // then check from the client if the ticket_ai_enabled is true
-                const { data: client, error: clientError } = await this.supabase    
+                const { data: client, error: clientError } = await this.supabase
                     .from('clients')
                     .select('*')
                     .eq('id', ticket.clientId)
                     .single();
 
-                if(client.ticket_ai_enabled) {
+                if (client.ticket_ai_enabled) {
                     // fetch the customer data related to the ticket
                     const { data: customer, error: customerError } = await this.supabase
                         .from('customers')
@@ -122,16 +122,16 @@ class WorkflowService extends BaseService {
 
                     // Check if any chatbot's audience rules match the customer data
                     let matchingChatbot = null;
-                    
+
                     for (const chatbot of chatbots) {
                         if (chatbot.audience_rules) {
-                            const audienceRules = typeof chatbot.audience_rules === 'string' 
-                                ? JSON.parse(chatbot.audience_rules) 
+                            const audienceRules = typeof chatbot.audience_rules === 'string'
+                                ? JSON.parse(chatbot.audience_rules)
                                 : chatbot.audience_rules;
-                            
+
                             // For rules that reference company data, fetch company data
                             let customerDataWithCompany = { ...customer };
-                            
+
                             if (audienceRules.rules && audienceRules.rules.some(rule => rule.table === 'company')) {
                                 if (customer.companyId) {
                                     const { data: company, error: companyError } = await this.supabase
@@ -139,15 +139,15 @@ class WorkflowService extends BaseService {
                                         .select('*')
                                         .eq('id', customer.companyId)
                                         .single();
-                                    
+
                                     if (!companyError && company) {
                                         customerDataWithCompany = { ...customer, ...company };
                                     }
                                 }
                             }
-                            
+
                             const isMatch = await this.validateAudienceRules(audienceRules, customerDataWithCompany);
-                            
+
                             if (isMatch) {
                                 matchingChatbot = chatbot;
                                 break;
@@ -167,13 +167,13 @@ class WorkflowService extends BaseService {
                             .eq('id', ticketId);
 
                         if (updateTicketDataError) throw new Error(`Fetch failed: ${updateTicketDataError.message}`);
-                        
+
                         // send this data to ably listener
                         // send a post request to https://https://prodai.pullseai.com/api/v1/chatbot/primary/message
                         const response = await axios.post('https://prodai.pullseai.com/api/v1/chatbot/primary/message', {
                             chatbotProfileId: matchingChatbot.id,
                             ticketId: ticketId,
-                            message: ticket.title  
+                            message: ticket.title
                         })
                             .catch(error => {
                                 console.log("Error in handleTicketCompleted()", error);
@@ -209,18 +209,18 @@ class WorkflowService extends BaseService {
                     .in('widgetId', channel.map(c => c.id));
 
                 if (teamsError) throw new Error(`Fetch failed: ${teamsError.message}`);
-                if(teams && teams.length > 0){
+                if (teams && teams.length > 0) {
                     // create a row for each team in ticket_team table
-                    for(const team of teams){
+                    for (const team of teams) {
                         const { data: ticketTeam, error: ticketTeamError } = await this.supabase
                             .from('ticket_teams')
                             .insert(
-                                { 
-                                    ticket_id: ticketId, 
-                                    team_id: team.teamId, 
+                                {
+                                    ticket_id: ticketId,
+                                    team_id: team.teamId,
                                     client_id: ticket.clientId,
                                     workspace_id: workspaceId,
-                                    created_at: new Date(), 
+                                    created_at: new Date(),
                                     updated_at: new Date()
                                 });
 
@@ -1540,6 +1540,31 @@ class WorkflowService extends BaseService {
         }
     }
 
+
+    async disableWorkflow({ id, workspaceId, clientId }) {
+        try {
+            const { data: updatedWorkflow, error: updatedWorkflowError } = await this.supabase
+                .from('workflow')
+                .update({ status: 'draft' })
+                .eq('id', id)
+                .eq('workspaceId', workspaceId)
+                .eq('clientId', clientId);
+
+            if (updatedWorkflowError) throw new Error(`Update failed: ${updatedWorkflowError.message}`);
+
+            return updatedWorkflow;
+        } catch (error) {
+            console.log("Error in disableWorkflow()", error);
+            return this.handleError({
+                error: true,
+                message: "Workflow disable failed",
+                data: error,
+                httpCode: 400,
+                code: "WORKFLOW_DISABLE_FAILED"
+            });
+        }
+    }
+
     async handleNewTicket(payload) {
         try {
             const ticketId = payload.new.id;
@@ -2322,6 +2347,29 @@ class WorkflowService extends BaseService {
                         console.log("Workflow is not valid, skipping");
                         continue;
                     }
+
+                    const data = {
+                        workflowId: workflow.id,
+                        ticketId: ticketId,
+                        contactId: payload?.new?.customerId,
+                    };
+
+                    // Find the company id of the customer if exists
+                    if (ticketId?.customerId) {
+                        const { data: company, error: companyError } = await this.supabase
+                            .from('company')
+                            .select('*')
+                            .eq('id', ticketId.customerId)
+                            .is('deletedAt', null)
+                            .single();
+
+                        if (company && !companyError) {
+                            data["companyId"] = company.id;
+                        }
+                    }
+
+                    const temporalServerUtils = TemporalServerUtils.getInstance();
+                    temporalServerUtils.startWorkflow(data);
                     console.log("Found a active workflow, send to temporal")
                 }
             }
@@ -2371,6 +2419,29 @@ class WorkflowService extends BaseService {
                         console.log("Workflow is not valid, skipping");
                         continue;
                     }
+
+                    const data = {
+                        workflowId: workflow.id,
+                        ticketId: ticketId,
+                        contactId: payload?.new?.customerId,
+                    };
+
+                    // Find the company id of the customer if exists
+                    if (ticketId?.customerId) {
+                        const { data: company, error: companyError } = await this.supabase
+                            .from('company')
+                            .select('*')
+                            .eq('id', ticketId.customerId)
+                            .is('deletedAt', null)
+                            .single();
+
+                        if (company && !companyError) {
+                            data["companyId"] = company.id;
+                        }
+                    }
+
+                    const temporalServerUtils = TemporalServerUtils.getInstance();
+                    temporalServerUtils.startWorkflow(data);
                     console.log("Found a active workflow, send to temporal")
                 }
             }
@@ -2422,6 +2493,28 @@ class WorkflowService extends BaseService {
                         console.log("Workflow is not valid, skipping");
                         continue;
                     }
+                    const data = {
+                        workflowId: workflow.id,
+                        ticketId: ticketId,
+                        contactId: payload?.new?.customerId,
+                    };
+
+                    // Find the company id of the customer if exists
+                    if (ticketId?.customerId) {
+                        const { data: company, error: companyError } = await this.supabase
+                            .from('company')
+                            .select('*')
+                            .eq('id', ticketId.customerId)
+                            .is('deletedAt', null)
+                            .single();
+
+                        if (company && !companyError) {
+                            data["companyId"] = company.id;
+                        }
+                    }
+
+                    const temporalServerUtils = TemporalServerUtils.getInstance();
+                    temporalServerUtils.startWorkflow(data);
                     console.log("Found a active workflow, send to temporal")
                 }
             }
@@ -2486,6 +2579,28 @@ class WorkflowService extends BaseService {
                         console.log("Workflow is not valid, skipping");
                         continue;
                     }
+                    const data = {
+                        workflowId: workflow.id,
+                        ticketId: ticketId,
+                        contactId: payload?.new?.customerId,
+                    };
+
+                    // Find the company id of the customer if exists
+                    if (ticketId?.customerId) {
+                        const { data: company, error: companyError } = await this.supabase
+                            .from('company')
+                            .select('*')
+                            .eq('id', ticketId.customerId)
+                            .is('deletedAt', null)
+                            .single();
+
+                        if (company && !companyError) {
+                            data["companyId"] = company.id;
+                        }
+                    }
+
+                    const temporalServerUtils = TemporalServerUtils.getInstance();
+                    temporalServerUtils.startWorkflow(data);
                     console.log("Found a active workflow, send to temporal")
                 }
             }
@@ -2704,6 +2819,19 @@ class WorkflowService extends BaseService {
                         console.log("Workflow is not valid, skipping");
                         continue;
                     }
+                    const data = {
+                        workflowId: workflow.id,
+                        ticketId: null,
+                        contactId: contactId,
+                    };
+
+                    // Find the company id of the customer if exists
+                    if (payload?.new?.companyId) {
+                        data["companyId"] = payload?.new?.companyId;
+                    }
+
+                    const temporalServerUtils = TemporalServerUtils.getInstance();
+                    temporalServerUtils.startWorkflow(data);
                     console.log("Found a active workflow, send to temporal")
                 }
             }
@@ -2768,6 +2896,16 @@ class WorkflowService extends BaseService {
                         console.log("Workflow is not valid, skipping");
                         continue;
                     }
+                    const data = {
+                        workflowId: workflow.id,
+                        ticketId: null,
+                        contactId: null,
+                        companyId: companyId,
+                    };
+
+
+                    const temporalServerUtils = TemporalServerUtils.getInstance();
+                    temporalServerUtils.startWorkflow(data);
                     console.log("Found a active workflow, send to temporal")
                 }
             }
