@@ -93,6 +93,14 @@ class WorkflowHandler extends BaseHandler {
     return this.responder(req, res, inst.activateWorkflow({ id, workspaceId, clientId }));
   }
 
+  async disableWorkflow(req, res) {
+    let id = req.params.id;
+    let workspaceId = req.query.workspace_id;
+    let clientId = req.authUser.clientId;
+    let inst = new WorkflowService();
+    return this.responder(req, res, inst.disableWorkflow({ id, workspaceId, clientId }));
+  }
+
   async updateWorkflowConfiguration(req, res) {
     let id = req.params.id;
     let workspaceId = req.query.workspace_id;
