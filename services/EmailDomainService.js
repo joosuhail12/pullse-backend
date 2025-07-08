@@ -14,11 +14,13 @@ const ConversationService = require('./ConversationService');
 const TicketService = require('./TicketService');
 const ClientService = require('./ClientService');
 const TagService = require('./TagService');
+const WorkflowService = require('./WorkflowService');
 
 class EmailDomainService extends BaseService {
     constructor() {
         super();
         this.utilityInst = new EmailDomainUtility();
+        this.workflowServiceInst = new WorkflowService();
         this.entityName = 'companies';
         this.entityName = 'emaildomains';
         this.listingFields = ["id", "domain", "createdAt", "updatedAt", "description", "isVerified"];
@@ -385,7 +387,7 @@ class EmailDomainService extends BaseService {
             }
 
             console.log(`Got new email from: ${data.sender} with Subject ${data.subject} `);
-
+            this.workflowServiceInst.handleTicketCompleted({ id: ticket.id, workspaceId, clientId });
             return Promise.resolve();
 
         } catch (e) {

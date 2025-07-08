@@ -139,6 +139,12 @@ class WorkflowHandler extends BaseHandler {
     let inst = new WorkflowService();
     return this.responder(req, reply, inst.handleTicketCompleted(data));
   }
+
+  async checkUnresponsiveness(req, reply) {
+    console.log("checkUnresponsiveness()", req.body);
+    let inst = new WorkflowService();
+    return this.responder(req, reply, inst.checkUnresponsiveness());
+  }
 }
 
 module.exports = WorkflowHandler;
