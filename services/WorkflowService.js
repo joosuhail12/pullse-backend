@@ -243,6 +243,17 @@ class WorkflowService extends BaseService {
                     if (teamsChannel) {
                     // create a row for each team in ticket_team table
                     for (const team of teamsChannel) {
+                        //check if team and ticket are already in ticket_teams table
+                        const { data: ticketTeamCheck, error: ticketTeamCheckError } = await this.supabase
+                            .from('ticket_teams')
+                            .select('*')
+                            .eq('team_id', team.teamId)
+                            .eq('ticket_id', ticketId);
+                        if (ticketTeamError) throw new Error(`Fetch failed: ${ticketTeamError.message}`);
+                        if (ticketTeam && ticketTeam.length > 0) {
+                            // team and ticket are already in ticket_teams table
+                            continue;
+                        }
                         const { data: ticketTeam, error: ticketTeamError } = await this.supabase
                             .from('ticket_teams')
                             .insert(
