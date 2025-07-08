@@ -640,6 +640,21 @@ async function activate(app) {
       return handler.notifyWorkflowStatus(req, reply);
     }
   });
+
+  // Cron Api for checking customer or teammate unresponsiveness
+  app.route({
+    url: base_url + "/cron/check-unresponsiveness",
+    method: 'GET',
+    name: "CheckUnresponsiveness",
+    schema: {
+      tags: ['Ticket'],
+      summary: 'Check Unresponsiveness',
+      description: 'API to check customer or teammate unresponsiveness.',
+    },
+    handler: async (req, reply) => {
+      return handler.checkUnresponsiveness(req, reply);
+    }
+  });
 }
 
 module.exports = { activate };
