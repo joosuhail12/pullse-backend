@@ -1592,6 +1592,8 @@ class WorkflowService extends BaseService {
                 return;
             }
 
+            let isWorkflowTriggered = false;
+
             for (const workflow of workflows) {
                 const { data: node, error: nodesError } = await this.supabase
                     .from('workflownode')
@@ -1609,6 +1611,8 @@ class WorkflowService extends BaseService {
                         console.log("Workflow is not valid, skipping");
                         continue;
                     }
+
+                    isWorkflowTriggered = true;
 
                     const data = {
                         workflowId: workflow.id,
@@ -1634,6 +1638,10 @@ class WorkflowService extends BaseService {
                     temporalServerUtils.startWorkflow(data);
                     console.log("Found a active workflow, send to temporal")
                 }
+            }
+
+            if (!isWorkflowTriggered) {
+                this.handleTicketCompleted({ id: ticketId, workspaceId: workspaceId, clientId: clientId });
             }
 
             return;
@@ -2974,6 +2982,18 @@ class WorkflowService extends BaseService {
             return;
         } catch (e) {
             console.log("Error in handleChatTicketReassigned()", e);
+            return;
+        }
+    }
+
+
+    async checkUnresponsiveness() {
+        try {
+            // ticketworkflowunresponsiverelation
+            // Fetch the ticket ids and workflow ids from the table
+            console.log("Checking unresponsiveness");
+        } catch (e) {
+            console.log("Error in checkUnresponsiveness()", e);
             return;
         }
     }

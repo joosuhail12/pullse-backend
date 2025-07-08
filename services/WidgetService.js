@@ -619,7 +619,7 @@ class WidgetService extends BaseService {
             }
 
             // Process company data
-            if (company && Array.isArray(company)) {
+            if (company && Array.isArray(company) && company.length > 0) {
                 let companyData = {};
                 company.forEach(field => {
                     if (field.value && field.columnname) {
@@ -657,7 +657,7 @@ class WidgetService extends BaseService {
             }
 
             // Process ticket data
-            if (ticket && Array.isArray(ticket)) {
+            if (ticket && Array.isArray(ticket) && ticket.length > 0) {
                 let ticketData = {};
                 ticket.forEach(field => {
                     if (field.value && field.columnname) {

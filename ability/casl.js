@@ -23,6 +23,7 @@ async function caslPlugin(fastify) {
       '/api/widgets/updateTicketRating',
       '/api/workflow/notify',
       '/api/pullse/create-new-user',
+      '/api/workflow/cron/check-unresponsiveness',
       // TEMP: Remove this line when done with Swagger documentation
       // '/api-docs'
     ];
