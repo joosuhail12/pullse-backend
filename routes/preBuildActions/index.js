@@ -82,6 +82,29 @@ app.route({
       return handler.getPreBuildActionByClientId(req, reply);
     }
   });
+
+  app.route({
+    url: `${base_url}/selected-apps`,
+    method: 'GET',
+    name: 'GeneratePrebuildAppConnections',
+    preHandler: authorize('create', 'PreBuildAction'),
+    handler: async (req, reply) => {
+      return handler.getPrebuildSelectedApps(req, reply);
+    },
+    
+  });
+  app.route({
+    url: `${base_url}/generate-prebuild-app-connections`,
+    method: 'POST',
+    name: 'GeneratePrebuildAppConnections',
+    preHandler: authorize('create', 'PreBuildAction'),
+    schema: {
+        toolName: { type: 'string' },
+    },
+    handler: async (req, reply) => {
+      return handler.generatePrebuildAppConnections(req, reply);
+    }
+  });
 }
 
 module.exports = { activate };
