@@ -380,7 +380,8 @@ class EmailDomainService extends BaseService {
                     description: data.subject,
                     ticketCreatedBy: userType,
                     customerId: customer.id,
-                    channel: TicketChannel.email
+                    channel: TicketChannel.email,
+                    emailChannelId: emailChannel.id
                     // don't create new ticket if a conversation exist with Message-ID
                 };
                 await this.conversationServiceInst.addMessage(messageData, ticketData);

@@ -30,6 +30,7 @@ class ConversationService extends BaseService {
                     ticketCreatedBy: newTicket.ticketCreatedBy,
                     customerId: newTicket.customerId ?? null,
                     channel: newTicket.channel || null,
+                    emailChannelId: newTicket.emailChannelId || null,
                     sessionId: newTicket.sessionId || null,
                     device: newTicket.device,
                     clientId: clientId,

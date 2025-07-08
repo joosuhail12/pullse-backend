@@ -20,8 +20,10 @@ exports.handleNewTicket = async function handleNewTicket({ workspaceId, sessionI
       .single(),
   ]);
   if (sessionRow.error) throw sessionRow.error;
-
+  //get the widhet
   const session = sessionRow.data;
+  //get the widget
+  const widget = session.widgetId;
   // insert ticket
   const { data: ticket, error: tErr } = await supabase
     .from('tickets')
@@ -33,7 +35,8 @@ exports.handleNewTicket = async function handleNewTicket({ workspaceId, sessionI
       title: firstMessage,
       deviceId: session.contactDeviceId,
       status: 'open',
-      channel: "chat"
+      channel: "chat",
+      chatWidgetId: widget,
     })
     .select()
     .single();
