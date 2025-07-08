@@ -294,7 +294,7 @@ class TeamService {
                 }
             };
         } catch (error) {
-            // console.log(error, "error---");
+            console.log(error, "error---");
             return Promise.reject(this.handleError(error));
         }
     }
