@@ -64,8 +64,50 @@ class TimelineListener {
                     const changeResult = TimelineService.trackDetailedChanges(
                         oldTicket,
                         newTicket,
-                        ['status', 'assigneeId', 'priority', 'title', 'description', 'sentiment']
+                        ['status', 'assigneeId', 'priority', 'title', 'description', 'sentiment', 'assignedTo']
                     );
+
+                    // 🔄 Enrich assignee changes with user names for better UI readability
+                    if (changeResult.changes) {
+                        const userIdFields = ['assigneeId', 'assignedTo'];
+                        const userIdsToFetch = [];
+                        changeResult.changes.fields_updated?.forEach(f => {
+                            if (userIdFields.includes(f.field_name)) {
+                                if (f.old_value) userIdsToFetch.push(f.old_value);
+                                if (f.new_value) userIdsToFetch.push(f.new_value);
+                            }
+                        });
+
+                        const uniqueIds = [...new Set(userIdsToFetch.filter(Boolean))];
+                        let usersMap = {};
+                        if (uniqueIds.length) {
+                            const { data: users } = await this.supabase
+                                .from('users')
+                                .select('id,name')
+                                .in('id', uniqueIds);
+                            if (users) {
+                                usersMap = users.reduce((acc, u) => { acc[u.id] = u.name || 'User'; return acc; }, {});
+                            }
+                        }
+
+                        // Update change data & summary
+                        changeResult.changes.fields_updated?.forEach(f => {
+                            if (userIdFields.includes(f.field_name)) {
+                                const oldName = usersMap[f.old_value] || f.old_value || 'Unassigned';
+                                const newName = usersMap[f.new_value] || f.new_value || 'Unassigned';
+                                f.display_text = `${oldName} → ${newName}`;
+                                f.old_value = { id: f.old_value, name: oldName };
+                                f.new_value = { id: f.new_value, name: newName };
+                            }
+                        });
+
+                        // Rebuild summary for changed user fields
+                        const newSummaryParts = changeResult.changes.fields_updated.map(f => {
+                            if (userIdFields.includes(f.field_name)) return `${f.field_name}: ${f.display_text}`;
+                            return changeResult.summary;
+                        });
+                        changeResult.summary = newSummaryParts.filter(Boolean).join(', ');
+                    }
 
                     if (changeResult.changes && newTicket.customerId && newTicket.workspaceId && newTicket.clientId) {
                         await this.timelineService.logTicketActivity('contact', newTicket.customerId, {
@@ -512,7 +554,7 @@ class TimelineListener {
             .on('postgres_changes', { event: 'update', schema: 'public', table: 'customfielddata' }, async (payload) => {
                 try {
                     const oldData = payload.old;
-                    // console.log('🔍 DEBUG: Old data:', oldData);
+                    console.log('🔍 DEBUG: Old data:', oldData);
                     const newData = payload.new;
                     // console.log(`🔧 DEBUG [${this.instanceId}]: Custom field UPDATE event triggered`, { oldData, newData });
 

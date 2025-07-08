@@ -467,6 +467,47 @@ async function activate(app) {
       return handler.updateTicketTagsById(req, reply);
     }
   });
+
+  // Ticket Teams Routes
+  app.route({
+    url: base_url + "/:ticket_id/teams",
+    method: 'GET',
+    name: "GetTicketTeamsById",
+    preHandler: authMiddlewares.checkToken(AuthType.user),
+    schema: {
+      tags: ['Ticket'],
+      summary: 'Get Ticket Teams by ID',
+      description: 'Fetch all teams associated with a ticket.',
+      query: {
+        workspace_id: { type: 'string' }
+      }
+    },
+    handler: async (req, reply) => handler.getTicketTeamsById(req, reply)
+  });
+
+  app.route({
+    url: base_url + "/:ticket_id/teams",
+    method: 'POST',
+    name: "UpdateTicketTeamsById",
+    preHandler: authMiddlewares.checkToken(AuthType.user),
+    schema: {
+      tags: ['Ticket'],
+      summary: 'Update Ticket Teams by ID',
+      description: 'Replace all teams for a ticket (deletes existing rows then inserts provided list).',
+      body: {
+        type: 'object',
+        required: ['teamIds'],
+        properties: {
+          teamIds: {
+            type: 'array',
+            items: { type: 'string' },
+            description: 'Array of team UUIDs'
+          }
+        }
+      }
+    },
+    handler: async (req, reply) => handler.updateTicketTeamsById(req, reply)
+  });
 }
 
 // get conversation by ticket id

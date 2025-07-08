@@ -157,29 +157,30 @@ class TicketService {
                 throw new errors.ValidationFailed(`Invalid workspaceId: ${workspaceId}`);
             }
             // get all teams for the user
-            const {data:teams, error:teamsError} = await supabase
+            const { data: teams, error: teamsError } = await supabase
                 .from('teamMembers')
                 .select('team_id')
                 .eq('user_id', userId);
-            if(teamsError) throw new errors.DBError(teamsError.message);
+            if (teamsError) throw new errors.DBError(teamsError.message);
             const teamIds = teams.map(team => team.team_id);
             // get all tickets id from ticket_teams for the teams in loop
             const tickets = [];
-            for(const teamId of teamIds){
-                const {data:teamTickets, error:ticketsError} = await supabase
+            for (const teamId of teamIds) {
+                const { data: teamTickets, error: ticketsError } = await supabase
                     .from('ticket_teams')
                     .select('ticket_id, teams(id, name)')
                     .eq('team_id', teamId)
-                if(ticketsError) throw new errors.DBError(ticketsError.message);
+                if (ticketsError) throw new errors.DBError(ticketsError.message);
                 //[ { ticket_id: '02325182-2095-4b8a-81a8-929cdd9227f5' } ] tickets---------------
-                if(teamTickets && teamTickets.length > 0){
-                    tickets.push(...teamTickets.map(ticket => ({ticket_id: ticket.ticket_id, team_id: ticket.teams.id, team_name: ticket.teams.name})));
+                if (teamTickets && teamTickets.length > 0) {
+                    tickets.push(...teamTickets.map(ticket => ({ ticket_id: ticket.ticket_id, team_id: ticket.teams.id, team_name: ticket.teams.name })));
                 }
+
             }
             // get all tickets from the tickets table
-            const {data:ticketsData, error:ticketsDataError} = await supabase
+            const { data: ticketsData, error: ticketsDataError } = await supabase
                 .from(this.entityName)
-                .select('*, assignedTo(id, bot_enabled)')
+                .select('*, assignedTo(id, name, email, bot_enabled)')
                 .in('id', tickets.map(ticket => ticket.ticket_id))
                 .not("assignedTo.bot_enabled", "is", true)
                 .order('updatedAt', { ascending: false });
@@ -190,7 +191,7 @@ class TicketService {
             //     .eq('clientId', clientId)
             //     .single();
             // console.log(teamId, "teamId---");
-            
+
             // const { data: tickets, error } = await supabase
             //     .from(this.entityName)
             //     .select('*, assignedTo(id, bot_enabled)')
@@ -201,6 +202,19 @@ class TicketService {
             // if (error) {
             //     throw new errors.DBError(error.message);
             // }
+
+            // Before enriching tickets, fetch full team mappings for the relevant ticket IDs
+            const { data: ticketTeamsData, error: ticketTeamsErr } = await supabase
+                .from('ticket_teams')
+                .select('ticket_id, teams(id,name)')
+                .in('ticket_id', tickets.map(t => t.ticket_id));
+            if (ticketTeamsErr) throw new errors.DBError(ticketTeamsErr.message);
+
+            const ticketTeamsMap = ticketTeamsData?.reduce((acc, row) => {
+                if (!acc[row.ticket_id]) acc[row.ticket_id] = [];
+                acc[row.ticket_id].push({ id: row.teams.id, name: row.teams.name });
+                return acc;
+            }, {}) || {};
 
             const enrichedTickets = await Promise.map(ticketsData, async (ticket) => {
                 const { data: customers } = await supabase
@@ -224,22 +238,35 @@ class TicketService {
                     .select('companyId, companies(id, name, domain)')
                     .eq('ticketId', ticket.id);
 
-                const { data: tagData } = await supabase
-                    .from('tags')
-                    .select('id, name, color')
-                    .in('id', ticket.tagIds || []);
+                // Fetch tags via join table ticketTags
+                const { data: tagRows } = await supabase
+                    .from('ticketTags')
+                    .select('tags(id, name, color)')
+                    .eq('ticketId', ticket.id);
+
+                const formattedTags = tagRows?.map(tr => ({
+                    id: tr.tags.id,
+                    name: tr.tags.name,
+                    color: tr.tags.color
+                })) || [];
 
                 // Fetch assignedTo user details if assignedTo exists
-                let assignedToUser = null;
-                if (ticket.assignedTo) {
+                let assignedToObj = null;
+                if (ticket.assignedTo && typeof ticket.assignedTo === 'object') {
+                    assignedToObj = {
+                        id: ticket.assignedTo.id,
+                        name: ticket.assignedTo.name,
+                        email: ticket.assignedTo.email,
+                        bot_enabled: ticket.assignedTo.bot_enabled
+                    };
+                } else if (ticket.assignedTo) {
                     const { data: user } = await supabase
                         .from('users')
                         .select('id, name, email')
                         .eq('id', ticket.assignedTo)
                         .single();
-
                     if (user) {
-                        assignedToUser = user;
+                        assignedToObj = { ...user };
                     }
                 }
 
@@ -269,16 +296,11 @@ class TicketService {
                     .from('conversations')
                     .select('*', { count: 'exact', head: true })
                     .match({ ticket_id: ticket.id });
-                console.log(customers,"customers---");
+                // console.log(customers, "customers---");
                 const primaryCustomer = customers;
                 const primaryCompany = companies?.[0]?.companies ||
                     (primaryCustomer?.company ? primaryCustomer.company : null);
                 const recipientEmails = mentions?.map(m => m.users?.email).filter(Boolean) || [];
-                const formattedTags = tagData?.map(tag => ({
-                    id: tag.id,
-                    name: tag.name,
-                    color: tag.color
-                })) || [];
                 return {
                     id: ticket.id,
                     sno: ticket.sno,
@@ -292,7 +314,7 @@ class TicketService {
                     customerId: ticket.customerId,
                     customer: {
                         id: primaryCustomer?.id,
-                        name: primaryCustomer?.email,
+                        name: `${primaryCustomer?.firstname || ''} ${primaryCustomer?.lastname || ''}`.trim() || primaryCustomer?.email || 'Unknown',
                         email: primaryCustomer?.email,
                         phone: primaryCustomer?.phone
                     },
@@ -314,17 +336,13 @@ class TicketService {
                     assigneeStatus: assignees?.[0]?.users ? 'Assigned' : 'Unassigned',
 
                     assignedTo: ticket.assignedTo,
-                    assignedToUser: assignedToUser ? {
-                        id: assignedToUser.id,
-                        name: assignedToUser.name,
-                        email: assignedToUser.email
-                    } : null,
+                    assignedToUser: assignedToObj,
 
-                    teamId: tickets.map(ticket => ticket.team_id),
-                    team: tickets.map(ticket => ticket.team_id ? {
-                        id: ticket.team_id,
-                        name: ticket.team_name
-                    } : null),
+                    teamIds: (ticketTeamsMap[ticket.id] || []).map(t => t.id),
+                    teams: ticketTeamsMap[ticket.id] || [],
+                    // legacy single team fields kept for backward compatibility
+                    teamId: ticket.teamId,
+                    team: ticketTeamsMap[ticket.id] || [],
 
                     lastMessage: ticket.lastMessage,
                     lastMessageAt: ticket.lastMessageAt,
@@ -364,7 +382,22 @@ class TicketService {
                 };
             });
 
-            return enrichedTickets;
+            // Add a count query for total tickets
+            const { count: totalCount, error: countError } = await supabase
+                .from(this.entityName)
+                .select('*', { count: 'exact', head: true })
+                .in('id', tickets.map(ticket => ticket.ticket_id))
+            // .not("assignedTo.bot_enabled", "is", true);
+
+            if (countError) throw new errors.DBError(countError.message);
+
+            // Return enriched tickets with total count outside of data
+            return {
+                status: "success",
+                message: "Successfully done",
+                data: enrichedTickets,
+                total: totalCount || 0
+            };
         } catch (err) {
             console.log(err, "err---");
             throw err;
@@ -703,12 +736,12 @@ class TicketService {
                         )
                         : Promise.resolve({ data: null });
 
-                    // Fetch tags if the ticket has tagIds
-                    const tagsPromise = ticket.tagIds && ticket.tagIds.length > 0
-                        ? fetchWithErrorHandling(
-                            supabase.from('tags').select('id, name, color').in('id', ticket.tagIds)
-                        )
-                        : Promise.resolve({ data: [] });
+                    // Fetch tags via ticketTags join table
+                    const tagsPromise = fetchWithErrorHandling(
+                        supabase.from('ticketTags')
+                            .select('tags(id, name, color)')
+                            .eq('ticketId', ticket.id)
+                    );
 
                     // Fetch conversation count if detailed info is requested
                     const messageCountPromise = includeDetails
@@ -747,10 +780,10 @@ class TicketService {
                     const primaryCompany = companies?.[0]?.companies ||
                         (primaryCustomer?.company ? primaryCustomer.company : null);
                     const recipientEmails = mentions?.map(m => m.users?.email).filter(Boolean) || [];
-                    const formattedTags = tagData?.map(tag => ({
-                        id: tag.id,
-                        name: tag.name,
-                        color: tag.color
+                    const formattedTags = tagData?.map(tt => ({
+                        id: tt.tags.id,
+                        name: tt.tags.name,
+                        color: tt.tags.color
                     })) || [];
 
                     // Build the complete response
@@ -1418,11 +1451,27 @@ class TicketService {
                 }
             }
 
+            // Build mapping of ticket -> teams
+            const ticketIdsForTeamFetch = tickets.map(t => t.id);
+            const { data: ticketTeamsData, error: ttErr } = await supabase
+                .from('ticket_teams')
+                .select('ticket_id, teams(id,name)')
+                .in('ticket_id', ticketIdsForTeamFetch);
+            if (ttErr) {
+                console.error("Error fetching ticket teams:", ttErr);
+                throw ttErr;
+            }
+            const ticketTeamsMap = ticketTeamsData?.reduce((acc, row) => {
+                if (!acc[row.ticket_id]) acc[row.ticket_id] = [];
+                acc[row.ticket_id].push({ id: row.teams.id, name: row.teams.name });
+                return acc;
+            }, {}) || {};
+
             // Format ticket response
             const result = tickets.map(ticket => {
                 const priority = ticket.priority === 2 ? 'high' : ticket.priority === 1 ? 'medium' : 'low';
                 const customer = ticket.customerId ? customerMap[ticket.customerId] : null;
-                const teamData = ticket.teamId ? teamMap[ticket.teamId] : ticket.teams;
+                const teamData = ticketTeamsMap[ticket.id] || [];
 
                 return {
                     id: ticket.id,
@@ -1437,14 +1486,10 @@ class TicketService {
                     hasNotification: false,
                     notificationType: null,
                     customerId: ticket.customerId,
+                    teamIds: teamData.map(t => t.id),
+                    teams: teamData,
                     teamId: ticket.teamId,
-                    team: teamData ? {
-                        id: teamData.id,
-                        name: teamData.name
-                    } : (ticket.teams ? {
-                        id: ticket.teams.id,
-                        name: ticket.teams.name
-                    } : null),
+                    team: teamData,
                     assignedTo: ticket.assignedTo,
                     assignedToUser: assigneeUser ? {
                         id: assigneeUser.id,
@@ -1453,15 +1498,26 @@ class TicketService {
                     } : null,
                     customer: customer ? {
                         id: customer.id,
-                        name: customer.name || `${customer.firstname || ''} ${customer.lastname || ''}`.trim() || customer.email || 'Unknown',
+                        name: `${customer.firstname || ''} ${customer.lastname || ''}`.trim() || customer.email || 'Unknown',
                         email: customer.email,
-                        phone: customer.phone,
-                        type: customer.type
+                        phone: customer.phone
                     } : {}
                 };
             });
 
-            return result;
+            // Add a count query for total assigned tickets
+            const { count: totalCount, error: countError } = await supabase
+                .from(this.entityName)
+                .select('*', { count: 'exact', head: true })
+                .eq('assignedTo', userId)
+                .eq('clientId', clientId)
+            // .eq('assignedTo.bot_enabled', false)
+            // .is('deletedAt', null);
+
+            if (countError) throw new errors.DBError(countError.message);
+
+            // Return tickets with total count
+            return { data: result, total: totalCount || 0 };
         } catch (error) {
             console.error('Error listing assigned tickets:', error);
             return Promise.reject(this.handleError(error));
@@ -1486,12 +1542,12 @@ class TicketService {
                 .select('ticket_id')
                 .in('team_id', team_ids);
             const ticket_ids = ticketTeams.map(ticket => ticket.ticket_id);
-            const {data: teamData, error: teamDataError} = await supabase
+            const { data: teamData, error: teamDataError } = await supabase
                 .from('teams')
                 .select('*')
                 .in('id', team_ids);
             console.log(teamData, "teamData---");
-            
+
             let query = supabase
                 .from(this.entityName)
                 .select(`
@@ -1597,18 +1653,35 @@ class TicketService {
                 }
             }
 
+            // Build mapping of ticket -> teams for unassigned tickets
+            const unassignedTicketIds = tickets.map(t => t.id);
+            const { data: unassignedTicketTeams, error: unassignedTeamsErr } = await supabase
+                .from('ticket_teams')
+                .select('ticket_id, teams(id,name)')
+                .in('ticket_id', unassignedTicketIds);
+            if (unassignedTeamsErr) {
+                console.error("Error fetching ticket teams (unassigned):", unassignedTeamsErr);
+                throw unassignedTeamsErr;
+            }
+            const ticketTeamsMap = unassignedTicketTeams?.reduce((acc, row) => {
+                if (!acc[row.ticket_id]) acc[row.ticket_id] = [];
+                acc[row.ticket_id].push({ id: row.teams.id, name: row.teams.name });
+                return acc;
+            }, {}) || {};
 
-
-
-
-
-
+            // Total count
+            const { count: totalCount, error: totalCountError } = await supabase
+                .from(this.entityName)
+                .select('*', { count: 'exact', head: true })
+                .is('assignedTo', null)
+                .eq('clientId', clientId)
+                .in('id', ticket_ids)
 
             // Format ticket response
             const result = tickets.map(ticket => {
                 const priority = ticket.priority === 2 ? 'high' : ticket.priority === 1 ? 'medium' : 'low';
                 const customer = ticket.customerId ? customerMap[ticket.customerId] : null;
-                const teamData = ticket.teamId ? teamMap[ticket.teamId] : ticket.teams;
+                const teamData = ticketTeamsMap[ticket.id] || [];
 
                 return {
                     id: ticket.id,
@@ -1623,20 +1696,12 @@ class TicketService {
                     hasNotification: false,
                     notificationType: null,
                     customerId: ticket.customerId,
+                    teamIds: teamData.map(t => t.id),
+                    teams: teamData,
                     teamId: ticket.teamId,
+                    team: teamData,
                     assignedTo: null,
                     assignedToUser: null,
-                    team: teamData ? teamData.map(team => ({
-                        id: team.id,
-                        name: team.name
-                    })) : null,
-                    // team: teamData ? {
-                    //     id: teamData.id,
-                    //     name: teamData.name
-                    // } : (ticket.teams ? {
-                    //     id: ticket.teams.id,
-                    //     name: ticket.teams.name
-                    // } : null),
                     customer: customer ? {
                         id: customer.id,
                         name: `${customer.firstname || ''} ${customer.lastname || ''}`.trim() || customer.email || 'Unknown',
@@ -1646,7 +1711,8 @@ class TicketService {
                 };
             });
 
-            return result;
+            // Total count to response
+            return { data: result, total: totalCount || 0 };
         } catch (error) {
             console.error('Error listing unassigned tickets:', error);
             return Promise.reject(this.handleError(error));
@@ -1719,6 +1785,18 @@ class TicketService {
                 throw new errors.DBError(error.message);
             }
 
+            // Build ticket -> teams map for bot tickets
+            const ticketIdsForTeams = tickets.map(t => t.id);
+            const { data: botTicketTeams, error: botTeamsErr } = await supabase
+                .from('ticket_teams')
+                .select('ticket_id, teams(id,name)')
+                .in('ticket_id', ticketIdsForTeams);
+            if (botTeamsErr) throw new errors.DBError(botTeamsErr.message);
+            const ticketTeamsMap = botTicketTeams?.reduce((acc, row) => {
+                if (!acc[row.ticket_id]) acc[row.ticket_id] = [];
+                acc[row.ticket_id].push({ id: row.teams.id, name: row.teams.name });
+                return acc;
+            }, {}) || {};
 
             // Use the same enrichment process as listTickets
             const enrichedTickets = await Promise.map(tickets, async (ticket) => {
@@ -1751,22 +1829,34 @@ class TicketService {
                     .select('companyId, companies(id, name, domain)')
                     .eq('ticketId', ticket.id);
 
-                const { data: tagData } = await supabase
-                    .from('tags')
-                    .select('id, name, color')
-                    .in('id', ticket.tagIds || []);
+                const { data: tagRows } = await supabase
+                    .from('ticketTags')
+                    .select('tags(id, name, color)')
+                    .eq('ticketId', ticket.id);
+
+                const formattedTags = tagRows?.map(tr => ({
+                    id: tr.tags.id,
+                    name: tr.tags.name,
+                    color: tr.tags.color
+                })) || [];
 
                 // Fetch assignedTo user details if assignedTo exists
-                let assignedToUser = null;
-                if (ticket.assignedTo) {
+                let assignedToObj = null;
+                if (ticket.assignedTo && typeof ticket.assignedTo === 'object') {
+                    assignedToObj = {
+                        id: ticket.assignedTo.id,
+                        name: ticket.assignedTo.name,
+                        email: ticket.assignedTo.email,
+                        bot_enabled: ticket.assignedTo.bot_enabled
+                    };
+                } else if (ticket.assignedTo) {
                     const { data: user } = await supabase
                         .from('users')
                         .select('id, name, email')
                         .eq('id', ticket.assignedTo)
                         .single();
-
                     if (user) {
-                        assignedToUser = user;
+                        assignedToObj = { ...user };
                     }
                 }
 
@@ -1800,11 +1890,6 @@ class TicketService {
                 const primaryCompany = companies?.[0]?.companies ||
                     (primaryCustomer?.company ? primaryCustomer.company : null);
                 const recipientEmails = mentions?.map(m => m.users?.email).filter(Boolean) || [];
-                const formattedTags = tagData?.map(tag => ({
-                    id: tag.id,
-                    name: tag.name,
-                    color: tag.color
-                })) || [];
 
                 return {
                     id: ticket.id,
@@ -1842,17 +1927,13 @@ class TicketService {
                     assigneeStatus: assignees?.[0]?.users ? 'Assigned' : 'Unassigned',
 
                     assignedTo: ticket.assignedTo,
-                    assignedToUser: assignedToUser ? {
-                        id: assignedToUser.id,
-                        name: assignedToUser.name,
-                        email: assignedToUser.email
-                    } : null,
+                    assignedToUser: assignedToObj,
 
+                    teamIds: (ticketTeamsMap[ticket.id] || []).map(t => t.id),
+                    teams: ticketTeamsMap[ticket.id] || [],
+                    // legacy single team fields kept for backward compatibility
                     teamId: ticket.teamId,
-                    team: teamData ? {
-                        id: teamData.id,
-                        name: teamData.name
-                    } : null,
+                    team: ticketTeamsMap[ticket.id] || [],
 
                     lastMessage: ticket.lastMessage,
                     lastMessageAt: ticket.lastMessageAt,
@@ -1892,7 +1973,17 @@ class TicketService {
                 };
             });
 
-            return enrichedTickets;
+            // Add a count query for total bot tickets
+            const { count: totalCount, error: countError } = await supabase
+                .from(this.entityName)
+                .select('*', { count: 'exact', head: true })
+                .in('assignedTo', botUserIds)
+                .match({ workspaceId: req.workspaceId, clientId: req.clientId });
+
+            if (countError) throw new errors.DBError(countError.message);
+
+            // Return tickets with total count
+            return { data: enrichedTickets, total: totalCount || 0 };
         } catch (err) {
             console.error("Error in listBotTickets:", err);
             throw err;
@@ -1988,6 +2079,95 @@ class TicketService {
             return await this.getTicketTagsById(ticketId, workspaceId, clientId);
         } catch (err) {
             console.error("Error updating ticket tags:", err);
+            throw err;
+        }
+    }
+
+    async getTicketTeamsById(ticketId, workspaceId, clientId) {
+        try {
+            const { data: ticketTeams, error } = await supabase
+                .from('ticket_teams')
+                .select(`
+                    team_id,
+                    teams (
+                        id,
+                        name
+                    )
+                `)
+                .eq('ticket_id', ticketId)
+                .eq('workspace_id', workspaceId)
+                .eq('client_id', clientId);
+
+            if (error) {
+                throw new errors.DBError(error.message);
+            }
+
+            const teams = ticketTeams?.map(tt => ({
+                id: tt.teams.id,
+                name: tt.teams.name
+            })) || [];
+
+            return {
+                ticketId,
+                teams,
+                count: teams.length
+            };
+        } catch (err) {
+            console.error("Error getting ticket teams:", err);
+            throw err;
+        }
+    }
+
+    async updateTicketTeamsById(ticketId, teamIds, workspaceId, clientId, userId) {
+        try {
+            // Verify ticket exists
+            const { data: ticket, error: ticketError } = await supabase
+                .from('tickets')
+                .select('id')
+                .eq('id', ticketId)
+                .eq('workspaceId', workspaceId)
+                .eq('clientId', clientId)
+                .single();
+
+            if (ticketError) {
+                throw new errors.NotFound("Ticket not found");
+            }
+
+            // Delete existing team mappings for this ticket
+            const { error: deleteError } = await supabase
+                .from('ticket_teams')
+                .delete()
+                .eq('ticket_id', ticketId)
+                .eq('workspace_id', workspaceId)
+                .eq('client_id', clientId);
+
+            if (deleteError) {
+                throw new errors.DBError(deleteError.message);
+            }
+
+            // Insert new team mappings if provided
+            if (teamIds && teamIds.length > 0) {
+                const teamEntries = teamIds.map(teamId => ({
+                    ticket_id: ticketId,
+                    team_id: teamId,
+                    workspace_id: workspaceId,
+                    client_id: clientId,
+                    created_at: new Date().toISOString(),
+                }));
+
+                const { error: insertError } = await supabase
+                    .from('ticket_teams')
+                    .insert(teamEntries);
+
+                if (insertError) {
+                    throw new errors.DBError(insertError.message);
+                }
+            }
+
+            // Return updated list of teams
+            return await this.getTicketTeamsById(ticketId, workspaceId, clientId);
+        } catch (err) {
+            console.error("Error updating ticket teams:", err);
             throw err;
         }
     }

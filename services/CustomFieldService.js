@@ -121,7 +121,16 @@ class CustomFieldService extends BaseService {
             }
         }
         if (field.fieldType === "boolean") {
-            if (fieldValue !== true && fieldValue !== false) {
+            const validBoolean = (val) => {
+                if (typeof val === "boolean") return true;
+                if (typeof val === "string") {
+                    const lc = val.toLowerCase();
+                    return lc === "true" || lc === "false";
+                }
+                return false;
+            };
+
+            if (!validBoolean(fieldValue)) {
                 return Promise.reject(new errors.BadRequest("Invalid field value."));
             }
         }
