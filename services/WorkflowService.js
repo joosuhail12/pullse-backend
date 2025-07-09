@@ -249,8 +249,8 @@ class WorkflowService extends BaseService {
                             .select('*')
                             .eq('team_id', team.teamId)
                             .eq('ticket_id', ticketId);
-                        if (ticketTeamError) throw new Error(`Fetch failed: ${ticketTeamError.message}`);
-                        if (ticketTeam && ticketTeam.length > 0) {
+                        if (ticketTeamCheckError) throw new Error(`Fetch failed: ${ticketTeamCheckError.message}`);
+                        if (ticketTeamCheck && ticketTeamCheck.length > 0) {
                             // team and ticket are already in ticket_teams table
                             continue;
                         }
