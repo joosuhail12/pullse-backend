@@ -44,17 +44,19 @@ class TeamService {
                 .single();
 
             if (teamError) throw teamError;
-            if(chatChannel && chatChannel.length > 0){
-                for(const chat of chatChannel){
-                    const { data: chatChannelData, error: chatError } = await supabase
-                        .from('teamChannels')
-                        .insert([{
-                            teamId: createdTeam.id,
-                            widgetId: chat
-                        }])
-                        .select('teamId');
-                    if (chatError) throw chatError;
+            // Simple insertion into teamChannels covering email and chat as per rules
+            const emailIds = emailChannel ? [emailChannel] : [];
+            const chatIds = chatChannel ? chatChannel.map(ch => (typeof ch === 'string' ? ch : ch?.id)).filter(Boolean) : [];
+            if (emailIds.length || chatIds.length) {
+                const rows = [];
+                for (let i = 0; i < Math.max(emailIds.length, chatIds.length); i++) {
+                    const row = { teamId: createdTeam.id };
+                    if (i < emailIds.length) row.channelId = emailIds[i];
+                    if (i < chatIds.length) row.widgetId = chatIds[i];
+                    rows.push(row);
                 }
+                const { error: insErr } = await supabase.from('teamChannels').insert(rows);
+                if (insErr) throw insErr;
             }
             // Fetch available team members
             const { data: availableMembers, error: availableMembersError } = await supabase
@@ -63,7 +65,7 @@ class TeamService {
                 .is("deletedAt", null);
 
             if (availableMembersError) throw availableMembersError;
-            
+
             const selectedMembers = availableMembers.map(user => members.includes(user.id) ? user.id : null).filter(Boolean);
             const memberEntries = selectedMembers.map(userId => ({
                 team_id: createdTeam.id,
@@ -117,23 +119,33 @@ class TeamService {
 
             if (filters.name) {
                 query = query.ilike("name", `%${filters.name}%`);
-            }   
-
-            //list team channels
-            const { data: teamChannels, error: teamChannelsError } = await supabase
-                .from('teamChannels')
-                .select('teamId, widget:widgetId(id, name)')
-                .eq('teamId', filters.id);
+            }
 
             const { data, error } = await query;
-            
-            const chatChannels = teamChannels ? teamChannels.map(c => c.widget) : [];   
             if (error) throw error;
-            // Transform response to ensure `teamMembers` is an array
+
+            // Build complete channel mapping for all returned teams
+            const teamIds = data.map(t => t.id);
+            let channelMap = {};
+            if (teamIds.length) {
+                const { data: tcRows } = await supabase
+                    .from('teamChannels')
+                    .select('teamId, widget:widgetId(id,name), emailChan:channelId(id,name,emailAddress)')
+                    .in('teamId', teamIds);
+
+                if (tcRows) {
+                    tcRows.forEach(r => {
+                        if (!channelMap[r.teamId]) channelMap[r.teamId] = { chat: [], email: [] };
+                        if (r.widget) channelMap[r.teamId].chat.push(r.widget);
+                        if (r.emailChan) channelMap[r.teamId].email.push({ name: r.emailChan.name, emailAddress: r.emailChan.emailAddress });
+                    });
+                }
+            }
+
             return data.map(team => ({
                 ...team,
                 teamMembers: team.teamMembers ? team.teamMembers.map(m => m.users) : [],
-                channels: {chat: chatChannels}
+                channels: channelMap[team.id] || { chat: [], email: [] }
             }));
 
         } catch (error) {
@@ -166,16 +178,24 @@ class TeamService {
                 }
                 throw error;
             }
-            //list team channels
-            const { data: teamChannels, error: teamChannelsError } = await supabase
+            // gather chat & email channels for this team
+            const { data: chanRows } = await supabase
                 .from('teamChannels')
-                .select('teamId, widget:widgetId(id, name)')
+                .select('widget:widgetId(id,name), emailChan:channelId(id,name,emailAddress)')
                 .eq('teamId', id);
-            const chatChannels = teamChannels ? teamChannels.map(c => c.widget) : [];
+
+            const chats = [], emails = [];
+            if (chanRows) {
+                chanRows.forEach(r => {
+                    if (r.widget) chats.push(r.widget);
+                    if (r.emailChan) emails.push({ name: r.emailChan.name, emailAddress: r.emailChan.emailAddress });
+                });
+            }
+
             return {
                 ...team,
                 teamMembers: team.teamMembers ? team.teamMembers.map(m => m.users) : [],
-                channels: {chat: chatChannels}
+                channels: { chat: chats, email: emails }
             };
         } catch (error) {
             // console.log(error);
@@ -192,42 +212,30 @@ class TeamService {
             teamUpdateValues.workspaceId = workspaceId;
             teamUpdateValues.clientId = clientId;
 
-            // update channels   
-            if (channels && channels.email && channels.email.length > 0) {
-                const { data: channelData, error: channelError } = await supabase
-                    .from("emailchannels")
-                    .select("id")
-                    .eq("emailAddress", channels.email[0])
-                    .maybeSingle();
+            // ----- Simplified channel handling for update -----
+            const emailIdsUpd = channels?.email || updateValues.email || [];
+            const chatIdsUpd = (channels?.chat || updateValues.chat || []).map(ch => (typeof ch === 'string' ? ch : ch?.id)).filter(Boolean);
 
-                if (channelError) throw channelError;
+            // Update teamData.channels column with first email id if any
+            if (emailIdsUpd.length) {
+                teamUpdateValues.channels = emailIdsUpd[0];
+            } else {
+                delete teamUpdateValues.channels;
+            }
 
-                if (channelData) {
-                    teamUpdateValues.channels = channelData.id;
-                } else {
-                    // Email channel doesn't exist, skip setting channels
-                    // console.log(`Email channel ${channels.email[0]} not found, skipping channel update`);
-                    delete teamUpdateValues.channels;
+            // Recreate teamChannels mapping
+            await supabase.from('teamChannels').delete().eq('teamId', id);
+            const maxLenUpd = Math.max(emailIdsUpd.length, chatIdsUpd.length);
+            if (maxLenUpd > 0) {
+                const rowsUpd = [];
+                for (let i = 0; i < maxLenUpd; i++) {
+                    const row = { teamId: id };
+                    if (i < emailIdsUpd.length) row.channelId = emailIdsUpd[i];
+                    if (i < chatIdsUpd.length) row.widgetId = chatIdsUpd[i];
+                    rowsUpd.push(row);
                 }
-            } else if (channels && channels.chat && channels.chat.length > 0) {
-                // add chat channel to team in loop of chat channels
-                for (const chatChannel of channels.chat) {
-                    const { data: chatChannelData, error: chatError } = await supabase
-                        .from('teamChannels')
-                        .insert([{
-                            teamId: id,
-                            widgetId: chatChannel
-                        }])
-                        .select('teamId');
-
-                    if (chatError) throw chatError;
-
-                    if (chatChannelData) {
-                        teamUpdateValues.channels = chatChannelData.teamId;
-                    } else {
-                        delete teamUpdateValues.channels;
-                    }
-                }
+                const { error: insErr2 } = await supabase.from('teamChannels').insert(rowsUpd);
+                if (insErr2) throw insErr2;
             }
 
             // Update the team data without members

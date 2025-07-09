@@ -47,7 +47,16 @@ async function activate(app) {
             type: 'object',
             additionalProperties: {
               type: 'array',
-              items: { type: 'string' }
+              items: {
+                anyOf: [
+                  { type: 'string' },
+                  {
+                    type: 'object',
+                    properties: { id: { type: 'string' }, name: { type: 'string' } },
+                    required: ['id']
+                  }
+                ]
+              }
             }
           },
           routingStrategy: {
@@ -170,7 +179,16 @@ async function activate(app) {
             type: 'object',
             additionalProperties: {
               type: 'array',
-              items: { type: 'string' }
+              items: {
+                anyOf: [
+                  { type: 'string' },
+                  {
+                    type: 'object',
+                    properties: { id: { type: 'string' }, name: { type: 'string' } },
+                    required: ['id']
+                  }
+                ]
+              }
             }
           },
           routingStrategy: {
