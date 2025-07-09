@@ -24,7 +24,28 @@ class PreBuildActionHandler extends BaseHandler {
         return this.responder(req, reply, inst.getPreBuildActionByClientId(query));
     }
 
-    
+    async getPrebuildSelectedApps(req, reply) {
+        const inst = new PreBuildActionService();
+        console.log(req.authUser, "req.authUser---");
+        const query = {
+            clientId: req.authUser.clientId,
+            workspaceId: req.authUser.defaultWorkspaceId,
+            userId: req.authUser.id
+        };
+        return this.responder(req, reply, inst.getPrebuildSelectedApps(query));
+    }
+
+    async generatePrebuildAppConnections(req, reply) {
+        const inst = new PreBuildActionService();
+        const query = {
+            clientId: req.authUser.clientId,
+            workspaceId: req.authUser.defaultWorkspaceId,
+            userId: req.authUser.id,
+            toolName: req.body.toolName
+        };
+        console.log(query, "query---");
+        return this.responder(req, reply, inst.generatePrebuildAppConnections(query));
+    }
 }
 
 module.exports =  PreBuildActionHandler;

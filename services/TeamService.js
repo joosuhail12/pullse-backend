@@ -183,6 +183,24 @@ class TeamService {
                 .from('teamChannels')
                 .select('widget:widgetId(id,name), emailChan:channelId(id,name,emailAddress)')
                 .eq('teamId', id);
+            const chatChannels = teamChannels ? teamChannels.map(c => c.widget) : [];
+            // get all the teams for this clientId and workspaceId
+            const { data: teamsData, error: teamsDataError } = await supabase
+                .from('teams')
+                .select('id, name')
+                .eq('clientId', clientId)
+                .eq('workspaceId', workspaceId);
+            const teams = teamsData ? teamsData.map(c => c.id) : [];
+            //check if any team channel is present for this clientId and workspaceId
+            let teamChennelCheckAccess = false;
+            const { data: teamChannelCheck, error: teamChannelCheckError } = await supabase
+                .from('teamChannels')
+                .select('teamId')
+                .in('teamId', teams);
+            if (teamChannelCheckError) throw teamChannelCheckError;
+            if (teamChannelCheck && teamChannelCheck.length > 0) {
+                teamChennelCheckAccess = true;
+            }
 
             const chats = [], emails = [];
             if (chanRows) {
@@ -195,10 +213,11 @@ class TeamService {
             return {
                 ...team,
                 teamMembers: team.teamMembers ? team.teamMembers.map(m => m.users) : [],
-                channels: { chat: chats, email: emails }
+                channels: { chat: chats, email: emails },
+                teamChennelCheckAccess: teamChennelCheckAccess
             };
         } catch (error) {
-            // console.log(error);
+            console.log(error);
             this.handleError(error);
         }
     }
@@ -302,7 +321,7 @@ class TeamService {
                 }
             };
         } catch (error) {
-            // console.log(error, "error---");
+            console.log(error, "error---");
             return Promise.reject(this.handleError(error));
         }
     }
