@@ -164,6 +164,7 @@ class TicketService {
             if (teamsError) throw new errors.DBError(teamsError.message);
             const teamIds = teams.map(team => team.team_id);
             // get all tickets id from ticket_teams for the teams in loop
+            console.log(teamIds, "teamIds---");
             const tickets = [];
             for (const teamId of teamIds) {
                 const { data: teamTickets, error: ticketsError } = await supabase
@@ -178,6 +179,7 @@ class TicketService {
 
             }
             // get all tickets from the tickets table
+            console.log(tickets, "tickets---");
             const { data: ticketsData, error: ticketsDataError } = await supabase
                 .from(this.entityName)
                 .select('*, assignedTo(id, name, email, bot_enabled)')
