@@ -183,7 +183,7 @@ class TeamService {
                 .from('teamChannels')
                 .select('widget:widgetId(id,name), emailChan:channelId(id,name,emailAddress)')
                 .eq('teamId', id);
-            const chatChannels = teamChannels ? teamChannels.map(c => c.widget) : [];
+            // const chatChannels = teamChannels ? teamChannels.map(c => c.widget) : [];
             // get all the teams for this clientId and workspaceId
             const { data: teamsData, error: teamsDataError } = await supabase
                 .from('teams')
