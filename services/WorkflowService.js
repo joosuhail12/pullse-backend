@@ -1654,6 +1654,7 @@ class WorkflowService extends BaseService {
 
     checkUnresponsiveTriggerNodes(ticketId, workflowId) {
         try {
+            console.log("Checking unresponsive trigger nodes for ticket", ticketId, "and workflow", workflowId);
             this.supabase
                 .from('workflownode')
                 .select('*')
@@ -1667,7 +1668,6 @@ class WorkflowService extends BaseService {
                         const timeout = config.timeout;
                         const timeoutUnit = config.timeoutUnit;
                         const timeoutInMinutes = timeout * (timeoutUnit === 'minutes' ? 1 : timeoutUnit === 'hours' ? 60 : 1440);
-
                         // Insert a entry in ticketworkflowunresponsiverelation table
                         this.supabase
                             .from('ticketworkflowunresponsiverelation')
@@ -3042,12 +3042,18 @@ class WorkflowService extends BaseService {
                 return;
             }
 
+            console.log("Ticket workflow unresponsiveness relation", ticketWorkflowUnresponsiveRelation);
+
             // Check the tickets that have to be checked for unresponsiveness
-            const ticketsToCheck = ticketWorkflowUnresponsiveRelation.filter((item) => {
-                const lastCheckTime = item.lastCheckTime; //Timestampz
+            let ticketsToCheck = ticketWorkflowUnresponsiveRelation.filter((item) => {
+                const lastCheckTime = new Date(item.lastCheckTime).getTime(); //Timestampz
                 const timeInMinutes = item.timeInMinutes; // Time in minutes to wait for 
                 const now = Date.now(); // Current timestamp
                 const timeDiff = now - lastCheckTime; // Time difference in milliseconds
+                console.log("Time difference", timeDiff);
+                console.log("Time in minutes", timeInMinutes);
+                console.log("Now", now);
+                console.log("Last check time", lastCheckTime);
                 return timeDiff >= timeInMinutes * 60 * 1000; // Check if the time difference is greater than the time in minutes
             });
 
@@ -3090,29 +3096,168 @@ class WorkflowService extends BaseService {
 
             // now get all last message of customer and agent
             if (customerUnresponsivenessTickets.length > 0) {
-                // Fetch last message of customer
-                const { data: customerLastMessages, error: customerLastMessageError } = await this.supabase
-                    .from('conversations')
-                    .select('*')
-                    .in('ticketId', customerUnresponsivenessTickets.map((item) => item.ticketId))
-                    .eq('userType', 'customer')
+                for (const ticket of customerUnresponsivenessTickets) {
+                    // Fetch last message of customer
+                    const { data: customerLastMessages, error: customerLastMessageError } = await this.supabase
+                        .from('conversations')
+                        .select('*')
+                        .eq('ticketId', ticket.ticketId)
+                        .eq('userType', 'customer')
+                        .order('createdAt', { ascending: false })
+                        .limit(1)
+                        .single();
 
-                if (customerLastMessageError) throw new Error(`Fetch failed: ${customerLastMessageError.message}`);
+                    if (customerLastMessageError) throw new Error(`Fetch failed: ${customerLastMessageError.message}`);
 
-                console.log("Customer last message", customerLastMessages);
+                    console.log("Customer last message", customerLastMessages);
+
+                    // Check if the last message is older than the time in minutes
+                    if (Date.now() - new Date(customerLastMessages.createdAt).getTime() > ticket.timeInMinutes * 60 * 1000) {
+                        console.log("Customer last message is older than the time in minutes");
+                        // Delete the ticket from the ticketWorkflowUnresponsiveRelation array
+                        const { data: deletedTicket, error: deletedTicketError } = await this.supabase
+                            .from('ticketworkflowunresponsiverelation')
+                            .delete()
+                            .eq('ticketId', ticket.ticketId)
+                            .eq('typeOfUnresponsiveness', 'customer');
+
+                        if (deletedTicketError) throw new Error(`Delete failed: ${deletedTicketError.message}`);
+                        console.log("Deleted ticket", deletedTicket);
+
+                        // Fetch the ticket from db
+                        const { data: ticketData, error: ticketDataError } = await this.supabase
+                            .from('tickets')
+                            .select('*')
+                            .eq('id', ticket.ticketId)
+                            .single();
+
+                        if (ticketDataError) throw new Error(`Fetch failed: ${ticketDataError.message}`);
+
+                        const isValid = await this.validateWorkflow(ticket.workflowId, ticketData.workspaceId, ticketData.clientId, true, true, ticket.ticketId, null, null);
+
+                        if (!isValid) {
+                            console.log("Workflow is not valid, skipping");
+                            continue;
+                        }
+
+                        const data = {
+                            workflowId: workflow.id,
+                            ticketId: ticket.ticketId,
+                            contactId: ticketData?.customerId,
+                        };
+
+                        // Find the company id of the customer if exists
+                        if (ticketData?.customerId) {
+                            const { data: company, error: companyError } = await this.supabase
+                                .from('company')
+                                .select('*')
+                                .eq('id', ticketData.customerId)
+                                .is('deletedAt', null)
+                                .single();
+
+                            if (company && !companyError) {
+                                data["companyId"] = company.id;
+                            }
+                        }
+
+                        const temporalServerUtils = TemporalServerUtils.getInstance();
+                        temporalServerUtils.startWorkflow(data);
+                        console.log("Found a active workflow, send to temporal");
+                    } else {
+                        // Update the last check time
+                        const { data: updatedTicket, error: updatedTicketError } = await this.supabase
+                            .from('ticketworkflowunresponsiverelation')
+                            .update({ lastCheckTime: 'now()' }) // Use postgres now() function to get the current timestamp
+                            .eq('ticketId', ticket.ticketId)
+                            .eq('typeOfUnresponsiveness', 'customer');
+
+                        if (updatedTicketError) throw new Error(`Update failed: ${updatedTicketError.message}`);
+                        console.log("Updated last check time", updatedTicket);
+                    }
+                }
             }
 
             if (teammateUnresponsivenessTickets.length > 0) {
-                // Fetch last message of agent
-                const { data: agentLastMessages, error: agentLastMessageError } = await this.supabase
-                    .from('conversations')
-                    .select('*')
-                    .in('ticketId', teammateUnresponsivenessTickets.map((item) => item.ticketId))
-                    .eq('userType', 'agent')
+                for (const ticket of teammateUnresponsivenessTickets) {
+                    // Fetch last message of customer
+                    const { data: agentLastMessages, error: agentLastMessageError } = await this.supabase
+                        .from('conversations')
+                        .select('*')
+                        .eq('ticketId', ticket.ticketId)
+                        .eq('userType', 'agent')
+                        .order('createdAt', { ascending: false })
+                        .limit(1)
+                        .single();
 
-                if (agentLastMessageError) throw new Error(`Fetch failed: ${agentLastMessageError.message}`);
+                    if (agentLastMessageError) throw new Error(`Fetch failed: ${agentLastMessageError.message}`);
 
-                console.log("Agent last message", agentLastMessages);
+                    console.log("Agent last message", agentLastMessages);
+
+                    // Check if the last message is older than the time in minutes
+                    if (Date.now() - new Date(agentLastMessages.createdAt).getTime() > ticket.timeInMinutes * 60 * 1000) {
+                        console.log("Agent last message is older than the time in minutes");
+
+                        // Delete the ticket from the ticketWorkflowUnresponsiveRelation array
+                        const { data: deletedTicket, error: deletedTicketError } = await this.supabase
+                            .from('ticketworkflowunresponsiverelation')
+                            .delete()
+                            .eq('ticketId', ticket.ticketId)
+                            .eq('typeOfUnresponsiveness', 'agent');
+
+                        if (deletedTicketError) throw new Error(`Delete failed: ${deletedTicketError.message}`);
+                        console.log("Deleted ticket", deletedTicket);
+
+                        // Fetch the ticket from db
+                        const { data: ticketData, error: ticketDataError } = await this.supabase
+                            .from('tickets')
+                            .select('*')
+                            .eq('id', ticket.ticketId)
+                            .single();
+
+                        if (ticketDataError) throw new Error(`Fetch failed: ${ticketDataError.message}`);
+
+                        const isValid = await this.validateWorkflow(ticket.workflowId, ticketData.workspaceId, ticketData.clientId, true, true, ticket.ticketId, null, null);
+
+                        if (!isValid) {
+                            console.log("Workflow is not valid, skipping");
+                            continue;
+                        }
+
+                        const data = {
+                            workflowId: workflow.id,
+                            ticketId: ticket.ticketId,
+                            contactId: ticketData?.customerId,
+                        };
+
+                        // Find the company id of the customer if exists
+                        if (ticketData?.customerId) {
+                            const { data: company, error: companyError } = await this.supabase
+                                .from('company')
+                                .select('*')
+                                .eq('id', ticketData.customerId)
+                                .is('deletedAt', null)
+                                .single();
+
+                            if (company && !companyError) {
+                                data["companyId"] = company.id;
+                            }
+                        }
+
+                        const temporalServerUtils = TemporalServerUtils.getInstance();
+                        temporalServerUtils.startWorkflow(data);
+                        console.log("Found a active workflow, send to temporal");
+                    } else {
+                        // Update the last check time
+                        const { data: updatedTicket, error: updatedTicketError } = await this.supabase
+                            .from('ticketworkflowunresponsiverelation')
+                            .update({ lastCheckTime: 'now()' }) // Use postgres now() function to get the current timestamp
+                            .eq('ticketId', ticket.ticketId)
+                            .eq('typeOfUnresponsiveness', 'agent');
+
+                        if (updatedTicketError) throw new Error(`Update failed: ${updatedTicketError.message}`);
+                        console.log("Updated last check time", updatedTicket);
+                    }
+                }
             }
 
         } catch (e) {
