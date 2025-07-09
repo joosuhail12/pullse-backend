@@ -677,6 +677,60 @@ class TeamService {
     }
 
     /**
+     * Get unique teammates associated with the same teams as a ticket (excluding requesting user)
+     */
+    async getTicketTeammates(ticketId, workspaceId, clientId, excludeUserId) {
+        try {
+            // 1. Find all team ids linked to this ticket
+            const { data: teamRows, error: tErr } = await supabase
+                .from('ticket_teams')
+                .select('team_id')
+                .eq('ticket_id', ticketId);
+
+            if (tErr) throw tErr;
+            if (!teamRows || teamRows.length === 0) return [];
+
+            const teamIds = [...new Set(teamRows.map(r => r.team_id))];
+
+            // 2. Fetch members (join to users) excluding current user
+            const { data: memberRows, error: mErr } = await supabase
+                .from(this.memberTable)
+                .select(`user_id, users: user_id (id, name, email, status, lastLoggedInAt, created_at, avatar, teamId, createdBy)`)
+                .in('team_id', teamIds)
+                .neq('user_id', excludeUserId || null);
+
+            if (mErr) throw mErr;
+
+            if (!memberRows) return [];
+
+            // 3. Deduplicate by user_id
+            const uniqueMap = {};
+            memberRows.forEach(r => {
+                const u = r.users;
+                if (u && !uniqueMap[u.id]) {
+                    uniqueMap[u.id] = {
+                        id: u.id,
+                        name: u.name,
+                        email: u.email,
+                        role: null,
+                        status: u.status || 'active',
+                        teamId: u.teamId,
+                        createdBy: u.createdBy,
+                        createdAt: u.created_at,
+                        lastActive: u.lastLoggedInAt,
+                        avatar: u.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(u.name)}`
+                    };
+                }
+            });
+
+            return Object.values(uniqueMap);
+        } catch (err) {
+            console.error('Error getting ticket teammates:', err);
+            return Promise.reject(this.handleError(err));
+        }
+    }
+
+    /**
      * Helper method to handle errors
      */
     handleError(error) {

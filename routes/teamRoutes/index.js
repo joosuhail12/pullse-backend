@@ -498,6 +498,31 @@ async function activate(app) {
       ));
     }
   });
+
+  // route for ticket teammates
+  app.route({
+    url: base_url + "/ticket/:ticket_id/teammates",
+    method: 'GET',
+    name: "GetTicketTeammates",
+    preHandler: authMiddlewares.checkToken(AuthType.user),
+    schema: {
+      tags: ['teams'],
+      summary: 'Get teammates for ticket',
+      description: 'Returns unique teammates belonging to teams assigned to a ticket, excluding current user.',
+      params: {
+        type: 'object',
+        properties: { ticket_id: { type: 'string' } },
+        required: ['ticket_id']
+      },
+      query: {
+        type: 'object',
+        properties: { workspace_id: { type: 'string' } }
+      }
+    },
+    handler: async (req, reply) => {
+      return handler.getTicketTeammates(req, reply);
+    }
+  });
 }
 
 module.exports = {
