@@ -122,12 +122,15 @@ class TeamHandler extends BaseHandler {
     const clientId = req.authUser.clientId;
     const workspaceId = req.query.workspace_id;
 
+    this.sanitizeQuery(req.query);
+    const withCurrentUser = req.query.withCurrentUser === 'true' || req.query.withCurrentUser === true;
+
     if (!userId) {
       return this.responder(req, reply, Promise.reject(new Error('User ID is required')));
     }
 
     let inst = new TeamService();
-    return this.responder(req, reply, inst.getUserTeammates(userId, workspaceId, clientId));
+    return this.responder(req, reply, inst.getUserTeammates(userId, workspaceId, clientId, withCurrentUser));
   }
 
   async addTeammateToTeam(req, reply) {

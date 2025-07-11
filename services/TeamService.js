@@ -539,10 +539,8 @@ class TeamService {
     }
 
     // Get all teammates for a user across all teams
-    async getUserTeammates(userId, workspaceId, clientId) {
+    async getUserTeammates(userId, workspaceId, clientId, withCurrentUser = false) {
         try {
-            // console.log(`Getting all teammates for user ${userId}`);
-
             // Step 1: Find all teams the user belongs to
             const { data: userTeamMemberships, error: membershipError } = await supabase
                 .from(this.memberTable)
@@ -555,20 +553,23 @@ class TeamService {
             }
 
             if (!userTeamMemberships || userTeamMemberships.length === 0) {
-                console.log(`User ${userId} doesn't belong to any teams`);
                 return [];
             }
 
             // Extract team IDs
             const teamIds = userTeamMemberships.map(membership => membership.team_id);
-            // console.log(`Found ${teamIds.length} teams for user ${userId}`);
 
-            // Step 2: Find all user_ids in these teams (excluding the original user)
-            const { data: teammates, error: teammatesError } = await supabase
+            // Step 2: Find all user_ids in these teams (conditionally excluding the original user)
+            let teammatesQuery = supabase
                 .from(this.memberTable)
                 .select('user_id')
-                .in('team_id', teamIds)
-                .neq('user_id', userId);  // Exclude the original user
+                .in('team_id', teamIds);
+
+            if (!withCurrentUser) {
+                teammatesQuery = teammatesQuery.neq('user_id', userId);  // Exclude the original user
+            }
+
+            const { data: teammates, error: teammatesError } = await teammatesQuery;
 
             if (teammatesError) {
                 console.error("Error fetching teammates:", teammatesError);
@@ -576,8 +577,12 @@ class TeamService {
             }
 
             // Extract unique user IDs
-            const teammateIds = [...new Set(teammates.map(tm => tm.user_id))];
-            // console.log(`Found ${teammateIds.length} unique teammates`);
+            let teammateIds = [...new Set(teammates.map(tm => tm.user_id))];
+
+            // If withCurrentUser is true, ensure the current user is included
+            if (withCurrentUser && !teammateIds.includes(userId)) {
+                teammateIds.push(userId);
+            }
 
             if (teammateIds.length === 0) {
                 return [];
@@ -590,7 +595,6 @@ class TeamService {
                 .in('id', teammateIds)
                 .eq('clientId', clientId)
                 .is('deletedAt', null);
-            // .eq('workspaceId', workspaceId)
 
             if (detailsError) {
                 console.error("Error fetching teammate details:", detailsError);
@@ -611,7 +615,6 @@ class TeamService {
                 avatar: user.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(user.name)}`
             }));
 
-            // console.log(`Returning ${formattedTeammates.length} teammates for user ${userId}`);
             return formattedTeammates;
         } catch (error) {
             console.error('Error getting user teammates:', error);
