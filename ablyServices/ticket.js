@@ -43,24 +43,24 @@ exports.handleNewTicket = async function handleNewTicket({ workspaceId, sessionI
   if (tErr) throw tErr;
   const ticketId = ticket.id;
   const IS = new InternalService();
-  let assigneeId;
-  if (aiEnabled) {
-    assigneeId = await IS.getAssignedAgent(clientId);
-  } else {
-    assigneeId = await IS.ticketRouting(ticketId, teamId);
-  }
+  let assigneeId = "";
+  // if (aiEnabled) {
+  //   assigneeId = await IS.getAssignedAgent(clientId);
+  // } else {
+  //   assigneeId = await IS.ticketRouting(ticketId, teamId);
+  // }
   // prepare welcome / save conv parallel
-  const agentNamePromise = assigneeId
-    ? supabase.from('users').select('firstname, lastname').eq('id', assigneeId).single()
-    : Promise.resolve({ data: null });
-  const themePromise = supabase.from('widgettheme').select('labels').eq('widgetId', widgetId).single();
-  const [agentRow, themeRow] = await Promise.all([agentNamePromise, themePromise]);
+  // const agentNamePromise = assigneeId
+  //   ? supabase.from('users').select('firstname, lastname').eq('id', assigneeId).single()
+  //   : Promise.resolve({ data: null });
+  // const themePromise = supabase.from('widgettheme').select('labels').eq('widgetId', widgetId).single();
+  // const [agentRow, themeRow] = await Promise.all([agentNamePromise, themePromise]);
 
-  const welcome = themeRow.data?.labels?.welcomeMessage || 'Hello!';
-  const agentName = agentRow.data ? `${agentRow.data.firstname} ${agentRow.data.lastname}` : null;
+  // const welcome = themeRow.data?.labels?.welcomeMessage || 'Hello!';
+  // const agentName = agentRow.data ? `${agentRow.data.firstname} ${agentRow.data.lastname}` : null;
 
-  await IS.saveConversation(ticketId, welcome, assigneeId, 'agent', agentName, clientId, workspaceId);
-  await IS.saveConversation(ticketId, firstMessage, customerId, userType, `${firstname} ${lastname}`, clientId, workspaceId);
+  // await IS.saveConversation(ticketId, welcome, assigneeId, 'agent', agentName, clientId, workspaceId);
+  await IS.saveConversation(ticketId, firstMessage, customerId, userType, `${session.customers.firstname} ${session.customers.lastname}`, clientId, workspaceId);
 
   // notify widget
   ablyRest.channels.get(`widget:contactevent:${sessionId}`)
