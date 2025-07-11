@@ -369,6 +369,11 @@ async function activate(app) {
         workspace_id: {
           type: 'string',
           description: 'ID of the workspace'
+        },
+        withCurrentUser: {
+          type: 'boolean',
+          default: false,
+          description: 'Include current user in teammates list'
         }
       }
     },
