@@ -60,7 +60,7 @@ exports.handleNewTicket = async function handleNewTicket({ workspaceId, sessionI
   // const agentName = agentRow.data ? `${agentRow.data.firstname} ${agentRow.data.lastname}` : null;
 
   // await IS.saveConversation(ticketId, welcome, assigneeId, 'agent', agentName, clientId, workspaceId);
-  await IS.saveConversation(ticketId, firstMessage, customerId, userType, `${session.customers.firstname} ${session.customers.lastname}`, clientId, workspaceId);
+  await IS.saveConversation(ticketId, firstMessage, session.customers.id, userType, `${session.customers.firstname} ${session.customers.lastname}`, session.clients.id, workspaceId);
 
   // notify widget
   ablyRest.channels.get(`widget:contactevent:${sessionId}`)
