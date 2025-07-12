@@ -67,7 +67,7 @@ class UserRoleService extends BaseService {
         }
     }
 
-    async listAvailableRoles() {
+    async listAvailableRoles({ excludeAdminRoles = true } = {}) {
         try {
             let query = this.supabase
                 .from("userRoles")
@@ -79,7 +79,11 @@ class UserRoleService extends BaseService {
 
             if (error) throw error;
 
-            return data || [];
+            let filtered = data || [];
+            if (excludeAdminRoles) { // # ai generated
+                filtered = filtered.filter(role => role.name !== "SUPER_ADMIN" && role.name !== "WORKSPACE_ADMIN"); // # ai generated
+            }
+            return filtered;
         } catch (e) {
             console.log("Error in listAvailableRoles() of UserRoleService", e);
             return Promise.reject(e);

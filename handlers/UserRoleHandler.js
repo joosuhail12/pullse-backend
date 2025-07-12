@@ -16,7 +16,9 @@ class UserRoleHandler extends BaseHandler {
 
   async listRoles(req, reply) {
     let inst = new UserRoleService();
-    return this.responder(req, reply, inst.listAvailableRoles());
+    // Allow excludeAdminRoles to be controlled via query param, default true
+    const excludeAdminRoles = req.query && typeof req.query.excludeAdminRoles !== 'undefined' ? req.query.excludeAdminRoles === 'true' : true; // # ai generated
+    return this.responder(req, reply, inst.listAvailableRoles({ excludeAdminRoles }));
   }
 
   async showRoleDetail(req, reply) {

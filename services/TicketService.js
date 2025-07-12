@@ -148,7 +148,9 @@ class TicketService {
 
     async listTickets(req) {
         try {
-            const { clientId, workspaceId, userId } = req;
+            const { clientId, workspaceId, userId, skip = 0, limit = 10, page = 1 } = req;
+            // Convert page to skip if page is provided
+            const actualSkip = page > 1 ? (page - 1) * limit : skip;
             const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
             if (!uuidRegex.test(clientId)) {
                 throw new errors.ValidationFailed(`Invalid clientId: ${clientId}`);
@@ -178,14 +180,41 @@ class TicketService {
                 }
 
             }
-            // get all tickets from the tickets table
+
+            // Get all ticket IDs for the count query
+            const allTicketIds = tickets.map(ticket => ticket.ticket_id);
+
+            // get paginated tickets from the tickets table
             console.log(tickets, "tickets---");
             const { data: ticketsData, error: ticketsDataError } = await supabase
                 .from(this.entityName)
                 .select('*, assignedTo(id, name, email, bot_enabled)')
-                .in('id', tickets.map(ticket => ticket.ticket_id))
-                .not("assignedTo.bot_enabled", "is", true)
-                .order('updatedAt', { ascending: false });
+                .in('id', allTicketIds)
+                .order('updatedAt', { ascending: false })
+                .range(actualSkip, actualSkip + limit - 1);
+
+            if (ticketsDataError) {
+                throw new errors.DBError(ticketsDataError.message);
+            }
+
+            // Filter out tickets assigned to bot users
+            const assignedToUserIds = ticketsData.map(ticket => ticket.assignedTo).filter(Boolean);
+            let botUserIds = [];
+            if (assignedToUserIds.length > 0) {
+                const { data: assignedUsers, error: usersError } = await supabase
+                    .from('users')
+                    .select('id, bot_enabled')
+                    .in('id', assignedToUserIds);
+
+                if (!usersError && assignedUsers) {
+                    botUserIds = assignedUsers
+                        .filter(user => user.bot_enabled)
+                        .map(user => user.id);
+                }
+            }
+
+            // Remove tickets assigned to bot users
+            const filteredTicketsData = ticketsData.filter(ticket => !botUserIds.includes(ticket.assignedTo));
             // const {data:teamId, error:teamIdError} = await supabase
             //     .from('ticket_team')
             //     .select('teamId')
@@ -209,7 +238,7 @@ class TicketService {
             const { data: ticketTeamsData, error: ticketTeamsErr } = await supabase
                 .from('ticket_teams')
                 .select('ticket_id, teams(id,name)')
-                .in('ticket_id', tickets.map(t => t.ticket_id));
+                .in('ticket_id', allTicketIds);
             if (ticketTeamsErr) throw new errors.DBError(ticketTeamsErr.message);
 
             const ticketTeamsMap = ticketTeamsData?.reduce((acc, row) => {
@@ -218,7 +247,7 @@ class TicketService {
                 return acc;
             }, {}) || {};
 
-            const enrichedTickets = await Promise.map(ticketsData, async (ticket) => {
+            const enrichedTickets = await Promise.map(filteredTicketsData, async (ticket) => {
                 const { data: customers } = await supabase
                     .from('customers')
                     .select(`*`)
@@ -388,17 +417,41 @@ class TicketService {
             const { count: totalCount, error: countError } = await supabase
                 .from(this.entityName)
                 .select('*', { count: 'exact', head: true })
-                .in('id', tickets.map(ticket => ticket.ticket_id))
-            // .not("assignedTo.bot_enabled", "is", true);
+                .in('id', allTicketIds);
 
             if (countError) throw new errors.DBError(countError.message);
 
-            // Return enriched tickets with total count outside of data
+            // Get bot user IDs for count filtering
+            const { data: allAssignedUsers, error: allUsersError } = await supabase
+                .from('users')
+                .select('id, bot_enabled')
+                .eq('bot_enabled', true);
+
+            let botUserIdsForCount = [];
+            if (!allUsersError && allAssignedUsers) {
+                botUserIdsForCount = allAssignedUsers.map(user => user.id);
+            }
+
+            // Get count of tickets assigned to bot users
+            let botTicketsCount = 0;
+            if (botUserIdsForCount.length > 0) {
+                const { count: botCount, error: botCountError } = await supabase
+                    .from(this.entityName)
+                    .select('*', { count: 'exact', head: true })
+                    .in('id', allTicketIds)
+                    .in('assignedTo', botUserIdsForCount);
+
+                if (!botCountError) {
+                    botTicketsCount = botCount || 0;
+                }
+            }
+
+            // Return enriched tickets with total count outside of data (excluding bot tickets)
             return {
                 status: "success",
                 message: "Successfully done",
                 data: enrichedTickets,
-                total: totalCount || 0
+                total: (totalCount || 0) - botTicketsCount
             };
         } catch (err) {
             console.log(err, "err---");

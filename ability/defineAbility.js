@@ -266,6 +266,65 @@ function defineAbilityFor(user) {
     cannot(['create', 'update', 'delete', 'manage', 'archive', 'read'], 'WorkspacePermission');
   }
 
+  if (user.role === UserRoles.supervisor) { // # ai generated
+    // SUPERVISOR: Read/Write access to ticketing, contacts, canned res, read access of Workflows of the team # ai generated
+    can(['create', 'update', 'read', 'delete'], 'Ticket', { clientId: user.clientId, workspaceId: user.defaultWorkspaceId }); // # ai generated
+    cannot('archive', 'Ticket'); // # ai generated
+
+    can(['create', 'update', 'read', 'delete'], 'Customer', { clientId: user.clientId, workspaceId: user.defaultWorkspaceId }); // # ai generated
+    cannot('archive', 'Customer'); // # ai generated
+
+    can(['create', 'update', 'read', 'delete'], 'Tag', { clientId: user.clientId, workspaceId: user.defaultWorkspaceId }); // # ai generated
+    can(['create', 'update', 'read', 'delete'], 'Topic', { clientId: user.clientId, workspaceId: user.defaultWorkspaceId }); // # ai generated
+    can(['create', 'update', 'read', 'delete'], 'Marcos', { clientId: user.clientId, workspaceId: user.defaultWorkspaceId }); // # ai generated
+
+    can(['read'], 'Workflow', { clientId: user.clientId, workspaceId: user.defaultWorkspaceId }); // # ai generated
+    cannot(['create', 'update', 'delete', 'archive'], 'Workflow'); // # ai generated
+
+    // Inbox permissions (read only) # ai generated
+    can('read', 'InboxAll', { clientId: user.clientId, workspaceId: user.defaultWorkspaceId }); // # ai generated
+    can('read', 'InboxYour', { clientId: user.clientId, workspaceId: user.defaultWorkspaceId }); // # ai generated
+    can('read', 'InboxMentions', { clientId: user.clientId, workspaceId: user.defaultWorkspaceId }); // # ai generated
+    can('read', 'InboxUnassigned', { clientId: user.clientId, workspaceId: user.defaultWorkspaceId }); // # ai generated
+    can('read', 'InboxTeams', { clientId: user.clientId, workspaceId: user.defaultWorkspaceId }); // # ai generated
+    can('read', 'InboxTeammates', { clientId: user.clientId, workspaceId: user.defaultWorkspaceId }); // # ai generated
+    cannot(['create', 'update', 'delete', 'archive'], 'InboxAll'); // # ai generated
+    cannot(['create', 'update', 'delete', 'archive'], 'InboxYour'); // # ai generated
+    cannot(['create', 'update', 'delete', 'archive'], 'InboxMentions'); // # ai generated
+    cannot(['create', 'update', 'delete', 'archive'], 'InboxUnassigned'); // # ai generated
+    cannot(['create', 'update', 'delete', 'archive'], 'InboxTeams'); // # ai generated
+    cannot(['create', 'update', 'delete', 'archive'], 'InboxTeammates'); // # ai generated
+  }
+
+  if (user.role === UserRoles.viewer) { // # ai generated
+    // VIEWER: Read access to ticketing and Contact/Company Management # ai generated
+    can('read', 'Ticket', { clientId: user.clientId, workspaceId: user.defaultWorkspaceId }); // # ai generated
+    cannot(['create', 'update', 'delete', 'archive'], 'Ticket'); // # ai generated
+
+    can('read', 'Customer', { clientId: user.clientId, workspaceId: user.defaultWorkspaceId }); // # ai generated
+    cannot(['create', 'update', 'delete', 'archive'], 'Customer'); // # ai generated
+
+    can('read', 'Tag', { clientId: user.clientId, workspaceId: user.defaultWorkspaceId }); // # ai generated
+    cannot(['create', 'update', 'delete', 'archive'], 'Tag'); // # ai generated
+
+    can('read', 'Topic', { clientId: user.clientId, workspaceId: user.defaultWorkspaceId }); // # ai generated
+    cannot(['create', 'update', 'delete', 'archive'], 'Topic'); // # ai generated
+
+    // Inbox permissions (read only) # ai generated
+    can('read', 'InboxAll', { clientId: user.clientId, workspaceId: user.defaultWorkspaceId }); // # ai generated
+    can('read', 'InboxYour', { clientId: user.clientId, workspaceId: user.defaultWorkspaceId }); // # ai generated
+    can('read', 'InboxMentions', { clientId: user.clientId, workspaceId: user.defaultWorkspaceId }); // # ai generated
+    can('read', 'InboxUnassigned', { clientId: user.clientId, workspaceId: user.defaultWorkspaceId }); // # ai generated
+    can('read', 'InboxTeams', { clientId: user.clientId, workspaceId: user.defaultWorkspaceId }); // # ai generated
+    can('read', 'InboxTeammates', { clientId: user.clientId, workspaceId: user.defaultWorkspaceId }); // # ai generated
+    cannot(['create', 'update', 'delete', 'archive'], 'InboxAll'); // # ai generated
+    cannot(['create', 'update', 'delete', 'archive'], 'InboxYour'); // # ai generated
+    cannot(['create', 'update', 'delete', 'archive'], 'InboxMentions'); // # ai generated
+    cannot(['create', 'update', 'delete', 'archive'], 'InboxUnassigned'); // # ai generated
+    cannot(['create', 'update', 'delete', 'archive'], 'InboxTeams'); // # ai generated
+    cannot(['create', 'update', 'delete', 'archive'], 'InboxTeammates'); // # ai generated
+  }
+
   if (user.role === UserRoles.visitor) {
     // Visitor role - read-only access to tickets and related data
 

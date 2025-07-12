@@ -27,6 +27,14 @@ class UserRoles {
     static get visitor() {
         return "VISITOR";
     }
+
+    static get supervisor() { // # ai generated
+        return "SUPERVISOR";
+    }
+
+    static get viewer() { // # ai generated
+        return "VIEWER";
+    }
 }
 
 
