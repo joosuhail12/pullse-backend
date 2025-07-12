@@ -48,18 +48,6 @@ exports.subscribeToConversationChannels = async function subscribeToConversation
       clientId: ticket.clientId,
       metadata: { conversationType: 'widget' }
     });
-
-    // Subscribe to agent conversation channel
-    await channelManager.addSubscription({
-      channelName: `agent-conversation:${ticketId}`,
-      channelType: 'conversation',
-      subscriberId: `agent-${ticketId}`,
-      subscriberType: 'agent',
-      ticketId,
-      workspaceId: ticket.workspaceId,
-      clientId: ticket.clientId,
-      metadata: { conversationType: 'agent' }
-    });
   } catch (error) {
     console.error('Error subscribing to conversation channels:', error);
   }
@@ -68,14 +56,14 @@ exports.subscribeToConversationChannels = async function subscribeToConversation
 exports.subscribeToTicketChannels = async function subscribeToTicketChannels(ticketId, clientId, workspaceId, sessionId, userId) {
   try {
     // Remove any existing subscriptions for this user on different tickets
-    await channelManager.removeSubscriberSubscriptions(userId, 'user', ticketId);
+    await channelManager.removeSubscriberSubscriptions(userId, `agent`, ticketId);
 
     // Subscribe to ticket channel
     await channelManager.addSubscription({
       channelName: `ticket:${ticketId}`,
       channelType: 'ticket',
       subscriberId: userId,
-      subscriberType: 'user',
+      subscriberType: 'agent',
       ticketId,
       sessionId,
       workspaceId,

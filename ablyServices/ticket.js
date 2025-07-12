@@ -15,7 +15,7 @@ exports.handleNewTicket = async function handleNewTicket({ workspaceId, sessionI
       .select(`customers:contactId(id, firstname, lastname, email),
                contactDeviceId,
                clients:clientId(id, ticket_ai_enabled),
-               widgetId`)
+               widget:widgetId(id, name)`)
       .eq('id', sessionId)
       .single(),
   ]);
@@ -23,7 +23,7 @@ exports.handleNewTicket = async function handleNewTicket({ workspaceId, sessionI
   //get the widhet
   const session = sessionRow.data;
   //get the widget
-  const widget = session.widgetId;
+  const widget = session.widget.id;
   // insert ticket
   const { data: ticket, error: tErr } = await supabase
     .from('tickets')
@@ -44,22 +44,16 @@ exports.handleNewTicket = async function handleNewTicket({ workspaceId, sessionI
   const ticketId = ticket.id;
   const IS = new InternalService();
   let assigneeId = "";
-  // if (aiEnabled) {
-  //   assigneeId = await IS.getAssignedAgent(clientId);
-  // } else {
-  //   assigneeId = await IS.ticketRouting(ticketId, teamId);
-  // }
-  // prepare welcome / save conv parallel
-  // const agentNamePromise = assigneeId
-  //   ? supabase.from('users').select('firstname, lastname').eq('id', assigneeId).single()
-  //   : Promise.resolve({ data: null });
-  // const themePromise = supabase.from('widgettheme').select('labels').eq('widgetId', widgetId).single();
-  // const [agentRow, themeRow] = await Promise.all([agentNamePromise, themePromise]);
+  const agentNamePromise = assigneeId
+    ? supabase.from('users').select('firstname, lastname').eq('id', assigneeId).single()
+    : Promise.resolve({ data: null });
+  const themePromise = supabase.from('widgettheme').select('labels').eq('widgetId', widget).single();
+  const [agentRow, themeRow] = await Promise.all([agentNamePromise, themePromise]);
 
-  // const welcome = themeRow.data?.labels?.welcomeMessage || 'Hello!';
-  // const agentName = agentRow.data ? `${agentRow.data.firstname} ${agentRow.data.lastname}` : null;
+  const welcome = themeRow.data?.labels?.welcomeMessage || 'Hello!';
+  const agentName = session.widget.name;
 
-  // await IS.saveConversation(ticketId, welcome, assigneeId, 'agent', agentName, clientId, workspaceId);
+  await IS.saveConversation(ticketId, welcome, widget, 'agent', agentName, session.clients.id, workspaceId);
   await IS.saveConversation(ticketId, firstMessage, session.customers.id, userType, `${session.customers.firstname} ${session.customers.lastname}`, session.clients.id, workspaceId);
 
   // notify widget
