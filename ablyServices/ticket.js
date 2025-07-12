@@ -42,15 +42,14 @@ exports.handleNewTicket = async function handleNewTicket({ workspaceId, sessionI
     .single();
   if (tErr) throw tErr;
   const ticketId = ticket.id;
-  // routing decision
-  // const IS = new InternalService();
-  // let assigneeId;
+  const IS = new InternalService();
+  let assigneeId = "";
   // if (aiEnabled) {
   //   assigneeId = await IS.getAssignedAgent(clientId);
   // } else {
   //   assigneeId = await IS.ticketRouting(ticketId, teamId);
   // }
-  // // prepare welcome / save conv parallel
+  // prepare welcome / save conv parallel
   // const agentNamePromise = assigneeId
   //   ? supabase.from('users').select('firstname, lastname').eq('id', assigneeId).single()
   //   : Promise.resolve({ data: null });
@@ -61,7 +60,7 @@ exports.handleNewTicket = async function handleNewTicket({ workspaceId, sessionI
   // const agentName = agentRow.data ? `${agentRow.data.firstname} ${agentRow.data.lastname}` : null;
 
   // await IS.saveConversation(ticketId, welcome, assigneeId, 'agent', agentName, clientId, workspaceId);
-  // await IS.saveConversation(ticketId, firstMessage, customerId, userType, `${firstname} ${lastname}`, clientId, workspaceId);
+  await IS.saveConversation(ticketId, firstMessage, session.customers.id, userType, `${session.customers.firstname} ${session.customers.lastname}`, session.clients.id, workspaceId);
 
   // notify widget
   ablyRest.channels.get(`widget:contactevent:${sessionId}`)
