@@ -19,7 +19,7 @@ async function activate(app) {
       summary: 'Create User',
       description: 'API to create user.',
       body: {
-        required: ["first_name", "last_name", "email", "password", "confirm_password"],
+        required: ["first_name", "last_name", "email"],
         additionalProperties: false,
         type: 'object',
         properties: {
@@ -45,7 +45,6 @@ async function activate(app) {
             },
             description: "Array of role IDs to assign to the user"
           },
-
           password: {
             type: 'string',
             description: "User password",
@@ -60,6 +59,10 @@ async function activate(app) {
             type: 'string',
             description: "Id of user's team",
           },
+          useMagicLink: {
+            type: 'boolean',
+            description: 'If true, create user with magic link flow (no password, send invite email)'
+          }
         }
       },
     },
@@ -68,6 +71,47 @@ async function activate(app) {
     }
   };
   app.route(CreateUserRouteConfig);
+
+  // Add magic link routes
+  app.route({
+    url: base_url + '/set-password',
+    method: 'POST',
+    name: 'SetPasswordWithToken',
+    schema: {
+      tags: ['User'],
+      summary: 'Set password with magic link token',
+      description: 'Set password for user using magic link token',
+      body: {
+        required: ['token', 'email', 'password', 'confirmPassword'],
+        type: 'object',
+        properties: {
+          token: { type: 'string' },
+          email: { type: 'string', format: 'email' },
+          password: { type: 'string', minLength: 8 },
+          confirmPassword: { type: 'string', minLength: 8 },
+          userId: { type: 'string', description: 'User ID (optional, for extra security)' }
+        }
+      }
+    },
+    handler: async (req, reply) => handler.setPasswordWithToken(req, reply)
+  });
+
+  app.route({
+    url: base_url + '/verify-magic-link',
+    method: 'GET',
+    name: 'VerifyMagicLinkToken',
+    schema: {
+      tags: ['User'],
+      summary: 'Verify magic link token',
+      description: 'Verify if a magic link token is valid',
+      query: {
+        token: { type: 'string' },
+        email: { type: 'string', format: 'email' },
+        userId: { type: 'string', description: 'User ID (optional)' }
+      }
+    },
+    handler: async (req, reply) => handler.verifyMagicLinkToken(req, reply)
+  });
   // CreateUserRouteConfig.url = base_url+'/internal';
   // CreateUserRouteConfig.preHandler
 

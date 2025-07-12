@@ -14,6 +14,8 @@ class UserHandler extends BaseHandler {
     let createdBy = req.authUser.id;
     const { workspace_id } = req.query;
     let defaultWorkspaceId = workspace_id ? workspace_id : req.authUser.defaultWorkspaceId;
+    const rawUseMagicLink = req.body.useMagicLink ?? req.query.useMagicLink ?? false;
+    const useMagicLink = (typeof rawUseMagicLink === 'string') ? rawUseMagicLink.toLowerCase() === 'true' : !!rawUseMagicLink;
     let userData = {
       fName: req.body.first_name,
       lName: req.body.last_name,
@@ -23,7 +25,8 @@ class UserHandler extends BaseHandler {
       createdBy: createdBy,
       clientId: clientId,
       roleIds: req.body.roleIds || [req.body.role], // Support both roleIds array and single role
-      defaultWorkSpace: defaultWorkspaceId
+      defaultWorkSpace: defaultWorkspaceId,
+      useMagicLink // normalized boolean
     };
 
     console.log(userData, "userData")
@@ -44,8 +47,23 @@ class UserHandler extends BaseHandler {
       lastActive: createdUser.lastLoggedInAt,
       avatar: createdUser.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(createdUser.name)}`,
       permissions: ['view_reports'],
+      message: createdUser.message
     };
 
+    return this.responder(req, reply, Promise.resolve(result));
+  }
+
+  async setPasswordWithToken(req, reply) {
+    const { token, email, password, confirmPassword, userId } = req.body;
+    let inst = new UserService();
+    const result = await inst.setPasswordWithToken(token, email, password, confirmPassword, userId);
+    return this.responder(req, reply, Promise.resolve(result));
+  }
+
+  async verifyMagicLinkToken(req, reply) {
+    const { token, email, userId } = req.query;
+    let inst = new UserService();
+    const result = await inst.verifyMagicLinkToken(token, email, userId);
     return this.responder(req, reply, Promise.resolve(result));
   }
 

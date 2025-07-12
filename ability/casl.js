@@ -24,6 +24,9 @@ async function caslPlugin(fastify) {
       '/api/workflow/notify',
       '/api/pullse/create-new-user',
       '/api/workflow/cron/check-unresponsiveness',
+      // has seperate auth token for these routes
+      '/api/user/set-password',
+      '/api/user/verify-magic-link',
       // TEMP: Remove this line when done with Swagger documentation
       // '/api-docs'
     ];
