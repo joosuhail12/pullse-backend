@@ -240,7 +240,8 @@ class UserService extends BaseService {
         const mailgun = new Mailgun(formData);
         const mg = mailgun.client({ username: 'api', key: process.env.MAILGUN_API_KEY });
         const domain = process.env.APP_EMAIL_DOMAIN;
-        const setPasswordUrl = `${process.env.APP_BASE_URL === 'localhost:8080' ? 'http' : 'https'}://${process.env.APP_BASE_URL}/set-password?token=${token}&email=${encodeURIComponent(user.email)}&userId=${user.id}`;
+        // TODO: Use frontend url from env
+        const setPasswordUrl = `${process.env.APP_ENVIRONMENT === 'development' ? 'http://localhost:8080' : 'https://app.pullse.ai'}/set-password?token=${token}&email=${encodeURIComponent(user.email)}&userId=${user.id}`;
         const html = `
             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
                 <h2 style="color: #333; text-align: center;">Welcome to Pullse AI!</h2>

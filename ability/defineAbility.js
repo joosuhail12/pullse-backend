@@ -267,6 +267,9 @@ function defineAbilityFor(user) {
   }
 
   if (user.role === UserRoles.supervisor) { // # ai generated
+    // Profile permissions
+    can(['read', 'update'], 'Profile');
+    cannot(['create', 'delete', 'archive'], 'Profile');
     // SUPERVISOR: Read/Write access to ticketing, contacts, canned res, read access of Workflows of the team # ai generated
     can(['create', 'update', 'read', 'delete'], 'Ticket', { clientId: user.clientId, workspaceId: user.defaultWorkspaceId }); // # ai generated
     cannot('archive', 'Ticket'); // # ai generated
@@ -280,6 +283,14 @@ function defineAbilityFor(user) {
 
     can(['read'], 'Workflow', { clientId: user.clientId, workspaceId: user.defaultWorkspaceId }); // # ai generated
     cannot(['create', 'update', 'delete', 'archive'], 'Workflow'); // # ai generated
+
+    // can read and manage macros
+    can('read', 'Marcos', { clientId: user.clientId, workspaceId: user.defaultWorkspaceId });
+    can('manage', 'Marcos', { clientId: user.clientId, workspaceId: user.defaultWorkspaceId });
+
+    // Workspace permissions
+    can('read', 'Workspace', { clientId: user.clientId, workspaceId: user.defaultWorkspaceId });
+    // can('manage', 'Workspace', { clientId: user.clientId, workspaceId: user.defaultWorkspaceId });
 
     // Inbox permissions (read only) # ai generated
     can('read', 'InboxAll', { clientId: user.clientId, workspaceId: user.defaultWorkspaceId }); // # ai generated
