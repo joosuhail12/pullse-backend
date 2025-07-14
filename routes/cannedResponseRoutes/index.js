@@ -185,6 +185,73 @@ async function activate(app) {
     }
   });
 
+  // Add: Update all teams for a canned response (delete all, then insert new)
+  app.route({
+    url: base_url + "/:canned_response_id/teams",
+    method: 'PUT',
+    name: "UpdateCannedResponseTeams",
+    preHandler: authMiddlewares.checkToken(AuthType.user),
+    schema: {
+      tags: ['CannedResponse'],
+      summary: 'Update Canned Response Teams',
+      description: 'Replace all teams for a canned response (deletes existing rows then inserts provided list).',
+      body: {
+        type: 'object',
+        required: ['teamIds'],
+        properties: {
+          teamIds: {
+            type: 'array',
+            items: { type: 'string' },
+            description: 'Array of team UUIDs to associate with the canned response'
+          },
+          typeOfSharing: {
+            type: 'string',
+            enum: ['view', 'edit'],
+            description: 'Type of sharing for all teams (optional, default view)'
+          }
+        }
+      },
+      query: {
+        workspace_id: { type: 'string' }
+      }
+    },
+    handler: async (req, reply) => handler.updateCannedResponseTeams(req, reply)
+  });
+
+  // Add: Get all teams for a canned response
+  app.route({
+    url: base_url + "/:canned_response_id/teams",
+    method: 'GET',
+    name: "GetCannedResponseTeams",
+    preHandler: authMiddlewares.checkToken(AuthType.user),
+    schema: {
+      tags: ['CannedResponse'],
+      summary: 'Get Canned Response Teams',
+      description: 'Fetch all teams associated with a canned response.',
+      query: {
+        workspace_id: { type: 'string' }
+      }
+    },
+    handler: async (req, reply) => handler.getCannedResponseTeams(req, reply)
+  });
+
+  // Add: List all canned responses accessible to the current user based on their team memberships
+  app.route({
+    url: base_url + "/team-accessible",
+    method: 'GET',
+    name: "ListTeamAccessibleCannedResponses",
+    preHandler: authMiddlewares.checkToken(AuthType.user),
+    schema: {
+      tags: ['CannedResponse'],
+      summary: 'List Team Accessible Canned Responses',
+      description: 'List all canned responses accessible to the current user based on their team memberships.',
+      query: {
+        workspace_id: { type: 'string' }
+      }
+    },
+    handler: async (req, reply) => handler.listTeamAccessibleCannedResponses(req, reply)
+  });
+
 }
 
 module.exports = {

@@ -80,54 +80,57 @@ class CannedResponseService extends BaseService {
 
     async getDetails(id, workspaceId, clientId) {
         try {
-            // Step 1: Get cannedresponse and join with cannedresponsesteamrelation
-            let { data, error } = await this.supabase
+            // Step 1: Get canned response (no join)
+            let { data: cannedResponse, error: crError } = await this.supabase
                 .from("cannedresponses")
-                .select(`
-                    *,
-                    cannedresponsesteamrelation (
-                        teamId,
-                        typeOfSharing
-                    )`)
+                .select("*")
                 .eq("id", id)
                 .eq("workspaceId", workspaceId)
                 .eq("clientId", clientId)
                 .single();
 
-            // Step 2: Handle if no cannedresponse found
-            if (!data) {
+            if (crError || !cannedResponse) {
                 return Promise.reject(new errors.NotFound(`${this.entityName} not found.`));
             }
 
+            // Step 2: Get all team relations for this canned response
+            const { data: relations, error: relError } = await this.supabase
+                .from("cannedresponsesteamrelation")
+                .select("teamId, typeOfSharing")
+                .eq("cannedresponsesId", id);
 
-            for (let i = 0; i < data.cannedresponsesteamrelation.length; i++) {
-                const item = data.cannedresponsesteamrelation[i];
-                const teamId = item.teamId;
-
-                if (teamId) {
-                    let { data: teamData, error: teamError } = await this.supabase
-                        .from("teams")
-                        .select("name")
-                        .eq("id", teamId)
-                        .single();
-
-                    // Step 4: If no team found
-                    if (!teamData) {
-                        return Promise.reject(new errors.NotFound("Team not found."));
-                    }
-
-                    // Step 5: Return the cannedresponse data along with the team details
-                    data.cannedresponsesteamrelation[i] = {
-                        ...item,
-                        name: teamData.name
-                    };
-                }
+            if (relError) {
+                return Promise.reject(new errors.DBError("Error fetching team relations."));
             }
 
-            data.sharedTeams = data.cannedresponsesteamrelation;
-            delete data.cannedresponsesteamrelation;
+            // Step 3: Get all team details
+            let sharedTeams = [];
+            if (relations && relations.length > 0) {
+                const teamIds = relations.map(r => r.teamId);
+                const { data: teams, error: teamError } = await this.supabase
+                    .from("teams")
+                    .select("id, name")
+                    .in("id", teamIds);
 
-            return data;
+                if (teamError) {
+                    return Promise.reject(new errors.DBError("Error fetching teams."));
+                }
+
+                // Map teamId to team details
+                const teamMap = {};
+                (teams || []).forEach(t => { teamMap[t.id] = t; });
+
+                // Combine relation and team details
+                sharedTeams = relations.map(rel => ({
+                    ...rel,
+                    ...teamMap[rel.teamId] // adds id, name
+                }));
+            }
+
+            // Step 4: Attach to response
+            cannedResponse.sharedTeams = sharedTeams;
+
+            return cannedResponse;
         } catch (err) {
             return this.handleError(err);
         }
@@ -216,6 +219,81 @@ class CannedResponseService extends BaseService {
         } catch (e) {
             return Promise.reject(e);
         }
+    }
+
+    /**
+     * Replace all teams for a canned response (delete all, then insert new)
+     */
+    async updateCannedResponseTeams(id, workspaceId, clientId, teamIds, typeOfSharing = 'view') {
+        if (!id || !workspaceId || !clientId || !Array.isArray(teamIds)) {
+            throw new errors.BadRequest('Missing required fields.');
+        }
+        // 1. Delete all existing relations
+        await this.supabase
+            .from('cannedresponsesteamrelation')
+            .delete()
+            .eq('cannedresponsesId', id);
+        // 2. Insert new relations
+        if (teamIds.length > 0) {
+            const now = new Date().toISOString();
+            const rows = teamIds.map(teamId => ({
+                cannedresponsesId: id,
+                teamId,
+                typeOfSharing: typeOfSharing || 'view',
+                createdAt: now,
+                updatedAt: now
+            }));
+            const { error } = await this.supabase
+                .from('cannedresponsesteamrelation')
+                .insert(rows);
+            if (error) throw new errors.DBError(error.message);
+        }
+        return { success: true };
+    }
+
+    /**
+     * Get all teams for a canned response
+     */
+    async getCannedResponseTeams(id, workspaceId, clientId) {
+        if (!id) throw new errors.BadRequest('Missing canned response id');
+        const { data, error } = await this.supabase
+            .from('cannedresponsesteamrelation')
+            .select('teamId, typeOfSharing')
+            .eq('cannedresponsesId', id);
+        if (error) throw new errors.DBError(error.message);
+        return data;
+    }
+
+    /**
+     * List all canned responses accessible to the current user based on their team memberships
+     */
+    async listTeamAccessibleCannedResponses(userId, workspaceId, clientId) {
+        // 1. Get user's team IDs
+        const { data: userTeams, error: teamErr } = await this.supabase
+            .from('teamMembers')
+            .select('team_id')
+            .eq('user_id', userId);
+        if (teamErr) throw new errors.DBError(teamErr.message);
+        if (!userTeams || userTeams.length === 0) return [];
+        const teamIds = userTeams.map(t => t.team_id);
+        // 2. Get canned response IDs shared with these teams
+        const { data: rels, error: relErr } = await this.supabase
+            .from('cannedresponsesteamrelation')
+            .select('cannedresponsesId')
+            .in('teamId', teamIds);
+        if (relErr) throw new errors.DBError(relErr.message);
+        if (!rels || rels.length === 0) return [];
+        const cannedResponseIds = rels.map(r => r.cannedresponsesId);
+        // 3. Fetch canned response details
+        const { data: responses, error: respErr } = await this.supabase
+            .from('cannedresponses')
+            .select('*')
+            .in('id', cannedResponseIds)
+            .eq('workspaceId', workspaceId)
+            .eq('clientId', clientId)
+            .is('archiveAt', null);
+        if (respErr) throw new errors.DBError(respErr.message);
+        return responses;
     }
 
     async deleteCannedResponse({ id, workspaceId, clientId }) {

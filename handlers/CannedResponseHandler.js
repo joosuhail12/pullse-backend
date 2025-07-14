@@ -56,6 +56,31 @@ class CannedResponseHandler extends BaseHandler {
     return this.responder(req, reply, inst.updateCannedResponse({ id, workspaceId, clientId }, toUpdate));
   }
 
+  async updateCannedResponseTeams(req, reply) {
+    const id = req.params.canned_response_id;
+    const workspaceId = req.query.workspace_id;
+    const clientId = req.authUser.clientId;
+    const { teamIds, typeOfSharing } = req.body;
+    let inst = new CannedResponseService();
+    return this.responder(req, reply, inst.updateCannedResponseTeams(id, workspaceId, clientId, teamIds, typeOfSharing));
+  }
+
+  async getCannedResponseTeams(req, reply) {
+    const id = req.params.canned_response_id;
+    const workspaceId = req.query.workspace_id;
+    const clientId = req.authUser.clientId;
+    let inst = new CannedResponseService();
+    return this.responder(req, reply, inst.getCannedResponseTeams(id, workspaceId, clientId));
+  }
+
+  async listTeamAccessibleCannedResponses(req, reply) {
+    const userId = req.authUser.id;
+    const workspaceId = req.query.workspace_id;
+    const clientId = req.authUser.clientId;
+    let inst = new CannedResponseService();
+    return this.responder(req, reply, inst.listTeamAccessibleCannedResponses(userId, workspaceId, clientId));
+  }
+
   async deleteCannedResponse(req, reply) {
     let id = req.params.canned_response_id;
     let workspaceId = req.query.workspace_id;
