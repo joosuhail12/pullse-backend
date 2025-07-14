@@ -20,6 +20,7 @@ async function caslPlugin(fastify) {
       '/api/widgets/getContactDeviceTickets',
       '/api/ably/widgetToken',
       '/api/widgets/getConversationWithTicketId',
+      '/api/widgets/uploadWidgetFileAttachment',
       '/api/widgets/updateTicketRating',
       '/api/workflow/notify',
       '/api/pullse/create-new-user',
