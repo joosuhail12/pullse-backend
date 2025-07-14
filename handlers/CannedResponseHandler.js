@@ -20,6 +20,8 @@ class CannedResponseHandler extends BaseHandler {
   async listCannedResponse(req, reply) {
     let workspaceId = req.query.workspace_id;
     let clientId = req.authUser.clientId;
+    let userId = req.authUser.id;
+    // console.log('userId', userId);
 
     let filters = {
       name: req.query.name,
@@ -35,7 +37,7 @@ class CannedResponseHandler extends BaseHandler {
       archiveAt: null
     };
     let inst = new CannedResponseService();
-    return this.responder(req, reply, inst.paginate(filters));
+    return this.responder(req, reply, inst.paginateWithUser(filters, userId));
   }
 
   async showCannedResponseDetail(req, reply) {

@@ -4,6 +4,7 @@ const errors = require("../errors");
 const BaseService = require("./BaseService");
 const _ = require("lodash");
 const config = require("../config");
+const UserRoles = require('../constants/UserRoles');
 
 class CannedResponseService extends BaseService {
     constructor() {
@@ -326,6 +327,70 @@ class CannedResponseService extends BaseService {
         }
 
         return filters;
+    }
+
+    /**
+     * Paginate canned responses with user role/team logic
+     */
+    async paginateWithUser(filters, userId) {
+        const { workspaceId, clientId, skip = 0, limit = 20 } = filters;
+        // 1. Fetch user roles
+        const { data: user, error: userError } = await this.supabase
+            .from('users')
+            .select('id, roleIds')
+            .eq('id', userId)
+            .single();
+        if (userError) throw userError;
+        let roleNames = [];
+        if (user && user.roleIds) {
+            // roleIds may be a single id or array
+            const roleIdArr = Array.isArray(user.roleIds) ? user.roleIds : [user.roleIds];
+            const { data: roles, error: rolesError } = await this.supabase
+                .from('userRoles')
+                .select('name')
+                .in('id', roleIdArr);
+            if (rolesError) throw rolesError;
+            roleNames = (roles || []).map(r => r.name);
+        }
+        // 2. If org admin, return all for workspace/client
+        if (roleNames.includes(UserRoles.organizationAdmin)) {
+            const { data, error } = await this.supabase
+                .from('cannedresponses')
+                .select('*')
+                .eq('workspaceId', workspaceId)
+                .eq('clientId', clientId)
+                .is('archiveAt', null)
+                .range(skip, skip + limit - 1);
+            if (error) throw error;
+            return data;
+        }
+        // 3. If not org admin, fetch team ids for user
+        const { data: teamRows, error: teamErr } = await this.supabase
+            .from('teamMembers')
+            .select('team_id')
+            .eq('user_id', userId);
+        if (teamErr) throw teamErr;
+        const teamIds = (teamRows || []).map(t => t.team_id);
+        if (!teamIds.length) return [];
+        // 4. Get canned response ids shared with these teams
+        const { data: rels, error: relErr } = await this.supabase
+            .from('cannedresponsesteamrelation')
+            .select('cannedresponsesId')
+            .in('teamId', teamIds);
+        if (relErr) throw relErr;
+        const cannedResponseIds = (rels || []).map(r => r.cannedresponsesId);
+        if (!cannedResponseIds.length) return [];
+        // 5. Fetch canned responses
+        const { data: responses, error: respErr } = await this.supabase
+            .from('cannedresponses')
+            .select('*')
+            .in('id', cannedResponseIds)
+            .eq('workspaceId', workspaceId)
+            .eq('clientId', clientId)
+            .is('archiveAt', null)
+            .range(skip, skip + limit - 1);
+        if (respErr) throw respErr;
+        return responses;
     }
 }
 
