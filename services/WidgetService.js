@@ -1135,6 +1135,40 @@ class WidgetService extends BaseService {
             throw error;
         }
     }
+
+    async uploadWidgetFileAttachment(workspaceId, file) {
+        try {
+            const bucketName = "pullse";
+
+            // Generate unique key for the file
+            const key = `widgets-file-attachments-${workspaceId}-${Date.now()}`;
+
+            const fileBuffer = await fs.readFile(file.tempFilePath);
+
+            // Upload to R2 using PutObjectCommand
+            await this.s3Client.send(
+                new PutObjectCommand({
+                    Bucket: bucketName,
+                    Key: key,
+                    Body: fileBuffer,
+                    ContentType: file.mimetype,
+                    ContentLength: file.size
+                })
+            );
+
+            // Generate and return the file URL
+            // Public url https://pub-1db3dea75deb4e36a362d30e3f67bb76.r2.dev
+            // Private url https://98d50eb9172903f66dfd5573801dc8b6.r2.cloudflarestorage.com
+            const fileUrl = `${process.env.CLOUDFLARE_R2_PUBLIC_URL}/${process.env.CLOUDFLARE_R2_BUCKET}/${key}`;
+
+            return {
+                fileUrl
+            };
+        } catch (error) {
+            console.error('Error uploading file to Cloudflare R2:', error);
+            throw new errors.Internal(error.message);
+        }
+    }
 }
 
 module.exports = WidgetService;

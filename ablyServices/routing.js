@@ -51,7 +51,7 @@ const handleWidgetConversationEvent = async (ticketId, messageData, sessionId, c
     //   timestamp: new Date().toISOString()
     // };
     // await supabase.from('messages').insert(messageRecord);
-    internalService.saveConversation(ticketId, userText, ticket.customers.id, 'customer', ticket.customers.firstname + " " + ticket.customers.lastname, ticket.clientId, ticket.workspaceId);
+    internalService.saveConversation(ticketId, userText, ticket.customers.id, 'customer', ticket.customers.firstname + " " + ticket.customers.lastname, ticket.clientId, ticket.workspaceId, "chat", messageData.attachmentType ? messageData.attachmentType : null, messageData.attachmentUrl ? messageData.attachmentUrl : null);
 
     // if (conversationId) {
     //   internalService.updateConversationMessage(conversationId, userText);
@@ -72,7 +72,7 @@ const handleWidgetConversationEvent = async (ticketId, messageData, sessionId, c
     } else {
       // Check if there are active ticket channel subscriptions using channel manager
       const ticketSubscriptions = await channelManagerInstance.getChannelSubscriptions(`ticket:${ticketId}`);
-      
+
       if (ticketSubscriptions && ticketSubscriptions.length > 0) {
         const ticketChannel = ably.channels.get(`ticket:${ticketId}`);
         const message = {
