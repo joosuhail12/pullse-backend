@@ -119,6 +119,21 @@ class CustomObjectService extends BaseService {
         try {
             let customField = await this.getDetails(id, workspaceId, clientId);
 
+            // Block connectionType update if there is any data in customobjectfielddata for this custom object
+            if (updateValues.connectionType && updateValues.connectionType !== customField.connectionType) {
+                // Check for any data in customobjectfielddata for this custom object
+                const { data: fieldData, error: dataError } = await this.supabase
+                    .from("customobjectfielddata")
+                    .select("id")
+                    .in("customObjectFieldId", (customField.customobjectfields || []).map(f => f.id))
+                    .is("deletedAt", null)
+                    .limit(1);
+                if (dataError) throw dataError;
+                if (fieldData && fieldData.length > 0) {
+                    return Promise.reject(new errors.BadRequest("Cannot update connection type: custom object has existing field data. Please delete all field data first."));
+                }
+            }
+
             let { data: updatedCustomObject, error } = await this.supabase
                 .from("customobjects")
                 .update({ ...updateValues, updatedAt: `now()` })
