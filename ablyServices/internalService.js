@@ -187,7 +187,7 @@ class InternalService {
     // TODO: Trigger Slack/email notifications here
   }
 
-  async saveConversation(ticketId, firstMessage, customerId, senderType, senderName, clientId, workspaceId, type = 'chat') {
+  async saveConversation(ticketId, firstMessage, customerId, senderType, senderName, clientId, workspaceId, type = 'chat', attachmentType = null, attachmentUrl = null) {
     const { data: conversation, error: conversationError } = await supabase.from('conversations').insert({
       message: firstMessage,
       createdBy: customerId,
@@ -199,6 +199,8 @@ class InternalService {
       workspaceId: workspaceId,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
+      attachmentType: attachmentType ? attachmentType : null,
+      attachmentUrl: attachmentUrl ? attachmentUrl : null
     });
     if (conversationError) {
       console.error('Error saving conversation:', conversationError);

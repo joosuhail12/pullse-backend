@@ -432,6 +432,54 @@ async function activate(app) {
             return handler.updateTicketRating(req, reply);
         }
     });
+
+    app.route({
+        url: base_url + "/uploadWidgetFileAttachment/:api_key",
+        method: "POST",
+        name: "UploadWidgetFileAttachment",
+        preHandler: authMiddlewares.verifyJWTToken(),
+        schema: {
+            tags: ["Widgets"],
+            summary: "Upload Widget File Attachment",
+            consumes: ['multipart/form-data'],
+            query: {
+                workspace_id: {
+                    type: "string",
+                    description: "Workspace ID"
+                }
+            }
+        },
+        handler: async (req, reply) => {
+            if (!req.body.file) {
+                return reply.status(400).send({
+                    success: false,
+                    message: "No file uploaded"
+                });
+            }
+
+            const file = req.body.file;
+
+            // Validate file type
+            const allowedMimeTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/svg+xml', 'application/pdf']; // Add pdf
+            if (!allowedMimeTypes.includes(file.mimetype)) {
+                return reply.status(400).send({
+                    success: false,
+                    message: "Invalid file type. Only images (JPEG, PNG, GIF, SVG) are allowed"
+                });
+            }
+
+            // Validate file size (e.g., 5MB limit)
+            const maxSize = 5 * 1024 * 1024; // 5MB
+            if (file.size > maxSize) {
+                return reply.status(400).send({
+                    success: false,
+                    message: "File too large. Maximum size is 5MB"
+                });
+            }
+
+            return handler.uploadWidgetFileAttachment(req, reply);
+        }
+    });
 }
 
 module.exports = {
