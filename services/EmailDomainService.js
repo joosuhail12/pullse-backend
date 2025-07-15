@@ -35,15 +35,21 @@ class EmailDomainService extends BaseService {
     async createEmailDomain(emailDomainData) {
         try {
             let { domain, clientId } = emailDomainData;
+
+            // Sanitize domain (Remove www or http/https)
+            domain = domain.replace(/^www\./, '').replace(/^https?:\/\//, '');
+
             let {
                 data: emailDomain,
                 error
-            } = await this.supabase.from(this.entityName).select("*").eq('domain', domain).eq('clientId', clientId).is('archiveAt', null).single();
+            } = await this.supabase.from(this.entityName).select("*").eq('domain', domain).single();
+
+            console.log(emailDomain, "emailDomain");
 
             if (error && error.code !== "PGRST116") throw error;
 
             if (emailDomain) {
-                return Promise.reject(new errors.AlreadyExist(this.entityName + " already exist."));
+                throw new Error("Domain already exists");
             }
 
             const mailgun = new Mailgun(formData);
@@ -86,7 +92,13 @@ class EmailDomainService extends BaseService {
             return domainId;
 
         } catch (err) {
-            return this.handleError(err);
+            return this.handleError({
+                error: true,
+                message: err.message || "Error while adding domain",
+                data: err,
+                httpCode: 500,
+                code: "ERROR_ADDING_DOMAIN"
+            });
         }
 
     }
