@@ -55,7 +55,7 @@ class ChannelManager {
 
       // Check if subscription already exists
       const existingSubscription = await this.getSubscription(channelName, subscriberId, subscriberType);
-      
+
       if (existingSubscription) {
         // Update existing subscription
         const { data, error } = await supabase
@@ -144,6 +144,20 @@ class ChannelManager {
    */
   async removeSubscriberSubscriptions(subscriberId, subscriberType, excludeTicketId = null) {
     try {
+        // check if already false then return
+        const { data: subscription, error: subscriptionError } = await supabase
+        .from('ably_channel_subscriptions')
+        .select('*')
+        .eq('subscriber_id', subscriberId)
+        .eq('subscriber_type', subscriberType)
+        .eq('is_active', false);    
+        if (subscriptionError) {
+            console.error('Error checking subscription:', subscriptionError);
+        }
+        if (subscription && subscription.length > 0) {
+            console.log('Subscription already present for this ticket');
+            return;
+        }
       let query = supabase
         .from('ably_channel_subscriptions')
         .update({
