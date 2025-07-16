@@ -351,6 +351,18 @@ class CannedResponseService extends BaseService {
                 .in('id', roleIdArr);
             if (rolesError) throw rolesError;
             roleNames = (roles || []).map(r => r.name);
+        } else {
+            // Fallback: check workspacePermissions for this user and workspace
+            const { data: perms, error: permsError } = await this.supabase
+                .from('workspacePermissions')
+                .select('role')
+                .eq('userId', userId)
+                .eq('workspaceId', workspaceId)
+                .single();
+            if (permsError && permsError.code !== 'PGRST116') throw permsError;
+            if (perms && perms.role) {
+                roleNames = [perms.role];
+            }
         }
         // 2. If org admin, return all for workspace/client
         if (roleNames.includes(UserRoles.organizationAdmin)) {
