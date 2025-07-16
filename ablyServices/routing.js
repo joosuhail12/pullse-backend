@@ -65,7 +65,9 @@ const handleWidgetConversationEvent = async (ticketId, messageData, sessionId, c
 
     // 3. If the ticket is AI-enabled, also forward the message to the AI (document-qa) service.
     if (ticket.aiEnabled && userText?.trim()) {
+
       const chatbotCh = ably.channels.get(`chatbot:${ticket.chatbotId}:${ticketId}`);
+      console.log("chatbotCh:XXXXXXXXXXXXXXXXXXXXX", chatbotCh);
       const payload = {
         content: userText,
         ticketId: ticketId,
