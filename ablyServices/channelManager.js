@@ -286,7 +286,7 @@ class ChannelManager {
       const channel = ably.channels.get(channel_name);
       
       // Set up appropriate event handlers based on channel type
-      const subscription = this.setupChannelHandlers(channel, channel_type, subscriptionRecord);
+      const subscription = this.setupChannelHandlers(channel, channel_type, subscriptionRecord, channel_name);
       
       // Store in memory cache
       this.activeSubscriptions.set(subscriptionKey, {
@@ -304,7 +304,7 @@ class ChannelManager {
   /**
    * Setup channel event handlers based on channel type
    */
-  setupChannelHandlers(channel, channelType, subscriptionRecord) {
+  setupChannelHandlers(channel, channelType, subscriptionRecord, channel_name) {
     const { ticket_id, session_id } = subscriptionRecord;
 
     switch (channelType) {
@@ -348,11 +348,11 @@ class ChannelManager {
         });
 
       case 'chatbot':
-        return channel.subscribe('chatbot_response', msg => {
+        return channel.subscribe(channel_name, msg => {
           const message = typeof msg.data === 'string' ? JSON.parse(msg.data) : msg.data;
-          
+          const payload = { "content": message };
           const ticketCh = ably.channels.get(`ticket:${ticket_id}`);
-          ticketCh.publish('message', message, err => {
+          ticketCh.publish('user-message', payload, err => {
             if (err) console.error('Failed to publish chatbot message to ticket channel:', err);
           });
         });
