@@ -379,8 +379,8 @@ class ChannelManager {
             null,
             null
           );
-          console.log(`[ChannelManager] Bot response received for ticket ${ticket_id}:`, message);
-          
+          console.log(`[ChannelManager] Bot response received for ticket ${ticket_id}:`, message, conversation);
+
           const widgetConversationCh = ably.channels.get(`widget:conversation:ticket-${ticket_id}`);
           const payload = {
             ticketId: ticket_id,

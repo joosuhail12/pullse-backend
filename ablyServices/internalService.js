@@ -189,24 +189,24 @@ class InternalService {
 
   async saveConversation(ticketId, firstMessage, customerId, senderType, senderName, clientId, workspaceId, type = 'chat', attachmentType = null, attachmentUrl = null) {
     try {
-    console.log("XXXXXXXXXXXXXXXX", ticketId, firstMessage, customerId, senderType, senderName, clientId, workspaceId, type, attachmentType, attachmentUrl)
-    const { data: conversation, error: conversationError } = await supabase.from('conversations').insert({
-      message: firstMessage,
-      createdBy: customerId,
-      type: type,
-      ticketId,
-      userType: senderType,
-      senderName: senderName, // Add this!
-      clientId: clientId,
-      workspaceId: workspaceId,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      attachmentType: attachmentType ? attachmentType : null,
-      attachmentUrl: attachmentUrl ? attachmentUrl : null
-    });
-    if (conversationError) {
-      console.error('Error saving conversation:', conversationError);
-    }
+      console.log("XXXXXXXXXXXXXXXX", ticketId, firstMessage, customerId, senderType, senderName, clientId, workspaceId, type, attachmentType, attachmentUrl)
+      const { data: conversation, error: conversationError } = await supabase.from('conversations').insert({
+        message: firstMessage,
+        createdBy: customerId,
+        type: type,
+        ticketId,
+        userType: senderType,
+        senderName: senderName, // Add this!
+        clientId: clientId,
+        workspaceId: workspaceId,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        attachmentType: attachmentType ? attachmentType : null,
+        attachmentUrl: attachmentUrl ? attachmentUrl : null
+      });
+      if (conversationError) {
+        console.error('Error saving conversation:', conversationError);
+      }
       return conversation;
     } catch (error) {
       console.error('Error saving conversation:', error);
