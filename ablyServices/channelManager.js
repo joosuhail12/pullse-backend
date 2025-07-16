@@ -377,7 +377,7 @@ class ChannelManager {
                 userType: "bot",
                 workspaceId: chatbotProfile.workspaceId,
                 messageType: "text",
-                senderType: "ai",
+                senderType: "agent",
                 workflowActionId: null
             }).select('id').single();
           if (conversationError) {
