@@ -92,15 +92,18 @@ class WorkflowService extends BaseService {
 
             if (ticketError) throw new Error(`Fetch failed: ${ticketError.message}`);
             if (ticket.channel === "chat") {
+                console.log("Chat channel found:XXXXXXXXXXXXXXXXXXXXX");
                 if (!ticket.assigneeId) {
                     // then check from the client if the ticket_ai_enabled is true
+                    console.log("ticket is not assigned :XXXXXXXXXXXXXXXXXXXXX");
                     const { data: client, error: clientError } = await this.supabase
                         .from('clients')
                         .select('*')
                         .eq('id', ticket.clientId)
                         .single();
-
+                    console.log("client:XXXXXXXXXXXXXXXXXXXXX", client);
                     if (client.ticket_ai_enabled) {
+                        console.log("client.ticket_ai_enabled:XXXXXXXXXXXXXXXXXXXXX", client.ticket_ai_enabled);
                         // fetch the customer data related to the ticket
                         const { data: customer, error: customerError } = await this.supabase
                             .from('customers')
@@ -166,7 +169,7 @@ class WorkflowService extends BaseService {
                                 .eq('id', ticketId);
 
                             if (updateTicketDataError) throw new Error(`Fetch failed: ${updateTicketDataError.message}`);
-
+                            console.log("updateTicketData:XXXXXXXXXXXXXXXXXXXXX", matchingChatbot.id, ticketId);
                             // send this data to ably listener
                             // send a post request to https://https://prodai.pullseai.com/api/v1/chatbot/primary/message
                             const response = await axios.post(`https://prodai.pullseai.com/api/v1/chatbot/${matchingChatbot.id}/${ticketId}/open`, {
