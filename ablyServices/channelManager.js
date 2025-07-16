@@ -356,37 +356,38 @@ class ChannelManager {
         // Subscribe to bot-response events from chatbot
         const botResponseSubscription = chatbotCh.subscribe('bot-response', async msg => {
           console.log("msg:XXXXXXXXXXXXXXXXXXXXX", msg);
-          const message = typeof msg.data === 'string' ? JSON.parse(msg.data) : msg.data;
+          const response = msg.data;
+          const message = response.message;
           console.log(`[ChannelManager] Bot response received for ticket ${ticket_id}:`, message);
           
           // Persist the bot's response for AI-enabled tickets
-          try {
-            const internalService = require('./internalService');
-            const IS = new internalService();
+        //   try {
+        //     const internalService = require('./internalService');
+        //     const IS = new internalService();
             
-            // Get bot user details and ticket info
-            const { data: users, error: usersError } = await supabase
-              .from('users')
-              .select('id, fName, lName, clientId, defaultWorkspaceId')
-              .eq('bot_enabled', true)
-              .single();
+        //     // Get bot user details and ticket info
+        //     const { data: users, error: usersError } = await supabase
+        //       .from('users')
+        //       .select('id, fName, lName, clientId, defaultWorkspaceId')
+        //       .eq('bot_enabled', true)
+        //       .single();
             
-            if (!usersError && users) {
-              await IS.saveConversation(
-                ticket_id,
-                message.content || message,
-                users.id,
-                'bot',
-                users.fName + " " + users.lName,
-                users.clientId,
-                users.defaultWorkspaceId
-              );
-              console.log(`[ChannelManager] Bot response persisted for ticket ${ticket_id}`);
-            }
-          } catch (persistError) {
-            console.error(`[ChannelManager] Failed to persist bot response for ticket ${ticket_id}:`, persistError);
-            // Continue with forwarding even if persistence fails
-          }
+        //     if (!usersError && users) {
+        //       await IS.saveConversation(
+        //         ticket_id,
+        //         message.content || message,
+        //         users.id,
+        //         'bot',
+        //         users.fName + " " + users.lName,
+        //         users.clientId,
+        //         users.defaultWorkspaceId
+        //       );
+        //       console.log(`[ChannelManager] Bot response persisted for ticket ${ticket_id}`);
+        //     }
+        //   } catch (persistError) {
+        //     console.error(`[ChannelManager] Failed to persist bot response for ticket ${ticket_id}:`, persistError);
+        //     // Continue with forwarding even if persistence fails
+        //   }
           
           // Publish bot response to widget conversation channel
           const widgetConversationCh = ably.channels.get(`widget:conversation:ticket-${ticket_id}`);
