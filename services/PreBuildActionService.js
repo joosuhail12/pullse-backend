@@ -113,7 +113,7 @@ class PreBuildActionService extends BaseService {
                 .from('pre_build_selected_apps')
                 .select('pre_build_apps:pre_build_app_id(id, name, description, category),id')
                 .eq('client_id', clientId)
-                .eq('workspace_id', workspaceId)
+                // .eq('workspace_id', workspaceId)
             if (prebuildSelectedAppsError) throw prebuildSelectedAppsError;
             console.log(prebuildSelectedApps, "prebuildSelectedApps---");
             const {data: prebuildAppConnections, error: prebuildAppConnectionsError} = await this.supabase
