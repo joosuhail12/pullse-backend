@@ -8,12 +8,10 @@ When a chatbot connection is established, the system creates a bidirectional com
 1. **Chatbot Channel**: `chatbot:{chatbotProfileId}:{ticketId}`
 2. **Widget Conversation Channel**: `widget:conversation:ticket-{ticketId}`
 
-**Note**: To avoid conflicts with the regular conversation flow, widget messages are not automatically forwarded to the chatbot. Instead, you need to manually forward messages when appropriate.
-
 ## Flow Diagram
 
 ```
-Widget User → Widget Channel → Manual Forward → Chatbot Channel → AI Service
+Widget User → Widget Channel → Chatbot Channel → AI Service
      ↑                                    ↓
      ← Widget Channel ← Chatbot Channel ← AI Response
 ```
@@ -40,7 +38,7 @@ await channelManager.addSubscription({
 
 ### 2. Bidirectional Event Handlers
 
-The system sets up one event handler:
+The system sets up two event handlers:
 
 #### A. Bot Response Handler
 - **Listens to**: `bot-response` event on chatbot channel
@@ -64,16 +62,23 @@ chatbotCh.subscribe('bot-response', msg => {
 });
 ```
 
-#### B. Manual Widget Message Forwarding
-- **Trigger**: Manual call when widget message should be sent to chatbot
+#### B. Widget Message Handler
+- **Listens to**: `message` event on widget conversation channel
 - **Publishes to**: `user-message` event on chatbot channel
-- **Purpose**: Forwards user messages to the AI service when appropriate
+- **Purpose**: Forwards user messages to the AI service
 
 ```javascript
-const { forwardWidgetMessageToChatbot } = require('./ablyServices/listeners');
-
-// When you want to forward a widget message to chatbot
-await forwardWidgetMessageToChatbot(messageData, chatbotProfileId, ticket_id, session_id);
+widgetConversationCh.subscribe('message', msg => {
+  const messageData = typeof msg.data === 'string' ? JSON.parse(msg.data) : msg.data;
+  
+  const payload = {
+    content: messageData.text || messageData.content || messageData.message,
+    ticketId: ticket_id,
+    sessionId: session_id
+  };
+  
+  chatbotCh.publish('user-message', payload);
+});
 ```
 
 ## Message Flow
@@ -81,9 +86,8 @@ await forwardWidgetMessageToChatbot(messageData, chatbotProfileId, ticket_id, se
 ### User Sends Message
 1. Widget user types message
 2. Widget publishes to `widget:conversation:ticket-{ticketId}` with `message` event
-3. **Manual Step**: Call `forwardWidgetMessageToChatbot()` when appropriate
-4. Message is forwarded to `chatbot:{chatbotProfileId}:{ticketId}` with `user-message` event
-5. AI service processes the message
+3. Chatbot handler receives message and forwards to `chatbot:{chatbotProfileId}:{ticketId}` with `user-message` event
+4. AI service processes the message
 
 ### AI Responds
 1. AI service publishes response to `chatbot:{chatbotProfileId}:{ticketId}` with `bot-response` event
@@ -97,52 +101,18 @@ await forwardWidgetMessageToChatbot(messageData, chatbotProfileId, ticket_id, se
 const { subscribeToChatbotPrimary } = require('./ablyServices/listeners');
 await subscribeToChatbotPrimary(chatbotProfileId, ticketId);
 
-// 2. Send message from widget
+// 2. Send message from widget (this will be automatically forwarded to chatbot)
 const widgetChannel = ably.channels.get(`widget:conversation:ticket-${ticketId}`);
 widgetChannel.publish('message', {
   text: 'Hello, I need help with my order',
   sessionId: sessionId
 });
 
-// 3. Manually forward to chatbot when appropriate
-const { forwardWidgetMessageToChatbot } = require('./ablyServices/listeners');
-await forwardWidgetMessageToChatbot(
-  { text: 'Hello, I need help with my order' },
-  chatbotProfileId,
-  ticketId,
-  sessionId
-);
-
-// 4. AI service responds (this will be automatically forwarded to widget)
+// 3. AI service responds (this will be automatically forwarded to widget)
 const chatbotChannel = ably.channels.get(`chatbot:${chatbotProfileId}:${ticketId}`);
 chatbotChannel.publish('bot-response', {
   content: 'Hello! I can help you with your order. What order number are you looking for?'
 });
-```
-
-## Integration with Regular Conversation Flow
-
-To integrate with the regular conversation flow, you can modify the `handleWidgetConversationEvent` function in `routing.js`:
-
-```javascript
-const handleWidgetConversationEvent = async (ticketId, messageData, sessionId, channelManagerInstance) => {
-  // ... existing code ...
-
-  // Check if this ticket has a chatbot assigned
-  const { data: ticket, error: ticketErr } = await supabase
-    .from('tickets')
-    .select('chatbotId')
-    .eq('id', ticketId)
-    .single();
-
-  if (ticket && ticket.chatbotId) {
-    // Forward message to chatbot
-    const { forwardWidgetMessageToChatbot } = require('./ablyServices/listeners');
-    await forwardWidgetMessageToChatbot(messageData, ticket.chatbotId, ticketId, sessionId);
-  }
-
-  // ... rest of existing code ...
-};
 ```
 
 ## Error Handling
@@ -167,15 +137,14 @@ await channelManager.removeSubscription(
 ```
 
 This automatically:
-1. Unsubscribes from bot-response events
+1. Unsubscribes from both bot-response and widget-message events
 2. Removes the subscription from the active subscriptions cache
 3. Marks the subscription as inactive in the database
 
 ## Benefits
 
-1. **No Conflicts**: Avoids interference with regular conversation flow
-2. **Flexible Control**: You decide when to forward messages to chatbot
-3. **Scalable**: Multiple chatbots can be connected to different tickets
-4. **Reliable**: Uses Ably's reliable messaging infrastructure
-5. **Debuggable**: Comprehensive logging for troubleshooting
-6. **Flexible**: Easy to extend for additional message types or channels 
+1. **Seamless Integration**: Widget users don't need to know they're talking to an AI
+2. **Scalable**: Multiple chatbots can be connected to different tickets
+3. **Reliable**: Uses Ably's reliable messaging infrastructure
+4. **Debuggable**: Comprehensive logging for troubleshooting
+5. **Flexible**: Easy to extend for additional message types or channels 

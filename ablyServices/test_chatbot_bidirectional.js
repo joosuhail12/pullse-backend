@@ -1,6 +1,5 @@
 const Ably = require('ably');
 const channelManager = require('./channelManager');
-const { forwardWidgetMessageToChatbot } = require('./listeners');
 
 // Test configuration
 const TEST_CONFIG = {
@@ -63,18 +62,8 @@ async function testChatbotBidirectionalCommunication() {
     widgetChannel.publish('message', userMessage);
     console.log('✅ User message sent to widget channel\n');
 
-    // Step 4: Manually forward message to chatbot
-    console.log('🔄 Step 4: Manually forwarding message to chatbot...');
-    await forwardWidgetMessageToChatbot(
-      userMessage,
-      TEST_CONFIG.chatbotProfileId,
-      TEST_CONFIG.ticketId,
-      TEST_CONFIG.sessionId
-    );
-    console.log('✅ Message forwarded to chatbot\n');
-
-    // Step 5: Simulate AI response
-    console.log('🤖 Step 5: Simulating AI response...');
+    // Step 4: Simulate AI response
+    console.log('🤖 Step 4: Simulating AI response...');
     setTimeout(() => {
       const aiResponse = {
         content: 'Hello! I can help you with your order #12345. What specific issue are you experiencing?',
@@ -86,9 +75,9 @@ async function testChatbotBidirectionalCommunication() {
       console.log('✅ AI response sent to chatbot channel\n');
     }, 1000);
 
-    // Step 6: Simulate another user message
-    console.log('💬 Step 6: Simulating another user message...');
-    setTimeout(async () => {
+    // Step 5: Simulate another user message
+    console.log('💬 Step 5: Simulating another user message...');
+    setTimeout(() => {
       const userMessage2 = {
         text: 'My order hasn\'t arrived yet. It was supposed to be delivered yesterday.',
         sessionId: TEST_CONFIG.sessionId
@@ -96,20 +85,10 @@ async function testChatbotBidirectionalCommunication() {
       
       widgetChannel.publish('message', userMessage2);
       console.log('✅ Second user message sent to widget channel\n');
-
-      // Manually forward second message to chatbot
-      console.log('🔄 Step 6b: Manually forwarding second message to chatbot...');
-      await forwardWidgetMessageToChatbot(
-        userMessage2,
-        TEST_CONFIG.chatbotProfileId,
-        TEST_CONFIG.ticketId,
-        TEST_CONFIG.sessionId
-      );
-      console.log('✅ Second message forwarded to chatbot\n');
     }, 2000);
 
-    // Step 7: Simulate another AI response
-    console.log('🤖 Step 7: Simulating another AI response...');
+    // Step 6: Simulate another AI response
+    console.log('🤖 Step 6: Simulating another AI response...');
     setTimeout(() => {
       const aiResponse2 = {
         content: 'I apologize for the delay. Let me check the status of your order. Can you please provide your shipping address to help me track it?',
@@ -121,8 +100,8 @@ async function testChatbotBidirectionalCommunication() {
       console.log('✅ Second AI response sent to chatbot channel\n');
     }, 3000);
 
-    // Step 8: Cleanup after test
-    console.log('🧹 Step 8: Cleaning up after test...');
+    // Step 7: Cleanup after test
+    console.log('🧹 Step 7: Cleaning up after test...');
     setTimeout(async () => {
       try {
         await channelManager.removeSubscription(

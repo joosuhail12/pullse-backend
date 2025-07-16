@@ -65,10 +65,22 @@ const handleWidgetConversationEvent = async (ticketId, messageData, sessionId, c
 
     // 3. If the ticket is AI-enabled, also forward the message to the AI (document-qa) service.
     if (ticket.aiEnabled && userText?.trim()) {
-
-      ensureQaSubscription(ticketId, sessionId);
-      const qaCh = ably.channels.get(`document-qa`);
-      qaCh.publish('message', { query: userText, id: ticketId, clientId: ticket.clientId });
+      const chatbotCh = ably.channels.get(`chatbot:${ticket.chatbotId}:${ticketId}`);
+      const payload = {
+        content: userText,
+        ticketId: ticketId,
+        sessionId: sessionId
+      };
+      chatbotCh.publish('user-message', payload, err => {
+        if (err) {
+          console.error(`[ChannelManager] Failed to publish widget message to chatbot for ticket ${ticket_id}:`, err);
+        } else {
+          console.log(`[ChannelManager] Successfully published widget message to chatbot for ticket ${ticket_id}`);
+        }
+      });
+      // ensureQaSubscription(ticketId, sessionId);
+      // const qaCh = ably.channels.get(`document-qa`);
+      // qaCh.publish('message', { query: userText, id: ticketId, clientId: ticket.clientId });
     } else {
       // Check if there are active ticket channel subscriptions using channel manager
       const ticketSubscriptions = await channelManagerInstance.getChannelSubscriptions(`ticket:${ticketId}`);

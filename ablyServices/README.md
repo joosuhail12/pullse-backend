@@ -5,7 +5,6 @@ This module provides bidirectional communication between chatbot AI services and
 ## Features
 
 - **Bidirectional Communication**: Seamless message flow between widget users and AI chatbots
-- **Manual Control**: You decide when to forward messages to chatbots (no conflicts with regular flow)
 - **Automatic Channel Management**: Handles subscription creation, cleanup, and error recovery
 - **Comprehensive Logging**: Detailed logs for debugging and monitoring
 - **Scalable Architecture**: Supports multiple chatbots and tickets simultaneously
@@ -34,21 +33,7 @@ widgetChannel.publish('message', {
 });
 ```
 
-### 3. Manually Forward to Chatbot (when appropriate)
-
-```javascript
-const { forwardWidgetMessageToChatbot } = require('./ablyServices/listeners');
-
-// Forward message to chatbot when needed
-await forwardWidgetMessageToChatbot(
-  { text: 'Hello, I need help with my order' },
-  chatbotProfileId,
-  ticketId,
-  sessionId
-);
-```
-
-### 4. AI Service Responds
+### 3. AI Service Responds
 
 ```javascript
 const chatbotChannel = ably.channels.get(`chatbot:${chatbotProfileId}:${ticketId}`);
@@ -64,7 +49,7 @@ chatbotChannel.publish('bot-response', {
 ### Chatbot Channel
 - **Format**: `chatbot:{chatbotProfileId}:{ticketId}`
 - **Events**:
-  - `user-message`: Messages from widget users (manually forwarded)
+  - `user-message`: Messages from widget users
   - `bot-response`: Responses from AI service
 
 ### Widget Conversation Channel
@@ -78,7 +63,7 @@ chatbotChannel.publish('bot-response', {
 ```
 Widget User → widget:conversation:ticket-{ticketId} (message)
      ↓
-Manual Forward → chatbot:{chatbotProfileId}:{ticketId} (user-message)
+Chatbot Handler → chatbot:{chatbotProfileId}:{ticketId} (user-message)
      ↓
 AI Service processes message
      ↓
@@ -132,44 +117,6 @@ const { subscribeToChatbotPrimary } = require('./ablyServices/listeners');
 await subscribeToChatbotPrimary(chatbotProfileId, ticketId);
 ```
 
-#### `forwardWidgetMessageToChatbot(messageData, chatbotProfileId, ticketId, sessionId)`
-Manually forward a widget message to the chatbot.
-
-```javascript
-const { forwardWidgetMessageToChatbot } = require('./ablyServices/listeners');
-await forwardWidgetMessageToChatbot(
-  { text: 'Hello, I need help' },
-  chatbotProfileId,
-  ticketId,
-  sessionId
-);
-```
-
-## Integration with Regular Conversation Flow
-
-To integrate with the regular conversation flow, you can modify the `handleWidgetConversationEvent` function in `routing.js`:
-
-```javascript
-const handleWidgetConversationEvent = async (ticketId, messageData, sessionId, channelManagerInstance) => {
-  // ... existing code ...
-
-  // Check if this ticket has a chatbot assigned
-  const { data: ticket, error: ticketErr } = await supabase
-    .from('tickets')
-    .select('chatbotId')
-    .eq('id', ticketId)
-    .single();
-
-  if (ticket && ticket.chatbotId) {
-    // Forward message to chatbot
-    const { forwardWidgetMessageToChatbot } = require('./ablyServices/listeners');
-    await forwardWidgetMessageToChatbot(messageData, ticket.chatbotId, ticketId, sessionId);
-  }
-
-  // ... rest of existing code ...
-};
-```
-
 ## Testing
 
 Run the test script to verify the bidirectional communication:
@@ -202,8 +149,6 @@ All operations are logged with the following format:
 [ChannelManager] Bot response received for ticket {ticketId}: {message}
 [ChannelManager] Publishing bot response to widget conversation for ticket {ticketId}: {payload}
 [ChannelManager] Successfully published bot response to widget conversation for ticket {ticketId}
-[Listeners] Forwarding widget message to chatbot for ticket {ticketId}: {payload}
-[Listeners] Successfully forwarded widget message to chatbot for ticket {ticketId}
 ```
 
 ## Best Practices
@@ -213,7 +158,6 @@ All operations are logged with the following format:
 3. **Monitor Logs**: Use the comprehensive logging for debugging
 4. **Test Thoroughly**: Use the provided test script to verify functionality
 5. **Use Metadata**: Include relevant metadata in subscriptions for debugging
-6. **Manual Control**: Only forward messages to chatbot when appropriate
 
 ## Troubleshooting
 
@@ -223,7 +167,6 @@ All operations are logged with the following format:
    - Check if chatbot subscription is active
    - Verify channel names match exactly
    - Check Ably connection status
-   - Ensure you're calling `forwardWidgetMessageToChatbot` when needed
 
 2. **Subscription Not Created**
    - Verify environment variables are set
@@ -234,11 +177,6 @@ All operations are logged with the following format:
    - Check Ably quota limits
    - Verify network connectivity
    - Review error logs for failed publishes
-
-4. **Bot User Error**
-   - This error occurs when the regular conversation flow tries to fetch bot users
-   - The chatbot bidirectional communication is separate and doesn't require bot users
-   - Use manual forwarding to avoid conflicts
 
 ### Debug Commands
 

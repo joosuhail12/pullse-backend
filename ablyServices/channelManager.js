@@ -379,15 +379,35 @@ class ChannelManager {
         });
 
         // Subscribe to messages from widget conversation to forward to chatbot
-        // Note: We don't subscribe to the widget conversation channel here to avoid conflicts
-        // The chatbot bidirectional communication should be handled separately from the regular conversation flow
-        console.log(`[ChannelManager] Chatbot bidirectional communication setup complete for ticket ${ticket_id}`);
-        console.log(`[ChannelManager] Note: Widget messages should be manually forwarded to chatbot channel: chatbot:${channel_name}`);
+        const widgetConversationCh = ably.channels.get(`widget:conversation:ticket-${ticket_id}`);
+        const widgetMessageSubscription = widgetConversationCh.subscribe('message', msg => {
+          const messageData = typeof msg.data === 'string' ? JSON.parse(msg.data) : msg.data;
+          console.log(`[ChannelManager] Widget message received for ticket ${ticket_id}, forwarding to chatbot:`, messageData);
+          
+          // Forward message to chatbot's user-message event
+          const payload = {
+            content: messageData.text || messageData.content || messageData.message,
+            ticketId: ticket_id,
+            sessionId: session_id
+          };
+          
+          console.log(`[ChannelManager] Publishing widget message to chatbot for ticket ${ticket_id}:`, payload);
+          
+          chatbotCh.publish('user-message', payload, err => {
+            if (err) {
+              console.error(`[ChannelManager] Failed to publish widget message to chatbot for ticket ${ticket_id}:`, err);
+            } else {
+              console.log(`[ChannelManager] Successfully published widget message to chatbot for ticket ${ticket_id}`);
+            }
+          });
+        });
 
-        // Return only the bot response subscription
+        console.log(`[ChannelManager] Chatbot bidirectional communication setup complete for ticket ${ticket_id}`);
+
+        // Return both subscriptions (we'll store them in activeSubscriptions)
         return {
           botResponse: botResponseSubscription,
-          widgetMessage: null // We don't auto-subscribe to avoid conflicts
+          widgetMessage: widgetMessageSubscription
         };
 
       case 'qa_results':
@@ -442,14 +462,11 @@ class ChannelManager {
       
       if (subscriptionData) {
         // Handle chatbot subscriptions that have multiple subscriptions
-        if (subscriptionData.subscription.botResponse) {
+        if (subscriptionData.subscription.botResponse && subscriptionData.subscription.widgetMessage) {
           subscriptionData.subscription.botResponse.unsubscribe();
-        }
-        if (subscriptionData.subscription.widgetMessage) {
           subscriptionData.subscription.widgetMessage.unsubscribe();
-        }
-        // Handle regular subscriptions
-        if (!subscriptionData.subscription.botResponse && !subscriptionData.subscription.widgetMessage) {
+        } else {
+          // Handle regular subscriptions
           subscriptionData.subscription.unsubscribe();
         }
         this.activeSubscriptions.delete(subscriptionKey);
