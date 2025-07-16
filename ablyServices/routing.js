@@ -25,6 +25,8 @@ const handleChatbotConversationEvent = async (ticketId, messageData, sessionId, 
   try {
     const userText = messageData.text || messageData.content;
     if (!userText) return;
+  } catch (err) {
+    console.error('Error in handleChatbotConversationEvent:', err);
   }
 }
 const handleWidgetConversationEvent = async (ticketId, messageData, sessionId, channelManagerInstance, channelName) => {
