@@ -366,7 +366,9 @@ class ChannelManager {
         const botResponseSubscription = chatbotCh.subscribe('bot-response', async msg => {
           console.log("msg:XXXXXXXXXXXXXXXXXXXXX", msg);
           const response = msg.data;
-          const message = response.message;
+          console.log("XXXXXXXXXXXXXXXX", response)
+          const message = response.data;
+          console.log("XXXXXXXXXXXXXXXX", message)
           const conversation = await IS.saveConversation(
             ticket_id,
             response.data,
