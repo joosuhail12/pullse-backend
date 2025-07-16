@@ -353,9 +353,38 @@ class ChannelManager {
         console.log(`[ChannelManager] Setting up chatbot bidirectional communication for ticket ${ticket_id}`);
         
         // Subscribe to bot-response events from chatbot
-        const botResponseSubscription = chatbotCh.subscribe('bot-response', msg => {
+        const botResponseSubscription = chatbotCh.subscribe('bot-response', async msg => {
           const message = typeof msg.data === 'string' ? JSON.parse(msg.data) : msg.data;
           console.log(`[ChannelManager] Bot response received for ticket ${ticket_id}:`, message);
+          
+          // Persist the bot's response for AI-enabled tickets
+          try {
+            const internalService = require('./internalService');
+            const IS = new internalService();
+            
+            // Get bot user details and ticket info
+            const { data: users, error: usersError } = await supabase
+              .from('users')
+              .select('id, fName, lName, clientId, defaultWorkspaceId')
+              .eq('bot_enabled', true)
+              .single();
+            
+            if (!usersError && users) {
+              await IS.saveConversation(
+                ticket_id,
+                message.content || message,
+                users.id,
+                'bot',
+                users.fName + " " + users.lName,
+                users.clientId,
+                users.defaultWorkspaceId
+              );
+              console.log(`[ChannelManager] Bot response persisted for ticket ${ticket_id}`);
+            }
+          } catch (persistError) {
+            console.error(`[ChannelManager] Failed to persist bot response for ticket ${ticket_id}:`, persistError);
+            // Continue with forwarding even if persistence fails
+          }
           
           // Publish bot response to widget conversation channel
           const widgetConversationCh = ably.channels.get(`widget:conversation:ticket-${ticket_id}`);
@@ -380,9 +409,41 @@ class ChannelManager {
 
         // Subscribe to messages from widget conversation to forward to chatbot
         const widgetConversationCh = ably.channels.get(`widget:conversation:ticket-${ticket_id}`);
-        const widgetMessageSubscription = widgetConversationCh.subscribe('message', msg => {
+        const widgetMessageSubscription = widgetConversationCh.subscribe('message', async msg => {
           const messageData = typeof msg.data === 'string' ? JSON.parse(msg.data) : msg.data;
           console.log(`[ChannelManager] Widget message received for ticket ${ticket_id}, forwarding to chatbot:`, messageData);
+          
+          // Persist the user's message for AI-enabled tickets
+          try {
+            const internalService = require('./internalService');
+            const IS = new internalService();
+            
+            // Get ticket details for customer info
+            const { data: ticket, error: ticketError } = await supabase
+              .from('tickets')
+              .select('customers: customerId(id, firstname, lastname), clientId, workspaceId')
+              .eq('id', ticket_id)
+              .single();
+            
+            if (!ticketError && ticket) {
+              await IS.saveConversation(
+                ticket_id,
+                messageData.text || messageData.content || messageData.message,
+                ticket.customers.id,
+                'customer',
+                ticket.customers.firstname + " " + ticket.customers.lastname,
+                ticket.clientId,
+                ticket.workspaceId,
+                "chat",
+                messageData.attachmentType || null,
+                messageData.attachmentUrl || null
+              );
+              console.log(`[ChannelManager] Message persisted for AI-enabled ticket ${ticket_id}`);
+            }
+          } catch (persistError) {
+            console.error(`[ChannelManager] Failed to persist message for ticket ${ticket_id}:`, persistError);
+            // Continue with forwarding even if persistence fails
+          }
           
           // Forward message to chatbot's user-message event
           const payload = {

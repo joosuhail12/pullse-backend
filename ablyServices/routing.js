@@ -18,6 +18,15 @@ function init(depInternalService) {
  * Handle incoming message from the user widget.
  * This will persist the message, forward it to agents, and trigger AI if enabled.
  */
+
+
+const handleChatbotConversationEvent = async (ticketId, messageData, sessionId, channelManagerInstance, channelName) => {
+  const internalService = new InternalService();
+  try {
+    const userText = messageData.text || messageData.content;
+    if (!userText) return;
+  }
+}
 const handleWidgetConversationEvent = async (ticketId, messageData, sessionId, channelManagerInstance, channelName) => {
   const internalService = new InternalService();
   try {
@@ -43,6 +52,13 @@ const handleWidgetConversationEvent = async (ticketId, messageData, sessionId, c
       return;
     }
 
+    // EARLY RETURN: If ticket is AI-enabled, let the chatbot subscription handle it
+    // This prevents conflicts between conversation and chatbot subscriptions
+    if (ticket.aiEnabled) {
+      console.log(`[handleWidgetConversationEvent] Ticket ${ticketId} is AI-enabled, letting chatbot subscription handle the message`);
+      return;
+    }
+
     // 1. Persist the user's message in Supabase
     // const messageRecord = {
     //   ticketId: ticketId,
@@ -63,67 +79,46 @@ const handleWidgetConversationEvent = async (ticketId, messageData, sessionId, c
     //   if (err) console.error('Failed to forward message to agent channel:', err);
     // });
 
-    // 3. If the ticket is AI-enabled, also forward the message to the AI (document-qa) service.
-    if (ticket.aiEnabled && userText?.trim()) {
+    // 3. Handle non-AI tickets (agent routing)
+    // Check if there are active ticket channel subscriptions using channel manager
+    const ticketSubscriptions = await channelManagerInstance.getChannelSubscriptions(`ticket:${ticketId}`);
 
-      const chatbotCh = ably.channels.get(`${channelName}`);
-      console.log("chatbotCh:XXXXXXXXXXXXXXXXXXXXX", `${channelName}`);
-      const payload = {
+    if (ticketSubscriptions && ticketSubscriptions.length > 0) {
+      const ticketChannel = ably.channels.get(`ticket:${ticketId}`);
+      const message = {
+        id: ticketId,
         content: userText,
-        ticketId: ticketId,
-        sessionId: sessionId
-      };
-      chatbotCh.publish('user-message', payload, err => {
-        if (err) {
-          console.error(`[ChannelManager] Failed to publish widget message to chatbot for ticket ${ticket_id}:`, err);
-        } else {
-          console.log(`[ChannelManager] Successfully published widget message to chatbot for ticket ${ticket_id}`);
-        }
-      });
-      // ensureQaSubscription(ticketId, sessionId);
-      // const qaCh = ably.channels.get(`document-qa`);
-      // qaCh.publish('message', { query: userText, id: ticketId, clientId: ticket.clientId });
-    } else {
-      // Check if there are active ticket channel subscriptions using channel manager
-      const ticketSubscriptions = await channelManagerInstance.getChannelSubscriptions(`ticket:${ticketId}`);
-
-      if (ticketSubscriptions && ticketSubscriptions.length > 0) {
-        const ticketChannel = ably.channels.get(`ticket:${ticketId}`);
-        const message = {
-          id: ticketId,
-          content: userText,
-          sender: {
-            avatar: "",
-            name: ticket.customers.firstname + " " + ticket.customers.lastname,
-          },
-          timestamp: new Date().toISOString(),
-          isCustomer: true,
-          type: 'customer',
-          readBy: []
-        }
-        ticketChannel.publish('message', message, err => {
-          if (err) console.error('Failed to publish agent message to widget channel:', err);
-        });
-      } else {
-        const { data: tickets, error: ticketErr } = await supabase
-          .from('tickets')
-          .select('id, aiEnabled, assigneeId, customers: customerId(id, firstname, lastname, email), clientId, workspaceId, users: assigneeId(id, fName, lName, clientId, defaultWorkspaceId), teamId')
-          .eq('id', ticketId)
-          .limit(1);
-        const { data: teamMembers, error: teamMembersError } = await supabase
-          .from('teamMembers')
-          .select('user_id')
-          .eq('team_id', tickets[0].teamId);
-        const ticket = tickets ? tickets[0] : null;
-        const assignee = teamMembers ? teamMembers.map(member => member.user_id) : null;
-        // await createAndBroadcast({
-        //   type: 'NEW_MESSAGE',
-        //   entityId: ticketId,
-        //   actorId: ticket.customers.id,
-        //   recipientIds: assignee,
-        //   payload: { title: userText, routingType: 'new_response' },
-        // });
+        sender: {
+          avatar: "",
+          name: ticket.customers.firstname + " " + ticket.customers.lastname,
+        },
+        timestamp: new Date().toISOString(),
+        isCustomer: true,
+        type: 'customer',
+        readBy: []
       }
+      ticketChannel.publish('message', message, err => {
+        if (err) console.error('Failed to publish agent message to widget channel:', err);
+      });
+    } else {
+      const { data: tickets, error: ticketErr } = await supabase
+        .from('tickets')
+        .select('id, aiEnabled, assigneeId, customers: customerId(id, firstname, lastname, email), clientId, workspaceId, users: assigneeId(id, fName, lName, clientId, defaultWorkspaceId), teamId')
+        .eq('id', ticketId)
+        .limit(1);
+      const { data: teamMembers, error: teamMembersError } = await supabase
+        .from('teamMembers')
+        .select('user_id')
+        .eq('team_id', tickets[0].teamId);
+      const ticket = tickets ? tickets[0] : null;
+      const assignee = teamMembers ? teamMembers.map(member => member.user_id) : null;
+      // await createAndBroadcast({
+      //   type: 'NEW_MESSAGE',
+      //   entityId: ticketId,
+      //   actorId: ticket.customers.id,
+      //   recipientIds: assignee,
+      //   payload: { title: userText, routingType: 'new_response' },
+      // });
     }
 
     // 4. Offline agent notification: if no agent is currently online for this ticket, notify via internal service.
