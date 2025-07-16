@@ -108,22 +108,20 @@ class PreBuildActionService extends BaseService {
 
     async getPrebuildSelectedApps({clientId, workspaceId, userId}) {
         try  {
-            console.log(clientId, "clientId---", workspaceId, "workspaceId---", userId, "userId---");
-            const {data: preBuildApps, error: preBuildAppsError} = await this.supabase
-                .from('pre_build_apps')
-                .select('*')
-            if (preBuildAppsError) throw preBuildAppsError;
-            console.log(preBuildApps, "preBuildApps---");
-            const { data: user, error: userError } = await this.supabase
-                .from('pre_build_selected_apps')
-                .select('*')   
-            if (userError) throw userError;
-            console.log(user, "user---");
             const { data: prebuildSelectedApps, error: prebuildSelectedAppsError } = await this.supabase
-                .from('pre_build_selected_apps')
-                .select('pre_build_apps:pre_build_app_id(id, name, description, category),id')
-                .eq('client_id', "ab0b23f8-bee9-4ccf-afd2-ecbb019d3f39")
-                // .eq('workspace_id', workspaceId)
+            .from('pre_build_selected_apps')
+            .select(`
+                id,
+                pre_build_apps:pre_build_app_id (
+                id, name, description, category
+                )
+            `)
+            .eq('client_id', 'ab0b23f8-bee9-4ccf-afd2-ecbb019d3f39');
+            // const { data: prebuildSelectedApps, error: prebuildSelectedAppsError } = await this.supabase
+            //     .from('pre_build_selected_apps')
+            //     .select('pre_build_apps:pre_build_app_id(id, name, description, category),id')
+            //     .eq('client_id', "ab0b23f8-bee9-4ccf-afd2-ecbb019d3f39")
+            //     // .eq('workspace_id', workspaceId)
             if (prebuildSelectedAppsError) throw prebuildSelectedAppsError;
             console.log(prebuildSelectedApps, "prebuildSelectedApps---");
             const {data: prebuildAppConnections, error: prebuildAppConnectionsError} = await this.supabase
