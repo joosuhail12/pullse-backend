@@ -76,7 +76,7 @@ class PreBuildActionService extends BaseService {
             if (prebuildAppError) throw prebuildAppError;
             const prebuildAppId = preBuildSelectedApps.id;
             const integrationId = preBuildSelectedApps.pre_build_apps.integration_id;
-            const baseUrl = 'https://dev-socket.pullseai.com';
+            const baseUrl = 'https://app.pullseai.ai';
             const pythonBaseUrl = 'https://prodai.pullseai.com';
             console.log(integrationId, "integrationId---", userId, "userId---", baseUrl, "baseUrl---", pythonBaseUrl, "pythonBaseUrl---");
             const response = await axios.post(`${pythonBaseUrl}/connections/create-oauth-connection`, {
