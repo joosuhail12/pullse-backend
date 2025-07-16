@@ -109,6 +109,11 @@ class PreBuildActionService extends BaseService {
     async getPrebuildSelectedApps({clientId, workspaceId, userId}) {
         try  {
             console.log(clientId, "clientId---", workspaceId, "workspaceId---", userId, "userId---");
+            const {data: preBuildApps, error: preBuildAppsError} = await this.supabase
+                .from('pre_build_apps')
+                .select('*')
+            if (preBuildAppsError) throw preBuildAppsError;
+            console.log(preBuildApps, "preBuildApps---");
             const { data: user, error: userError } = await this.supabase
                 .from('pre_build_selected_apps')
                 .select('*')
