@@ -393,7 +393,7 @@ class ChannelManager {
           const widgetConversationCh = ably.channels.get(`widget:conversation:ticket-${ticket_id}`);
           const payload = {
             ticketId: ticket_id,
-            message: message.content || message,
+            message: response.data,
             from: 'bot',
             to: 'customer',
             sessionId: session_id
