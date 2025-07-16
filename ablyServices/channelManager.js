@@ -95,16 +95,19 @@ class ChannelManager {
         .single();
 
       if (error) throw error;
-
-      const {data: chatbotProfile, error: chatbotProfileError} = await supabase
-        .from('chatbots')
-        .select('*')
-        .eq('id', chatbotProfileId)
-        .single();
-      if (chatbotProfileError) throw chatbotProfileError;
-
-      // Establish the actual Ably subscription
-      await this.establishSubscription({...data, chatbotProfile});
+    if(chatbotProfileId){
+        const {data: chatbotProfile, error: chatbotProfileError} = await supabase
+          .from('chatbots')
+          .select('*')
+          .eq('id', chatbotProfileId)
+          .single();
+        if (chatbotProfileError) throw chatbotProfileError;
+  
+        // Establish the actual Ably subscription
+        await this.establishSubscription({...data, chatbotProfile});
+    }else{
+        await this.establishSubscription{data}
+    }
       
       return data;
     } catch (error) {
@@ -355,7 +358,6 @@ class ChannelManager {
         });
 
       case 'chatbot':
-        console.log("channel_name:XXXXXXXXXXXXXXXXXXXXX", channel_name);
         const chatbotCh = ably.channels.get(channel_name);
         
         console.log(`[ChannelManager] Setting up chatbot bidirectional communication for ticket ${ticket_id}`);
@@ -364,9 +366,7 @@ class ChannelManager {
         const IS = new internalService();
         
         const botResponseSubscription = chatbotCh.subscribe('bot-response', async msg => {
-          console.log("msg:XXXXXXXXXXXXXXXXXXXXX", msg);
           const message = msg.data;
-          console.log("XXXXXXXXXXXXXXXX", message, chatbotProfile)
           const { data: conversation, error: conversationError } = await supabase
             .from('conversations').insert({
                 message: message,
@@ -383,7 +383,6 @@ class ChannelManager {
           if (conversationError) {
             console.error('Error saving conversation:', conversationError);
           }
-          console.log(`[ChannelManager] Bot response received for ticket ${ticket_id}:`, message, conversation);
 
           const widgetConversationCh = ably.channels.get(`widget:conversation:ticket-${ticket_id}`);
           const payload = {
@@ -396,15 +395,6 @@ class ChannelManager {
             sessionId: session_id,
             conversationId: conversation.id,
           };
-          //ticketId,
-        //   id: conversation && conversation.id,
-        //   message,
-        //   type: "ai",
-        //   senderType: "ai",
-        //   messageType: "text"
-          
-          console.log(`[ChannelManager] Publishing bot response to widget conversation for ticket ${ticket_id}:`, payload);
-          
           widgetConversationCh.publish('message_reply', payload, err => {
             if (err) {
               console.error(`[ChannelManager] Failed to publish bot response to widget conversation for ticket ${ticket_id}:`, err);
