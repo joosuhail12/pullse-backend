@@ -67,7 +67,7 @@ const handleWidgetConversationEvent = async (ticketId, messageData, sessionId, c
     if (ticket.aiEnabled && userText?.trim()) {
 
       const chatbotCh = ably.channels.get(`chatbot:${ticket.chatbotId}:${ticketId}`);
-      console.log("chatbotCh:XXXXXXXXXXXXXXXXXXXXX", chatbotCh);
+      console.log("chatbotCh:XXXXXXXXXXXXXXXXXXXXX", `chatbot:${ticket.chatbotId}:${ticketId}`);
       const payload = {
         content: userText,
         ticketId: ticketId,
