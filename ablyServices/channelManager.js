@@ -370,7 +370,7 @@ class ChannelManager {
           const conversation = await IS.saveConversation(
             ticket_id,
             message,
-            chatbotProfile.user_id,
+            chatbotProfile.id,
             'bot',
             chatbotProfile.name,
             chatbotProfile.clientId,
