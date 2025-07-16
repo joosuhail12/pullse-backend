@@ -116,11 +116,9 @@ class PreBuildActionService extends BaseService {
             console.log(preBuildApps, "preBuildApps---");
             const { data: user, error: userError } = await this.supabase
                 .from('pre_build_selected_apps')
-                .select('*')
-                
-                console.log(user, "user---");
-
+                .select('*')   
             if (userError) throw userError;
+            console.log(user, "user---");
             const { data: prebuildSelectedApps, error: prebuildSelectedAppsError } = await this.supabase
                 .from('pre_build_selected_apps')
                 .select('pre_build_apps:pre_build_app_id(id, name, description, category),id')
