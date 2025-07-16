@@ -27,7 +27,7 @@ class ChannelManager {
       
       // Re-establish subscriptions
       for (const subscription of subscriptions || []) {
-        await this.establishSubscription(subscription);
+        await this.establishSubscription(subscription, null);
       }
     } catch (error) {
       console.error('Error initializing channel manager:', error);
@@ -96,8 +96,15 @@ class ChannelManager {
 
       if (error) throw error;
 
+      const {data: chatbotProfile, error: chatbotProfileError} = await supabase
+        .from('chatbot_profiles')
+        .select('*')
+        .eq('id', chatbotProfileId)
+        .single();
+      if (chatbotProfileError) throw chatbotProfileError;
+
       // Establish the actual Ably subscription
-      await this.establishSubscription(data);
+      await this.establishSubscription(data, chatbotProfile);
       
       return data;
     } catch (error) {
@@ -271,7 +278,7 @@ class ChannelManager {
   /**
    * Establish Ably subscription from database record
    */
-  async establishSubscription(subscriptionRecord) {
+  async establishSubscription(subscriptionRecord, chatbotProfile) {
     try {
       const { channel_name, channel_type, subscriber_id, subscriber_type } = subscriptionRecord;
       
@@ -286,7 +293,7 @@ class ChannelManager {
       const channel = ably.channels.get(channel_name);
       
       // Set up appropriate event handlers based on channel type
-      const subscription = this.setupChannelHandlers(channel, channel_type, subscriptionRecord, channel_name);
+      const subscription = this.setupChannelHandlers(channel, channel_type, subscriptionRecord, channel_name, chatbotProfile);
       
       // Store in memory cache
       this.activeSubscriptions.set(subscriptionKey, {
@@ -304,7 +311,7 @@ class ChannelManager {
   /**
    * Setup channel event handlers based on channel type
    */
-  setupChannelHandlers(channel, channelType, subscriptionRecord, channel_name) {
+  async setupChannelHandlers(channel, channelType, subscriptionRecord, channel_name, chatbotProfile) {
     const { ticket_id, session_id } = subscriptionRecord;
 
     switch (channelType) {
@@ -352,52 +359,44 @@ class ChannelManager {
         const chatbotCh = ably.channels.get(channel_name);
         
         console.log(`[ChannelManager] Setting up chatbot bidirectional communication for ticket ${ticket_id}`);
-        
-        // Subscribe to bot-response events from chatbot
+        // save the conversationId in the database using internalService
+        const internalService = require('./internalService');
+        const IS = new internalService();
+        const conversation = await IS.saveConversation(
+          ticket_id,
+          response.data,
+          chatbotProfile.user_id,
+          'bot',
+          chatbotProfile.name,
+          chatbotProfile.clientId,
+          chatbotProfile.workspaceId,
+          'chat',
+          null,
+          null
+        );
         const botResponseSubscription = chatbotCh.subscribe('bot-response', async msg => {
           console.log("msg:XXXXXXXXXXXXXXXXXXXXX", msg);
           const response = msg.data;
           const message = response.message;
           console.log(`[ChannelManager] Bot response received for ticket ${ticket_id}:`, message);
           
-          // Persist the bot's response for AI-enabled tickets
-        //   try {
-        //     const internalService = require('./internalService');
-        //     const IS = new internalService();
-            
-        //     // Get bot user details and ticket info
-        //     const { data: users, error: usersError } = await supabase
-        //       .from('users')
-        //       .select('id, fName, lName, clientId, defaultWorkspaceId')
-        //       .eq('bot_enabled', true)
-        //       .single();
-            
-        //     if (!usersError && users) {
-        //       await IS.saveConversation(
-        //         ticket_id,
-        //         message.content || message,
-        //         users.id,
-        //         'bot',
-        //         users.fName + " " + users.lName,
-        //         users.clientId,
-        //         users.defaultWorkspaceId
-        //       );
-        //       console.log(`[ChannelManager] Bot response persisted for ticket ${ticket_id}`);
-        //     }
-        //   } catch (persistError) {
-        //     console.error(`[ChannelManager] Failed to persist bot response for ticket ${ticket_id}:`, persistError);
-        //     // Continue with forwarding even if persistence fails
-        //   }
-          
-          // Publish bot response to widget conversation channel
           const widgetConversationCh = ably.channels.get(`widget:conversation:ticket-${ticket_id}`);
           const payload = {
             ticketId: ticket_id,
+            id: conversation.id,
             message: response.data,
-            from: 'bot',
-            to: 'customer',
-            sessionId: session_id
+            messageType: "text",
+            senderType: "ai",
+            type: "ai",
+            sessionId: session_id,
+            conversationId: conversation.id,
           };
+          //ticketId,
+        //   id: conversation && conversation.id,
+        //   message,
+        //   type: "ai",
+        //   senderType: "ai",
+        //   messageType: "text"
           
           console.log(`[ChannelManager] Publishing bot response to widget conversation for ticket ${ticket_id}:`, payload);
           
