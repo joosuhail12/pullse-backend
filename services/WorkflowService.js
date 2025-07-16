@@ -121,7 +121,7 @@ class WorkflowService extends BaseService {
                             .eq('clientId', clientId)
 
                         if (chatbotsError) throw new Error(`Fetch failed: ${chatbotsError.message}`);
-
+                        console.log("chatbots:XXXXXXXXXXXXXXXXXXXXX", chatbots);
                         // Check if any chatbot's audience rules match the customer data
                         let matchingChatbot = null;
 
@@ -147,9 +147,10 @@ class WorkflowService extends BaseService {
                                         }
                                     }
                                 }
-
+                                console.log("audienceRules:XXXXXXXXXXXXXXXXXXXXX", audienceRules);  
+                                console.log("customerDataWithCompany:XXXXXXXXXXXXXXXXXXXXX", customerDataWithCompany);
                                 const isMatch = await this.validateAudienceRules(audienceRules, customerDataWithCompany);
-
+                                console.log("isMatch:XXXXXXXXXXXXXXXXXXXXX", isMatch);
                                 if (isMatch) {
                                     matchingChatbot = chatbot;
                                     break;
