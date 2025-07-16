@@ -348,6 +348,7 @@ class ChannelManager {
         });
 
       case 'chatbot':
+        console.log("channel_name:XXXXXXXXXXXXXXXXXXXXX", channel_name);
         const chatbotCh = ably.channels.get(channel_name);
         
         console.log(`[ChannelManager] Setting up chatbot bidirectional communication for ticket ${ticket_id}`);
