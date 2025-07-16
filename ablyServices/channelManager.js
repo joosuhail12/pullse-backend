@@ -355,6 +355,7 @@ class ChannelManager {
         
         // Subscribe to bot-response events from chatbot
         const botResponseSubscription = chatbotCh.subscribe('bot-response', async msg => {
+          console.log("msg:XXXXXXXXXXXXXXXXXXXXX", msg);
           const message = typeof msg.data === 'string' ? JSON.parse(msg.data) : msg.data;
           console.log(`[ChannelManager] Bot response received for ticket ${ticket_id}:`, message);
           
