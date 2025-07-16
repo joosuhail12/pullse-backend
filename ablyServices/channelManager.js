@@ -106,7 +106,7 @@ class ChannelManager {
         // Establish the actual Ably subscription
         await this.establishSubscription({...data, chatbotProfile});
     }else{
-        await this.establishSubscription{data}
+        await this.establishSubscription(data)
     }
       
       return data;
