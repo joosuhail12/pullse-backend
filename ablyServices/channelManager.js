@@ -348,6 +348,7 @@ class ChannelManager {
         });
 
       case 'chatbot':
+        console.log("channel_name:XXXXXXXXXXXXXXXXXXXXX", channel_name);
         return channel.subscribe(channel_name, msg => {
           const message = typeof msg.data === 'string' ? JSON.parse(msg.data) : msg.data;
           const payload = { "content": message };
