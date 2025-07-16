@@ -169,9 +169,7 @@ class WorkflowService extends BaseService {
 
                             // send this data to ably listener
                             // send a post request to https://https://prodai.pullseai.com/api/v1/chatbot/primary/message
-                            const response = await axios.post('https://prodai.pullseai.com/api/v1/chatbot/primary/message', {
-                                chatbotProfileId: matchingChatbot.id,
-                                ticketId: ticketId,
+                            const response = await axios.post(`https://prodai.pullseai.com/api/v1/chatbot/${matchingChatbot.id}/${ticketId}/open`, {
                                 message: ticket.title
                             })
                                 .catch(error => {
