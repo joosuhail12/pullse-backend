@@ -188,6 +188,7 @@ class InternalService {
   }
 
   async saveConversation(ticketId, firstMessage, customerId, senderType, senderName, clientId, workspaceId, type = 'chat', attachmentType = null, attachmentUrl = null) {
+    console.log("XXXXXXXXXXXXXXXX", ticketId, firstMessage, customerId, senderType, senderName, clientId, workspaceId, type, attachmentType, attachmentUrl)
     const { data: conversation, error: conversationError } = await supabase.from('conversations').insert({
       message: firstMessage,
       createdBy: customerId,
