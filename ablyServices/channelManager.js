@@ -362,22 +362,23 @@ class ChannelManager {
         // save the conversationId in the database using internalService
         const internalService = require('./internalService');
         const IS = new internalService();
-        const conversation = await IS.saveConversation(
-          ticket_id,
-          response.data,
-          chatbotProfile.user_id,
-          'bot',
-          chatbotProfile.name,
-          chatbotProfile.clientId,
-          chatbotProfile.workspaceId,
-          'chat',
-          null,
-          null
-        );
+        
         const botResponseSubscription = chatbotCh.subscribe('bot-response', async msg => {
           console.log("msg:XXXXXXXXXXXXXXXXXXXXX", msg);
           const response = msg.data;
           const message = response.message;
+          const conversation = await IS.saveConversation(
+            ticket_id,
+            response.data,
+            chatbotProfile.user_id,
+            'bot',
+            chatbotProfile.name,
+            chatbotProfile.clientId,
+            chatbotProfile.workspaceId,
+            'chat',
+            null,
+            null
+          );
           console.log(`[ChannelManager] Bot response received for ticket ${ticket_id}:`, message);
           
           const widgetConversationCh = ably.channels.get(`widget:conversation:ticket-${ticket_id}`);
