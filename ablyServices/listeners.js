@@ -121,6 +121,34 @@ exports.publishToChatbotConversation = async function publishToChatbotConversati
   }
 };
 
+// Function to forward widget message to chatbot
+exports.forwardWidgetMessageToChatbot = async function forwardWidgetMessageToChatbot(messageData, chatbotProfileId, ticket_id, session_id) {
+  try {
+    const chatbotCh = ably.channels.get(`chatbot:${chatbotProfileId}:${ticket_id}`);
+    
+    const payload = {
+      content: messageData.text || messageData.content || messageData.message,
+      ticketId: ticket_id,
+      sessionId: session_id
+    };
+    
+    console.log(`[Listeners] Forwarding widget message to chatbot for ticket ${ticket_id}:`, payload);
+    
+    chatbotCh.publish('user-message', payload, err => {
+      if (err) {
+        console.error(`[Listeners] Failed to forward widget message to chatbot for ticket ${ticket_id}:`, err);
+      } else {
+        console.log(`[Listeners] Successfully forwarded widget message to chatbot for ticket ${ticket_id}`);
+      }
+    });
+    
+    return true;
+  } catch (error) {
+    console.error('Error forwarding widget message to chatbot:', error);
+    return false;
+  }
+};
+
 // Legacy function for backward compatibility - now redirects to new pattern
 exports.publishToCopilotConversationChannels = async function publishToCopilotConversationChannels(message, conversationId) {
   console.warn('publishToCopilotConversationChannels is deprecated. Use publishToChatbotConversation instead.');
