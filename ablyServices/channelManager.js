@@ -97,7 +97,7 @@ class ChannelManager {
       if (error) throw error;
 
       const {data: chatbotProfile, error: chatbotProfileError} = await supabase
-        .from('chatbot_profiles')
+        .from('chatbot')
         .select('*')
         .eq('id', chatbotProfileId)
         .single();
