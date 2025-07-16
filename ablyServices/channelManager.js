@@ -348,9 +348,10 @@ class ChannelManager {
         });
 
       case 'chatbot':
-        console.log("channel_name:XXXXXXXXXXXXXXXXXXXXX", channel_name);
+        console.log("channel_name:XXXXXXXXXXXXXXXXXXXXX", channel_name, msg);
         return channel.subscribe(channel_name, msg => {
           const message = typeof msg.data === 'string' ? JSON.parse(msg.data) : msg.data;
+          console.log("message:XXXXXXXXXXXXXXXXXXXXX", message);
           const payload = { "content": message };
           channel.publish('user-message', payload, err => {
             if (err) console.error('Failed to publish chatbot message to ticket channel:', err);
