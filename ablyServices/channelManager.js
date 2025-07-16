@@ -367,18 +367,22 @@ class ChannelManager {
           console.log("msg:XXXXXXXXXXXXXXXXXXXXX", msg);
           const message = msg.data;
           console.log("XXXXXXXXXXXXXXXX", message, chatbotProfile)
-          const conversation = await IS.saveConversation(
-            ticket_id,
-            message,
-            chatbotProfile.id,
-            'bot',
-            chatbotProfile.name,
-            chatbotProfile.clientId,
-            chatbotProfile.workspaceId,
-            'chat',
-            null,
-            null
-          );
+          const { data: conversation, error: conversationError } = await supabase
+            .from('conversations').insert({
+                message: message,
+                type: 'chat',
+                ticketId: ticket_id,
+                senderName: chatbotProfile.name,
+                clientId: chatbotProfile.clientId,
+                userType: "bot",
+                workspaceId: chatbotProfile.workspaceId,
+                messageType: "text",
+                senderType: "ai",
+                workflowActionId: null
+            }).select('id').single();
+          if (conversationError) {
+            console.error('Error saving conversation:', conversationError);
+          }
           console.log(`[ChannelManager] Bot response received for ticket ${ticket_id}:`, message, conversation);
 
           const widgetConversationCh = ably.channels.get(`widget:conversation:ticket-${ticket_id}`);
