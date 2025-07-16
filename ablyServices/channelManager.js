@@ -348,19 +348,67 @@ class ChannelManager {
         });
 
       case 'chatbot':
-        console.log("channel_name:XXXXXXXXXXXXXXXXXXXXX", channel_name, msg);
-        return channel.subscribe(channel_name, msg => {
+        const chatbotCh = ably.channels.get(channel_name);
+        
+        console.log(`[ChannelManager] Setting up chatbot bidirectional communication for ticket ${ticket_id}`);
+        
+        // Subscribe to bot-response events from chatbot
+        const botResponseSubscription = chatbotCh.subscribe('bot-response', msg => {
           const message = typeof msg.data === 'string' ? JSON.parse(msg.data) : msg.data;
-          console.log("message:XXXXXXXXXXXXXXXXXXXXX", message);
-          const payload = { "content": message };
-          channel.publish('user-message', payload, err => {
-            if (err) console.error('Failed to publish chatbot message to ticket channel:', err);
+          console.log(`[ChannelManager] Bot response received for ticket ${ticket_id}:`, message);
+          
+          // Publish bot response to widget conversation channel
+          const widgetConversationCh = ably.channels.get(`widget:conversation:ticket-${ticket_id}`);
+          const payload = {
+            ticketId: ticket_id,
+            message: message.content || message,
+            from: 'bot',
+            to: 'customer',
+            sessionId: session_id
+          };
+          
+          console.log(`[ChannelManager] Publishing bot response to widget conversation for ticket ${ticket_id}:`, payload);
+          
+          widgetConversationCh.publish('message_reply', payload, err => {
+            if (err) {
+              console.error(`[ChannelManager] Failed to publish bot response to widget conversation for ticket ${ticket_id}:`, err);
+            } else {
+              console.log(`[ChannelManager] Successfully published bot response to widget conversation for ticket ${ticket_id}`);
+            }
           });
-        //   const ticketCh = ably.channels.get(`ticket:${ticket_id}`);
-        //   ticketCh.publish('user-message', payload, err => {
-        //     if (err) console.error('Failed to publish chatbot message to ticket channel:', err);
-        //   });
         });
+
+        // Subscribe to messages from widget conversation to forward to chatbot
+        const widgetConversationCh = ably.channels.get(`widget:conversation:ticket-${ticket_id}`);
+        const widgetMessageSubscription = widgetConversationCh.subscribe('message', msg => {
+          const messageData = typeof msg.data === 'string' ? JSON.parse(msg.data) : msg.data;
+          console.log(`[ChannelManager] Widget message received for ticket ${ticket_id}, forwarding to chatbot:`, messageData);
+          
+          // Forward message to chatbot's user-message event
+          const payload = {
+            content: messageData.text || messageData.content || messageData.message,
+            ticketId: ticket_id,
+            sessionId: session_id
+          };
+          
+          console.log(`[ChannelManager] Publishing widget message to chatbot for ticket ${ticket_id}:`, payload);
+          
+          chatbotCh.publish('user-message', payload, err => {
+            if (err) {
+              console.error(`[ChannelManager] Failed to publish widget message to chatbot for ticket ${ticket_id}:`, err);
+            } else {
+              console.log(`[ChannelManager] Successfully published widget message to chatbot for ticket ${ticket_id}`);
+            }
+          });
+        });
+
+        console.log(`[ChannelManager] Chatbot bidirectional communication setup complete for ticket ${ticket_id}`);
+
+        // Return both subscriptions (we'll store them in activeSubscriptions)
+        return {
+          botResponse: botResponseSubscription,
+          widgetMessage: widgetMessageSubscription
+        };
 
       case 'qa_results':
         return channel.subscribe(async (msg) => {
@@ -413,7 +461,14 @@ class ChannelManager {
       const subscriptionData = this.activeSubscriptions.get(subscriptionKey);
       
       if (subscriptionData) {
-        subscriptionData.subscription.unsubscribe();
+        // Handle chatbot subscriptions that have multiple subscriptions
+        if (subscriptionData.subscription.botResponse && subscriptionData.subscription.widgetMessage) {
+          subscriptionData.subscription.botResponse.unsubscribe();
+          subscriptionData.subscription.widgetMessage.unsubscribe();
+        } else {
+          // Handle regular subscriptions
+          subscriptionData.subscription.unsubscribe();
+        }
         this.activeSubscriptions.delete(subscriptionKey);
       }
     } catch (error) {
