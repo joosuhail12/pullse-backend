@@ -541,7 +541,59 @@ class TeamService {
     // Get all teammates for a user across all teams
     async getUserTeammates(userId, workspaceId, clientId, withCurrentUser = false) {
         try {
+            // Check if user is org admin for this workspace
+            const { data: user, error: userError } = await supabase
+                .from('users')
+                .select('id, roleIds')
+                .eq('id', userId)
+                .single();
+            if (userError) throw userError;
+            let isOrgAdmin = false;
+            if (user && user.roleIds) {
+                const roleIdArr = Array.isArray(user.roleIds) ? user.roleIds : [user.roleIds];
+                const { data: roles, error: rolesError } = await supabase
+                    .from('userRoles')
+                    .select('name')
+                    .in('id', roleIdArr);
+                if (rolesError) throw rolesError;
+                isOrgAdmin = (roles || []).some(r => r.name === 'ORGANIZATION_ADMIN');
+            } else {
+                // Fallback: check workspacePermissions for this user and workspace
+                const { data: perms, error: permsError } = await supabase
+                    .from('workspacePermissions')
+                    .select('role')
+                    .eq('userId', userId)
+                    .eq('workspaceId', workspaceId)
+                    .single();
+                if (permsError && permsError.code !== 'PGRST116') throw permsError;
+                if (perms && perms.role && perms.role === 'ORGANIZATION_ADMIN') {
+                    isOrgAdmin = true;
+                }
+            }
+            if (isOrgAdmin) {
+                // console.log("*********isOrgAdmin", isOrgAdmin);
+                // Return all users in the workspace
+                const { data: allUsers, error: allUsersError } = await supabase
+                    .from(this.usersTable)
+                    .select('id, name, email, status, lastLoggedInAt, created_at, avatar, teamId, createdBy, roleIds:userRoles(name)')
+                    .eq('clientId', clientId)
+                    .is('deletedAt', null);
+                if (allUsersError) throw allUsersError;
+                return allUsers.map(user => ({
+                    id: user.id,
+                    name: user.name,
+                    email: user.email,
+                    role: user.roleIds ? user.roleIds.name : null,
+                    status: user.status,
+                    teamId: user.teamId,
+                    createdBy: user.createdBy,
+                    createdAt: user.created_at,
+                    lastActive: user.lastLoggedInAt,
+                    avatar: user.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(user.name)}`
+                }));
+            }
             // Step 1: Find all teams the user belongs to
+            // console.log("*********userTeamMemberships");
             const { data: userTeamMemberships, error: membershipError } = await supabase
                 .from(this.memberTable)
                 .select('team_id')
