@@ -82,7 +82,6 @@ class WorkflowService extends BaseService {
             const ticketId = payload.id;
             const workspaceId = payload.workspaceId;
             const clientId = payload?.clientId ?? null;
-            console.log("handleTicketCompleted()", ticketId, workspaceId, clientId);
             // fetch the ticket
             const { data: ticket, error: ticketError } = await this.supabase
                 .from('tickets')
@@ -92,9 +91,8 @@ class WorkflowService extends BaseService {
                 .single();
 
             if (ticketError) throw new Error(`Fetch failed: ${ticketError.message}`);
-            console.log("ticket", ticket);
             if (ticket.channel === "chat") {
-                if (ticket.assigneeId) {
+                if (!ticket.assigneeId) {
                     // then check from the client if the ticket_ai_enabled is true
                     const { data: client, error: clientError } = await this.supabase
                         .from('clients')
