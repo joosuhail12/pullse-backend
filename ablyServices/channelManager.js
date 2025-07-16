@@ -351,10 +351,13 @@ class ChannelManager {
         return channel.subscribe(channel_name, msg => {
           const message = typeof msg.data === 'string' ? JSON.parse(msg.data) : msg.data;
           const payload = { "content": message };
-          const ticketCh = ably.channels.get(`ticket:${ticket_id}`);
-          ticketCh.publish('user-message', payload, err => {
+          channel.publish('user-message', payload, err => {
             if (err) console.error('Failed to publish chatbot message to ticket channel:', err);
           });
+        //   const ticketCh = ably.channels.get(`ticket:${ticket_id}`);
+        //   ticketCh.publish('user-message', payload, err => {
+        //     if (err) console.error('Failed to publish chatbot message to ticket channel:', err);
+        //   });
         });
 
       case 'qa_results':
