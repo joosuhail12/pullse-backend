@@ -326,7 +326,7 @@ class ChannelManager {
 
       case 'conversation':
         const subscription = channel.subscribe('message', m => {
-          require('./routing').handleWidgetConversationEvent(ticket_id, m.data, session_id, this);
+          require('./routing').handleWidgetConversationEvent(ticket_id, m.data, session_id, this, channel_name);
         });
         
         channel.subscribe('user_action', async msg => {

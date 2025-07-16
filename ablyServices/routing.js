@@ -18,7 +18,7 @@ function init(depInternalService) {
  * Handle incoming message from the user widget.
  * This will persist the message, forward it to agents, and trigger AI if enabled.
  */
-const handleWidgetConversationEvent = async (ticketId, messageData, sessionId, channelManagerInstance) => {
+const handleWidgetConversationEvent = async (ticketId, messageData, sessionId, channelManagerInstance, channelName) => {
   const internalService = new InternalService();
   try {
     // Validate ticketId format
@@ -66,8 +66,8 @@ const handleWidgetConversationEvent = async (ticketId, messageData, sessionId, c
     // 3. If the ticket is AI-enabled, also forward the message to the AI (document-qa) service.
     if (ticket.aiEnabled && userText?.trim()) {
 
-      const chatbotCh = ably.channels.get(`chatbot:${ticket.chatbotId}:${ticketId}`);
-      console.log("chatbotCh:XXXXXXXXXXXXXXXXXXXXX", `chatbot:${ticket.chatbotId}:${ticketId}`);
+      const chatbotCh = ably.channels.get(`${channelName}`);
+      console.log("chatbotCh:XXXXXXXXXXXXXXXXXXXXX", `${channelName}`);
       const payload = {
         content: userText,
         ticketId: ticketId,
