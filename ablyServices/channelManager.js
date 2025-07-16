@@ -286,7 +286,7 @@ class ChannelManager {
       const channel = ably.channels.get(channel_name);
       
       // Set up appropriate event handlers based on channel type
-      const subscription = this.setupChannelHandlers(channel, channel_type, subscriptionRecord);
+      const subscription = this.setupChannelHandlers(channel, channel_type, subscriptionRecord, channel_name);
       
       // Store in memory cache
       this.activeSubscriptions.set(subscriptionKey, {
@@ -304,7 +304,7 @@ class ChannelManager {
   /**
    * Setup channel event handlers based on channel type
    */
-  setupChannelHandlers(channel, channelType, subscriptionRecord) {
+  setupChannelHandlers(channel, channelType, subscriptionRecord, channel_name) {
     const { ticket_id, session_id } = subscriptionRecord;
 
     switch (channelType) {
@@ -326,7 +326,7 @@ class ChannelManager {
 
       case 'conversation':
         const subscription = channel.subscribe('message', m => {
-          require('./routing').handleWidgetConversationEvent(ticket_id, m.data, session_id, this);
+          require('./routing').handleWidgetConversationEvent(ticket_id, m.data, session_id, this, channel_name);
         });
         
         channel.subscribe('user_action', async msg => {
@@ -348,14 +348,129 @@ class ChannelManager {
         });
 
       case 'chatbot':
-        return channel.subscribe('chatbot_response', msg => {
+        console.log("channel_name:XXXXXXXXXXXXXXXXXXXXX", channel_name);
+        const chatbotCh = ably.channels.get(channel_name);
+        
+        console.log(`[ChannelManager] Setting up chatbot bidirectional communication for ticket ${ticket_id}`);
+        
+        // Subscribe to bot-response events from chatbot
+        const botResponseSubscription = chatbotCh.subscribe('bot-response', async msg => {
           const message = typeof msg.data === 'string' ? JSON.parse(msg.data) : msg.data;
+          console.log(`[ChannelManager] Bot response received for ticket ${ticket_id}:`, message);
           
-          const ticketCh = ably.channels.get(`ticket:${ticket_id}`);
-          ticketCh.publish('message', message, err => {
-            if (err) console.error('Failed to publish chatbot message to ticket channel:', err);
+          // Persist the bot's response for AI-enabled tickets
+          try {
+            const internalService = require('./internalService');
+            const IS = new internalService();
+            
+            // Get bot user details and ticket info
+            const { data: users, error: usersError } = await supabase
+              .from('users')
+              .select('id, fName, lName, clientId, defaultWorkspaceId')
+              .eq('bot_enabled', true)
+              .single();
+            
+            if (!usersError && users) {
+              await IS.saveConversation(
+                ticket_id,
+                message.content || message,
+                users.id,
+                'bot',
+                users.fName + " " + users.lName,
+                users.clientId,
+                users.defaultWorkspaceId
+              );
+              console.log(`[ChannelManager] Bot response persisted for ticket ${ticket_id}`);
+            }
+          } catch (persistError) {
+            console.error(`[ChannelManager] Failed to persist bot response for ticket ${ticket_id}:`, persistError);
+            // Continue with forwarding even if persistence fails
+          }
+          
+          // Publish bot response to widget conversation channel
+          const widgetConversationCh = ably.channels.get(`widget:conversation:ticket-${ticket_id}`);
+          const payload = {
+            ticketId: ticket_id,
+            message: message.content || message,
+            from: 'bot',
+            to: 'customer',
+            sessionId: session_id
+          };
+          
+          console.log(`[ChannelManager] Publishing bot response to widget conversation for ticket ${ticket_id}:`, payload);
+          
+          widgetConversationCh.publish('message_reply', payload, err => {
+            if (err) {
+              console.error(`[ChannelManager] Failed to publish bot response to widget conversation for ticket ${ticket_id}:`, err);
+            } else {
+              console.log(`[ChannelManager] Successfully published bot response to widget conversation for ticket ${ticket_id}`);
+            }
           });
         });
+
+        // Subscribe to messages from widget conversation to forward to chatbot
+        const widgetConversationCh = ably.channels.get(`widget:conversation:ticket-${ticket_id}`);
+        const widgetMessageSubscription = widgetConversationCh.subscribe('message', async msg => {
+          const messageData = typeof msg.data === 'string' ? JSON.parse(msg.data) : msg.data;
+          console.log(`[ChannelManager] Widget message received for ticket ${ticket_id}, forwarding to chatbot:`, messageData);
+          
+          // Persist the user's message for AI-enabled tickets
+          try {
+            const internalService = require('./internalService');
+            const IS = new internalService();
+            
+            // Get ticket details for customer info
+            const { data: ticket, error: ticketError } = await supabase
+              .from('tickets')
+              .select('customers: customerId(id, firstname, lastname), clientId, workspaceId')
+              .eq('id', ticket_id)
+              .single();
+            
+            if (!ticketError && ticket) {
+              await IS.saveConversation(
+                ticket_id,
+                messageData.text || messageData.content || messageData.message,
+                ticket.customers.id,
+                'customer',
+                ticket.customers.firstname + " " + ticket.customers.lastname,
+                ticket.clientId,
+                ticket.workspaceId,
+                "chat",
+                messageData.attachmentType || null,
+                messageData.attachmentUrl || null
+              );
+              console.log(`[ChannelManager] Message persisted for AI-enabled ticket ${ticket_id}`);
+            }
+          } catch (persistError) {
+            console.error(`[ChannelManager] Failed to persist message for ticket ${ticket_id}:`, persistError);
+            // Continue with forwarding even if persistence fails
+          }
+          
+          // Forward message to chatbot's user-message event
+          const payload = {
+            content: messageData.text || messageData.content || messageData.message,
+            ticketId: ticket_id,
+            sessionId: session_id
+          };
+          
+          console.log(`[ChannelManager] Publishing widget message to chatbot for ticket ${ticket_id}:`, payload);
+          
+          chatbotCh.publish('user-message', payload, err => {
+            if (err) {
+              console.error(`[ChannelManager] Failed to publish widget message to chatbot for ticket ${ticket_id}:`, err);
+            } else {
+              console.log(`[ChannelManager] Successfully published widget message to chatbot for ticket ${ticket_id}`);
+            }
+          });
+        });
+
+        console.log(`[ChannelManager] Chatbot bidirectional communication setup complete for ticket ${ticket_id}`);
+
+        // Return both subscriptions (we'll store them in activeSubscriptions)
+        return {
+          botResponse: botResponseSubscription,
+          widgetMessage: widgetMessageSubscription
+        };
 
       case 'qa_results':
         return channel.subscribe(async (msg) => {
@@ -408,7 +523,14 @@ class ChannelManager {
       const subscriptionData = this.activeSubscriptions.get(subscriptionKey);
       
       if (subscriptionData) {
-        subscriptionData.subscription.unsubscribe();
+        // Handle chatbot subscriptions that have multiple subscriptions
+        if (subscriptionData.subscription.botResponse && subscriptionData.subscription.widgetMessage) {
+          subscriptionData.subscription.botResponse.unsubscribe();
+          subscriptionData.subscription.widgetMessage.unsubscribe();
+        } else {
+          // Handle regular subscriptions
+          subscriptionData.subscription.unsubscribe();
+        }
         this.activeSubscriptions.delete(subscriptionKey);
       }
     } catch (error) {

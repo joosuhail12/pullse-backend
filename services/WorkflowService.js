@@ -82,7 +82,6 @@ class WorkflowService extends BaseService {
             const ticketId = payload.id;
             const workspaceId = payload.workspaceId;
             const clientId = payload?.clientId ?? null;
-            console.log("handleTicketCompleted()", ticketId, workspaceId, clientId);
             // fetch the ticket
             const { data: ticket, error: ticketError } = await this.supabase
                 .from('tickets')
@@ -92,16 +91,15 @@ class WorkflowService extends BaseService {
                 .single();
 
             if (ticketError) throw new Error(`Fetch failed: ${ticketError.message}`);
-            console.log("ticket", ticket);
             if (ticket.channel === "chat") {
-                if (ticket.assigneeId) {
+                if (!ticket.assigneeId) {
                     // then check from the client if the ticket_ai_enabled is true
                     const { data: client, error: clientError } = await this.supabase
                         .from('clients')
                         .select('*')
                         .eq('id', ticket.clientId)
                         .single();
-
+                    
                     if (client.ticket_ai_enabled) {
                         // fetch the customer data related to the ticket
                         const { data: customer, error: customerError } = await this.supabase
@@ -170,10 +168,7 @@ class WorkflowService extends BaseService {
                             if (updateTicketDataError) throw new Error(`Fetch failed: ${updateTicketDataError.message}`);
 
                             // send this data to ably listener
-                            // send a post request to https://https://prodai.pullseai.com/api/v1/chatbot/primary/message
-                            const response = await axios.post('https://prodai.pullseai.com/api/v1/chatbot/primary/message', {
-                                chatbotProfileId: matchingChatbot.id,
-                                ticketId: ticketId,
+                            const response = await axios.post(`https://prodai.pullseai.com/api/v1/chatbot/${matchingChatbot.id}/${ticketId}/open`, {
                                 message: ticket.title
                             })
                                 .catch(error => {

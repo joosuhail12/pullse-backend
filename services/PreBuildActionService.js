@@ -76,8 +76,8 @@ class PreBuildActionService extends BaseService {
             if (prebuildAppError) throw prebuildAppError;
             const prebuildAppId = preBuildSelectedApps.id;
             const integrationId = preBuildSelectedApps.pre_build_apps.integration_id;
-            const baseUrl = process.env.APP_ENVIRONMENT === 'development' ? 'http://localhost:8080' : 'https://dev-socket.pullseai.com';
-            const pythonBaseUrl = process.env.APP_ENVIRONMENT === 'development' ? 'http://localhost:8000' : 'https://prodai.pullseai.com';
+            const baseUrl = 'https://app.pullse.ai';
+            const pythonBaseUrl = 'https://prodai.pullseai.com';
             console.log(integrationId, "integrationId---", userId, "userId---", baseUrl, "baseUrl---", pythonBaseUrl, "pythonBaseUrl---");
             const response = await axios.post(`${pythonBaseUrl}/connections/create-oauth-connection`, {
                 "user_id":      userId,
@@ -109,10 +109,15 @@ class PreBuildActionService extends BaseService {
     async getPrebuildSelectedApps({clientId, workspaceId, userId}) {
         try  {
             const { data: prebuildSelectedApps, error: prebuildSelectedAppsError } = await this.supabase
-                .from('pre_build_selected_apps')
-                .select('pre_build_apps:pre_build_app_id(id, name, description, category),id')
-                .eq('client_id', clientId)
-                .eq('workspace_id', workspaceId)
+            .from('pre_build_selected_apps')
+            .select(`
+                id,
+                pre_build_apps:pre_build_app_id (
+                id, name, description, category
+                )
+            `)
+            .eq('client_id', clientId)
+            .eq('workspace_id', workspaceId);
             if (prebuildSelectedAppsError) throw prebuildSelectedAppsError;
             const {data: prebuildAppConnections, error: prebuildAppConnectionsError} = await this.supabase
                 .from('prebuild_app_connections')
@@ -120,7 +125,6 @@ class PreBuildActionService extends BaseService {
                 .eq('user_id', userId)
                 .in('pre_build_selected_apps_id', prebuildSelectedApps.map(app => app.id))
             if (prebuildAppConnectionsError) throw prebuildAppConnectionsError;
-           
             const prebuildSelectedAppsData = prebuildSelectedApps.map(app => {
                 return {
                     name: app.pre_build_apps.name,
@@ -132,7 +136,6 @@ class PreBuildActionService extends BaseService {
                     activeActions: 0,
                 }
             });
-            console.log(prebuildSelectedAppsData, "prebuildSelectedAppsData---");
             return prebuildSelectedAppsData;
         } catch (err) {
             console.log(err, "err---");
