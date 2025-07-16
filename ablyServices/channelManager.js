@@ -27,7 +27,7 @@ class ChannelManager {
       
       // Re-establish subscriptions
       for (const subscription of subscriptions || []) {
-        await this.establishSubscription(subscription, null);
+        await this.establishSubscription(subscription);
       }
     } catch (error) {
       console.error('Error initializing channel manager:', error);
@@ -104,7 +104,7 @@ class ChannelManager {
       if (chatbotProfileError) throw chatbotProfileError;
 
       // Establish the actual Ably subscription
-      await this.establishSubscription(data, chatbotProfile);
+      await this.establishSubscription({...data, chatbotProfile});
       
       return data;
     } catch (error) {
@@ -278,9 +278,9 @@ class ChannelManager {
   /**
    * Establish Ably subscription from database record
    */
-  async establishSubscription(subscriptionRecord, chatbotProfile) {
+  async establishSubscription(subscriptionRecord) {
     try {
-      const { channel_name, channel_type, subscriber_id, subscriber_type } = subscriptionRecord;
+      const { channel_name, channel_type, subscriber_id, subscriber_type, chatbotProfile } = subscriptionRecord;
       
       // Create unique key for this subscription
       const subscriptionKey = `${channel_name}:${subscriber_id}:${subscriber_type}`;
