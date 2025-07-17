@@ -59,6 +59,41 @@ exports.handleNewTicket = async function handleNewTicket({ workspaceId, sessionI
   // notify widget
   ablyRest.channels.get(`widget:contactevent:${sessionId}`)
     .publish('new_ticket_reply', { ticketId });
+    const newTicketPayload = {
+      id: ticketId,
+      ticket_sno: ticketId,
+      sno: ticket.sno ?? ticketId,
+      subject: firstMessage,
+      description: null,
+      customer: {
+        id: session.customers.id,
+        name: `${session.customers.firstname} ${session.customers.lastname}`,
+        email: session.customers.email,
+        phone: session.customers.phone,
+      },
+      customerId: session.customers.id,
+      status:"open",
+      priority:"low",
+      assignee:null,
+      assignedTo:null,
+      assignedToUser:null,
+      teamId:null,
+      team:[],
+      teams: [],
+      tags: [],
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      isUnread: false,
+      hasNotification: false,
+      notificationType: null,
+      recipients: [],
+      customFields: [],
+      topicIds: [],
+      mentionIds: [],
+      messages: [],
+    }
+    ablyRest.channels.get(`notifications:client:${session.clients.id}`)
+    .publish('new_ticket', newTicketPayload);
 
   // notifications for humans (skip if goes to bot inbox)
   // if (!aiEnabled) {

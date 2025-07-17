@@ -91,15 +91,14 @@ class WorkflowService extends BaseService {
                 .single();
 
             if (ticketError) throw new Error(`Fetch failed: ${ticketError.message}`);
+            const { data: client, error: clientError } = await this.supabase
+                .from('clients')
+                .select('*')
+                .eq('id', ticket.clientId)
+                .single();
             if (ticket.channel === "chat") {
                 if (!ticket.assigneeId) {
                     // then check from the client if the ticket_ai_enabled is true
-                    const { data: client, error: clientError } = await this.supabase
-                        .from('clients')
-                        .select('*')
-                        .eq('id', ticket.clientId)
-                        .single();
-                    
                     if (client.ticket_ai_enabled) {
                         // fetch the customer data related to the ticket
                         const { data: customer, error: customerError } = await this.supabase
@@ -186,45 +185,48 @@ class WorkflowService extends BaseService {
                             console.log("No matching chatbot found for customer:", customer.email);
                         }
                     }
-                } else {
-                    // handle team level routing
-                    const { data: channel, error: channelError } = await this.supabase
-                        .from('widget')
-                        .select('*')
-                        .eq('clientId', ticket.clientId)
-                        .eq('workspaceId', workspaceId)
-                    if (channelError) throw new Error(`Fetch failed: ${channelError.message}`);
 
-                    if (channel) {
-                        console.log("Channel found:", channel);
-                    }
-                    // get teams from this channel
-                    const { data: teams, error: teamsError } = await this.supabase
-                        .from('teamChannels')
-                        .select('teamId')
-                        .in('widgetId', channel.map(c => c.id));
+                    else {
 
-                    if (teamsError) throw new Error(`Fetch failed: ${teamsError.message}`);
-                    if (teams && teams.length > 0) {
-                        // create a row for each team in ticket_team table
-                        for (const team of teams) {
-                            const { data: ticketTeam, error: ticketTeamError } = await this.supabase
-                                .from('ticket_teams')
-                                .insert(
-                                    {
-                                        ticket_id: ticketId,
-                                        team_id: team.teamId,
-                                        client_id: ticket.clientId,
-                                        workspace_id: workspaceId,
-                                        created_at: new Date(),
-                                        updated_at: new Date()
-                                    });
+                        // handle team level routing
+                        const { data: channel, error: channelError } = await this.supabase
+                            .from('widget')
+                            .select('*')
+                            .eq('clientId', ticket.clientId)
+                            .eq('workspaceId', workspaceId)
+                        if (channelError) throw new Error(`Fetch failed: ${channelError.message}`);
 
-                            if (ticketTeamError) throw new Error(`Fetch failed: ${ticketTeamError.message}`);
-                            console.log("Ticket team created:", ticketTeam);
+                        if (channel) {
+                            console.log("Channel found:", channel);
+                        }
+                        // get teams from this channel
+                        const { data: teams, error: teamsError } = await this.supabase
+                            .from('teamChannels')
+                            .select('teamId')
+                            .in('widgetId', channel.map(c => c.id));
+
+                        if (teamsError) throw new Error(`Fetch failed: ${teamsError.message}`);
+                        if (teams && teams.length > 0) {
+                            // create a row for each team in ticket_team table
+                            for (const team of teams) {
+                                const { data: ticketTeam, error: ticketTeamError } = await this.supabase
+                                    .from('ticket_teams')
+                                    .insert(
+                                        {
+                                            ticket_id: ticketId,
+                                            team_id: team.teamId,
+                                            client_id: ticket.clientId,
+                                            workspace_id: workspaceId,
+                                            created_at: new Date(),
+                                            updated_at: new Date()
+                                        });
+
+                                if (ticketTeamError) throw new Error(`Fetch failed: ${ticketTeamError.message}`);
+                                console.log("Ticket team created:", ticketTeam);
+                            }
                         }
                     }
-                }
+                } 
             }
             else if (ticket.channel === "email") {
                 // handle email channel

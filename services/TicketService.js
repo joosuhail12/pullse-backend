@@ -1601,7 +1601,6 @@ class TicketService {
                 .from('teams')
                 .select('*')
                 .in('id', team_ids);
-            console.log(teamData, "teamData---");
 
             let query = supabase
                 .from(this.entityName)
