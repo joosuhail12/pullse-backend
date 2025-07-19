@@ -508,6 +508,29 @@ async function activate(app) {
     },
     handler: async (req, reply) => handler.updateTicketTeamsById(req, reply)
   });
+
+  // Route to rewrite text for a ticket
+  app.route({
+    url: base_url + "/:ticket_id/rewrite-text",
+    method: 'POST',
+    name: "RewriteTicketText",
+    preHandler: authMiddlewares.checkToken(AuthType.user),
+    schema: {
+      tags: ['Ticket'],
+      summary: 'Rewrite Ticket Text',
+      description: 'Rewrite the text of a ticket.',
+      body: {
+        type: 'object',
+        required: ['text', 'tool', 'tone'],
+        properties: {
+          text: { type: 'string', maxLength: 500 },
+          tool: { type: 'string', enum: ['change_tone', 'expand', 'shorten'] },
+          tone: { type: 'string' },
+        }
+      }
+    },
+    handler: async (req, reply) => handler.rewriteTicketText(req, reply)
+  });
 }
 
 // get conversation by ticket id
