@@ -2282,7 +2282,7 @@ class TicketService {
                 .eq('ticketId', ticketId)
                 .eq('workspaceId', workspaceId)
                 .eq('clientId', clientId)
-                .order('createdAt', { ascending: false })
+                .order('createdAt', { ascending: true })
                 .limit(10)
 
             if (conversationError) {
@@ -2306,6 +2306,8 @@ class TicketService {
                 conversation_context: conversationContext,
                 max_retries: 1
             };
+
+            console.log("requestPayload", requestPayload);
 
             if (tool === "change_tone") {
                 requestPayload.tone_style = tone;
