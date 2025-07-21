@@ -12,6 +12,7 @@ const Ably = require("ably");
 const { setAblyTicketChatListener } = require("../ExternalService/ablyListener");
 const { subscribeToTicketChannels } = require("../ablyServices/listeners");
 const ably = new Ably.Realtime(process.env.ABLY_API_KEY);
+const axios = require('axios');
 
 class TicketService {
     constructor(fields = null, dependencies = {}) {
@@ -149,54 +150,78 @@ class TicketService {
     async listTickets(req) {
         try {
             const { clientId, workspaceId, userId, skip = 0, limit = 10, page = 1 } = req;
-            // Convert page to skip if page is provided
-            const actualSkip = page > 1 ? (page - 1) * limit : skip;
-            const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-            if (!uuidRegex.test(clientId)) {
-                throw new errors.ValidationFailed(`Invalid clientId: ${clientId}`);
-            }
-            if (!uuidRegex.test(workspaceId)) {
-                throw new errors.ValidationFailed(`Invalid workspaceId: ${workspaceId}`);
-            }
-            // get all teams for the user
-            const { data: teams, error: teamsError } = await supabase
-                .from('teamMembers')
-                .select('team_id')
-                .eq('user_id', userId);
-            if (teamsError) throw new errors.DBError(teamsError.message);
-            const teamIds = teams.map(team => team.team_id);
-            // get all tickets id from ticket_teams for the teams in loop
-            console.log(teamIds, "teamIds---");
-            const tickets = [];
-            for (const teamId of teamIds) {
-                const { data: teamTickets, error: ticketsError } = await supabase
-                    .from('ticket_teams')
-                    .select('ticket_id, teams(id, name)')
-                    .eq('team_id', teamId)
-                if (ticketsError) throw new errors.DBError(ticketsError.message);
-                //[ { ticket_id: '02325182-2095-4b8a-81a8-929cdd9227f5' } ] tickets---------------
-                if (teamTickets && teamTickets.length > 0) {
-                    tickets.push(...teamTickets.map(ticket => ({ ticket_id: ticket.ticket_id, team_id: ticket.teams.id, team_name: ticket.teams.name })));
+            // Role check: org admin can see all tickets for workspace/client
+            const { data: user, error: userError } = await supabase
+                .from('users')
+                .select('id, roleIds')
+                .eq('id', userId)
+                .single();
+            if (userError) throw userError;
+            let isOrgAdmin = false;
+            if (user && user.roleIds) {
+                const roleIdArr = Array.isArray(user.roleIds) ? user.roleIds : [user.roleIds];
+                const { data: roles, error: rolesError } = await supabase
+                    .from('userRoles')
+                    .select('name')
+                    .in('id', roleIdArr);
+                if (rolesError) throw rolesError;
+                isOrgAdmin = (roles || []).some(r => r.name === 'ORGANIZATION_ADMIN');
+            } else {
+                // Fallback: check workspacePermissions for this user and workspace
+                const { data: perms, error: permsError } = await supabase
+                    .from('workspacePermissions')
+                    .select('role')
+                    .eq('userId', userId)
+                    .eq('workspaceId', workspaceId)
+                    .single();
+                if (permsError && permsError.code !== 'PGRST116') throw permsError;
+                if (perms && perms.role && perms.role === 'ORGANIZATION_ADMIN') {
+                    isOrgAdmin = true;
                 }
-
             }
-
-            // Get all ticket IDs for the count query
-            const allTicketIds = tickets.map(ticket => ticket.ticket_id);
-
+            const actualSkip = page > 1 ? (page - 1) * limit : skip;
+            let allTicketIds = [];
+            if (isOrgAdmin) {
+                // Fetch all ticket IDs for workspace/client
+                const { data: allTickets, error: allTicketsError } = await supabase
+                    .from(this.entityName)
+                    .select('id')
+                    .eq('workspaceId', workspaceId)
+                    .eq('clientId', clientId);
+                if (allTicketsError) throw new errors.DBError(allTicketsError.message);
+                allTicketIds = allTickets.map(t => t.id);
+            } else {
+                // get all teams for the user
+                const { data: teams, error: teamsError } = await supabase
+                    .from('teamMembers')
+                    .select('team_id')
+                    .eq('user_id', userId);
+                if (teamsError) throw new errors.DBError(teamsError.message);
+                const teamIds = teams.map(team => team.team_id);
+                // get all tickets id from ticket_teams for the teams in loop
+                const tickets = [];
+                for (const teamId of teamIds) {
+                    const { data: teamTickets, error: ticketsError } = await supabase
+                        .from('ticket_teams')
+                        .select('ticket_id, teams(id, name)')
+                        .eq('team_id', teamId)
+                    if (ticketsError) throw new errors.DBError(ticketsError.message);
+                    if (teamTickets && teamTickets.length > 0) {
+                        tickets.push(...teamTickets.map(ticket => ({ ticket_id: ticket.ticket_id, team_id: ticket.teams.id, team_name: ticket.teams.name })));
+                    }
+                }
+                allTicketIds = tickets.map(ticket => ticket.ticket_id);
+            }
             // get paginated tickets from the tickets table
-            console.log(tickets, "tickets---");
             const { data: ticketsData, error: ticketsDataError } = await supabase
                 .from(this.entityName)
                 .select('*, assignedTo(id, name, email, bot_enabled)')
                 .in('id', allTicketIds)
                 .order('updatedAt', { ascending: false })
                 .range(actualSkip, actualSkip + limit - 1);
-
             if (ticketsDataError) {
                 throw new errors.DBError(ticketsDataError.message);
             }
-
             // Filter out tickets assigned to bot users
             const assignedToUserIds = ticketsData.map(ticket => ticket.assignedTo).filter(Boolean);
             let botUserIds = [];
@@ -413,39 +438,38 @@ class TicketService {
                 };
             });
 
-            // Add a count query for total tickets
-            const { count: totalCount, error: countError } = await supabase
-                .from(this.entityName)
-                .select('*', { count: 'exact', head: true })
-                .in('id', allTicketIds);
-
-            if (countError) throw new errors.DBError(countError.message);
-
+            // Add a count query for total tickets (excluding bot tickets)
+            let totalCount = 0;
+            // checking if enriched tickets is not empty
+            if (allTicketIds.length > 0) {
+                const { count, error: countError } = await supabase
+                    .from(this.entityName)
+                    .select('*', { count: 'exact', head: true })
+                    .in('id', allTicketIds);
+                if (countError) throw new errors.DBError(countError.message);
+                totalCount = count || 0;
+            }
             // Get bot user IDs for count filtering
+            let botUserIdsForCount = [];
             const { data: allAssignedUsers, error: allUsersError } = await supabase
                 .from('users')
                 .select('id, bot_enabled')
                 .eq('bot_enabled', true);
-
-            let botUserIdsForCount = [];
             if (!allUsersError && allAssignedUsers) {
                 botUserIdsForCount = allAssignedUsers.map(user => user.id);
             }
-
             // Get count of tickets assigned to bot users
             let botTicketsCount = 0;
-            if (botUserIdsForCount.length > 0) {
+            if (botUserIdsForCount.length > 0 && allTicketIds.length > 0) {
                 const { count: botCount, error: botCountError } = await supabase
                     .from(this.entityName)
                     .select('*', { count: 'exact', head: true })
                     .in('id', allTicketIds)
                     .in('assignedTo', botUserIdsForCount);
-
                 if (!botCountError) {
                     botTicketsCount = botCount || 0;
                 }
             }
-
             // Return enriched tickets with total count outside of data (excluding bot tickets)
             return {
                 status: "success",
@@ -2222,6 +2246,94 @@ class TicketService {
             return await this.getTicketTeamsById(ticketId, workspaceId, clientId);
         } catch (err) {
             console.error("Error updating ticket teams:", err);
+            throw err;
+        }
+    }
+
+    async rewriteTicketText(ticketId, text, tool, tone, workspaceId, clientId) {
+        try {
+            console.log("rewriting ticket text", ticketId, text, tool, tone, workspaceId, clientId);
+
+            if (!text || text.trim().length === 0) {
+                throw new errors.BadRequest("Text cannot be empty");
+            }
+            if (text.length > 500) {
+                throw new errors.BadRequest("Text exceeds maximum length of 500 characters");
+            }
+            if (!['change_tone', 'expand', 'shorten'].includes(tool)) {
+                throw new errors.BadRequest(`Invalid tool: ${tool}. Must be one of: change_tone, expand, shorten`);
+            }
+
+            const { data: ticket, error: ticketError } = await supabase
+                .from('tickets')
+                .select('*')
+                .eq('workspaceId', workspaceId)
+                .eq('clientId', clientId)
+                .eq('id', ticketId)
+                .single();
+
+            if (ticketError) {
+                throw new errors.NotFound("Ticket not found");
+            }
+
+            const { data: conversation, error: conversationError } = await supabase
+                .from('conversations')
+                .select('*')
+                .eq('ticketId', ticketId)
+                .eq('workspaceId', workspaceId)
+                .eq('clientId', clientId)
+                .order('createdAt', { ascending: true })
+                .limit(10)
+
+            if (conversationError) {
+                throw new errors.DBError(conversationError.message);
+            }
+
+            // Convert the conversation to the format expected by the text-rewriter
+            const conversationContext = conversation
+                .filter(c => c.message && c.message.trim().length > 0 && c.userType) // Filter out invalid entries
+                .map(c => ({
+                    role: c.userType === "customer" ? "user" : "agent",
+                    message: c.message
+                }))
+                .slice(0, 10); // Limit to 10 messages to avoid payload size issue
+
+            // Prepare the request payload
+            const requestPayload = {
+                text: text,
+                rewrite_type: tool,
+                output_format: ticket.type === "email" ? "email" : "chat",
+                conversation_context: conversationContext,
+                max_retries: 1
+            };
+
+            console.log("requestPayload", requestPayload);
+
+            if (tool === "change_tone") {
+                requestPayload.tone_style = tone;
+            }
+
+            // Call the text-rewriter API
+            const response = await axios.post('https://prodai.pullseai.com/text-rewriter/', JSON.stringify(requestPayload, null, 2), {
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            });
+
+            if (response.status === 200 && response.data.rewritten_text.length > 0) {
+                return {
+                    text: response.data.rewritten_text,
+                }
+            } else {
+                throw new errors.BadRequest("Failed to rewrite ticket text");
+            }
+
+        } catch (err) {
+            console.error("Error rewriting ticket text:", err);
+            if (err.response) {
+                console.error("Response status:", err.response.status);
+                console.error("Response data:", err.response.data);
+            }
             throw err;
         }
     }
