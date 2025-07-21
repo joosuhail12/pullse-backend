@@ -17,7 +17,7 @@ function defineAbilityFor(user) {
     // In your backend defineAbilityFor function, update organizationAdmin section:
 
     // Ticket permissions
-    can(['create', 'update', 'read', 'delete'], 'Ticket', { clientId: user.clientId });
+    can(['create', 'update', 'read', 'delete', 'manage'], 'Ticket', { clientId: user.clientId });
     cannot('archive', 'Ticket');
 
     // Profile permissions
