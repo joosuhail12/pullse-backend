@@ -8,6 +8,7 @@ const LLMService = require("./LLMService");
 const ChatbotDocumentService = require("./ChatbotDocumentService");
 const ChatBotExternalService = require("../ExternalService/ChatBotExternalService");
 const supabase = require("../db/supabaseClient");
+const axios = require('axios');
 
 class ChatBotProfileService extends BaseService {
     constructor() {
@@ -160,7 +161,8 @@ class ChatBotProfileService extends BaseService {
           channels,
           workspaceId,
           clientId,
-          createdBy
+          createdBy,
+          actionIds
         } = payload;
 
         try {
@@ -202,13 +204,14 @@ class ChatBotProfileService extends BaseService {
               welcome_message:     welcomeMessage,
               handoff_message:     humanHandoffMessage,
               behavior,
-              audience_rules:      audienceRules,      // keep original JSON for reference
+              audience_rules:      audienceRules,
               knowledge_base_ids:  knowledgeBaseIds,
               channels,
               workspaceId,
               clientId,
               createdBy,
-              // assistantid:          assistant_id,    // uncomment if you created one
+              action_ids: actionIds,
+              connected_integrations: createdBy,
             }])
             .select();
 
@@ -323,6 +326,25 @@ class ChatBotProfileService extends BaseService {
             await saveGroup(audienceRules);   // root call (parentId = null)
           }
 
+          try{
+            const formData = new FormData();
+            formData.append('original_ids', JSON.stringify(knowledgeBaseIds));
+            formData.append('chatbot_id', chatbotId);
+
+            const config = {
+              method: 'post',
+              url: 'https://prodai.pullseai.com/ingest/update_collection_by_original_id',
+              headers: { 
+                'x-api-key': 'letmein123', 
+              },
+              data : formData
+            };
+
+            const response = await axios.request(config);
+          }catch(e){
+            console.log("ChatBotProfileService createBotProfile errorXXXXXXXXXXXXXXXXXXXXX", e)
+          }
+
           /* ──────────────────────────────────────────────
             5. Success – return the full chatbot row
             ────────────────────────────────────────────── */
@@ -337,17 +359,47 @@ class ChatBotProfileService extends BaseService {
     async getDetails(id, workspaceId, clientId) {
         try {
             const { data: chatbotProfile, error } = await supabase
-                .from('chatbot')
+                .from('chatbots')
                 .select('*')
                 .eq('id', id)
-                .eq('workspace_id', workspaceId)
-                .eq('client_id', clientId)
+                .eq('workspaceId', workspaceId)
+                .eq('clientId', clientId)
                 .single();
 
             if (!chatbotProfile) {
                 return Promise.reject(new errors.NotFound(`${this.entityName} not found.`));
             }
-            return chatbotProfile;
+
+            // {
+            //   "name": "Updated Bot Name",
+            //   "description": "Updated description",
+            //   "tone": "professional",
+            //   "customInstructions": "Updated instructions",
+            //   "isActive": true,
+            //   "welcomeMessage": "Updated welcome message",
+            //   "behavior": {
+            //     "queryHandling": "single",
+            //     "postAnswerAction": "end",
+            //     "inactivityTimeout": 30,
+            //     "inactivityAction": "handoff",
+            //     "enableHumanHandoff": false
+            //   }
+            // }
+            const returnData = {
+                name: chatbotProfile.name,
+                description: chatbotProfile.custom_instructions,
+                tone: chatbotProfile.tone,
+                customInstructions: chatbotProfile.custom_instructions,
+                isActive: chatbotProfile.status === 'active',
+                welcomeMessage: chatbotProfile.welcome_message,
+                humanHandoffMessage: chatbotProfile.handoff_message,
+                behavior: chatbotProfile.behavior,
+                audienceRules: chatbotProfile.audience_rules,
+                knowledgeBaseIds: chatbotProfile.knowledge_base_ids,
+                channels: chatbotProfile.channels,
+                assistantId: chatbotProfile.assistant_id,
+            }
+            return returnData;
         } catch (err) {
             return this.handleError(err);
         }
@@ -534,7 +586,7 @@ class ChatBotProfileService extends BaseService {
             let chatbotProfile = await this.getDetails(id, workspaceId, clientId);
             if (updateValues.name) {
                 const { data: botProfile } = await supabase
-                    .from('chatbot')
+                    .from('chatbots')
                     .select('id')
                     .eq('name', updateValues.name)
                     .eq('workspace_id', workspaceId)
@@ -548,7 +600,7 @@ class ChatBotProfileService extends BaseService {
             }
 
             const { error } = await supabase
-                .from('chatbot')
+                .from('chatbots')
                 .update(updateValues)
                 .eq('id', id);
 
@@ -563,7 +615,7 @@ class ChatBotProfileService extends BaseService {
         try {
             await this.getDetails(id, workspaceId, clientId);
             const { error } = await supabase
-                .from('chatbot')
+                .from('chatbots')
                 .update({ deleted_at: new Date() })
                 .eq('id', id);
 

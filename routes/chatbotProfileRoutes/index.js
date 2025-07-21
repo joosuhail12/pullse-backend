@@ -84,6 +84,12 @@ async function activate(app) {
               type: 'string'
             }
           },
+          actionIds: {
+            type: 'array',
+            items: {
+              type: 'string'
+            }
+          },
           tone: {
             type: 'string'
           },

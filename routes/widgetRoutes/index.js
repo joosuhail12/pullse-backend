@@ -62,10 +62,11 @@ async function activate(app) {
                     position: { type: "string" },
                     labels: {
                         type: "object",
-                        required: ["welcomeTitle", "welcomeSubtitle"],
+                        required: ["welcomeTitle", "welcomeSubtitle", "askQuestionButtonText"],
                         properties: {
                             welcomeTitle: { type: "string", minLength: 1 },
-                            welcomeSubtitle: { type: "string", minLength: 1 }
+                            welcomeSubtitle: { type: "string", minLength: 1 },
+                            askQuestionButtonText: { type: "string" },
                         }
                     },
                     persona: { type: "string" },

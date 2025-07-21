@@ -152,7 +152,7 @@ class WorkflowService extends BaseService {
                                 }
                             }
                         }
-
+                        console.log("Matching chatbot found:", matchingChatbot);
                         if (matchingChatbot) {
                             console.log("Matching chatbot found:", matchingChatbot);
                             // Update ticket with matching chatbot
@@ -177,12 +177,47 @@ class WorkflowService extends BaseService {
                             if (response && response.status === 200) {
                                 console.log("Ticket updated successfully with chatbot:", matchingChatbot.name);
                                 // send the response to the ably listener
-                                subscribeToChatbotPrimary(matchingChatbot.id, ticketId);
+                                subscribeToChatbotPrimary(matchingChatbot.id, ticketId, ticket.title);
                             } else {
                                 console.log("Ticket update failed");
                             }
                         } else {
-                            console.log("No matching chatbot found for customer:", customer.email);
+                            const { data: channel, error: channelError } = await this.supabase
+                                .from('widget')
+                                .select('*')
+                                .eq('clientId', ticket.clientId)
+                                .eq('workspaceId', workspaceId)
+                            if (channelError) throw new Error(`Fetch failed: ${channelError.message}`);
+
+                            if (channel) {
+                                console.log("Channel found:", channel);
+                            }
+                            // get teams from this channel
+                            const { data: teams, error: teamsError } = await this.supabase
+                                .from('teamChannels')
+                                .select('teamId')
+                                .in('widgetId', channel.map(c => c.id));
+
+                            if (teamsError) throw new Error(`Fetch failed: ${teamsError.message}`);
+                            if (teams && teams.length > 0) {
+                                // create a row for each team in ticket_team table
+                                for (const team of teams) {
+                                    const { data: ticketTeam, error: ticketTeamError } = await this.supabase
+                                        .from('ticket_teams')
+                                        .insert(
+                                            {
+                                                ticket_id: ticketId,
+                                                team_id: team.teamId,
+                                                client_id: ticket.clientId,
+                                                workspace_id: workspaceId,
+                                                created_at: new Date(),
+                                                updated_at: new Date()
+                                            });
+
+                                    if (ticketTeamError) throw new Error(`Fetch failed: ${ticketTeamError.message}`);
+                                    console.log("Ticket team created:", ticketTeam);
+                                }
+                            }
                         }
                     }
 
@@ -226,7 +261,9 @@ class WorkflowService extends BaseService {
                             }
                         }
                     }
-                } 
+                }else{
+                    console.log("No channel found for ticket:", ticket);
+                }
             }
             else if (ticket.channel === "email") {
                 // handle email channel

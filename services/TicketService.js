@@ -12,6 +12,7 @@ const Ably = require("ably");
 const { setAblyTicketChatListener } = require("../ExternalService/ablyListener");
 const { subscribeToTicketChannels } = require("../ablyServices/listeners");
 const ably = new Ably.Realtime(process.env.ABLY_API_KEY);
+const axios = require('axios');
 
 class TicketService {
     constructor(fields = null, dependencies = {}) {
@@ -2245,6 +2246,94 @@ class TicketService {
             return await this.getTicketTeamsById(ticketId, workspaceId, clientId);
         } catch (err) {
             console.error("Error updating ticket teams:", err);
+            throw err;
+        }
+    }
+
+    async rewriteTicketText(ticketId, text, tool, tone, workspaceId, clientId) {
+        try {
+            console.log("rewriting ticket text", ticketId, text, tool, tone, workspaceId, clientId);
+
+            if (!text || text.trim().length === 0) {
+                throw new errors.BadRequest("Text cannot be empty");
+            }
+            if (text.length > 500) {
+                throw new errors.BadRequest("Text exceeds maximum length of 500 characters");
+            }
+            if (!['change_tone', 'expand', 'shorten'].includes(tool)) {
+                throw new errors.BadRequest(`Invalid tool: ${tool}. Must be one of: change_tone, expand, shorten`);
+            }
+
+            const { data: ticket, error: ticketError } = await supabase
+                .from('tickets')
+                .select('*')
+                .eq('workspaceId', workspaceId)
+                .eq('clientId', clientId)
+                .eq('id', ticketId)
+                .single();
+
+            if (ticketError) {
+                throw new errors.NotFound("Ticket not found");
+            }
+
+            const { data: conversation, error: conversationError } = await supabase
+                .from('conversations')
+                .select('*')
+                .eq('ticketId', ticketId)
+                .eq('workspaceId', workspaceId)
+                .eq('clientId', clientId)
+                .order('createdAt', { ascending: true })
+                .limit(10)
+
+            if (conversationError) {
+                throw new errors.DBError(conversationError.message);
+            }
+
+            // Convert the conversation to the format expected by the text-rewriter
+            const conversationContext = conversation
+                .filter(c => c.message && c.message.trim().length > 0 && c.userType) // Filter out invalid entries
+                .map(c => ({
+                    role: c.userType === "customer" ? "user" : "agent",
+                    message: c.message
+                }))
+                .slice(0, 10); // Limit to 10 messages to avoid payload size issue
+
+            // Prepare the request payload
+            const requestPayload = {
+                text: text,
+                rewrite_type: tool,
+                output_format: ticket.type === "email" ? "email" : "chat",
+                conversation_context: conversationContext,
+                max_retries: 1
+            };
+
+            console.log("requestPayload", requestPayload);
+
+            if (tool === "change_tone") {
+                requestPayload.tone_style = tone;
+            }
+
+            // Call the text-rewriter API
+            const response = await axios.post('https://prodai.pullseai.com/text-rewriter/', JSON.stringify(requestPayload, null, 2), {
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            });
+
+            if (response.status === 200 && response.data.rewritten_text.length > 0) {
+                return {
+                    text: response.data.rewritten_text,
+                }
+            } else {
+                throw new errors.BadRequest("Failed to rewrite ticket text");
+            }
+
+        } catch (err) {
+            console.error("Error rewriting ticket text:", err);
+            if (err.response) {
+                console.error("Response status:", err.response.status);
+                console.error("Response data:", err.response.data);
+            }
             throw err;
         }
     }
