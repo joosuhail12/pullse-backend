@@ -327,14 +327,13 @@ class ChatBotProfileService extends BaseService {
           }
 
           try{
-            console.log("knowledgeBaseIdsXXXXXXXXXXXXXXXXXXXXX", knowledgeBaseIds)
             const formData = new FormData();
             formData.append('original_ids', JSON.stringify(knowledgeBaseIds));
             formData.append('chatbot_id', chatbotId);
 
             const config = {
               method: 'post',
-              url: 'http://localhost:8000/ingest/update_collection_by_original_id',
+              url: 'https://prodai.pullseai.com/ingest/update_collection_by_original_id',
               headers: { 
                 'x-api-key': 'letmein123', 
               },
@@ -342,7 +341,6 @@ class ChatBotProfileService extends BaseService {
             };
 
             const response = await axios.request(config);
-            console.log("responseXXXXXXXXXXXXXXXXXXXXX", response.data)
           }catch(e){
             console.log("ChatBotProfileService createBotProfile errorXXXXXXXXXXXXXXXXXXXXX", e)
           }
