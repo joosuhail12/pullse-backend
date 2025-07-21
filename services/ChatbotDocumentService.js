@@ -30,7 +30,7 @@ class ChatbotDocumentService extends BaseService {
         });
     }
 
-    async addCreateSnippet({ title, content, tags, isLive, description, status, contentType, folderId }, userId, clientId, workspaceId) {
+    async addCreateSnippet({ title, content, tags, isLive, description, status, contentType, folderId, chatbots }, userId, clientId, workspaceId) {
         try {
             // Validate UUID parameters
             const validateUUID = (value, fieldName) => {
@@ -95,26 +95,25 @@ class ChatbotDocumentService extends BaseService {
 
             // Send POST request to external ingestion service
             try {
-                let ingestionData = JSON.stringify({
-                    "title": title,
-                    "content": content,
-                    "description": description,
-                    "tags": tags || [],
-                    "status": status || 'draft',
-                    "contentType": contentType || 'snippet',
-                    "folderId": validFolderId,
-                    "user_id": validUserId,
-                    "workspace_id": validWorkspaceId,
-                    "original_id": data.id
-                });
-
+                const ingestionData = new FormData();
+                ingestionData.append('title', title);
+                ingestionData.append('content', content);
+                ingestionData.append('description', description);
+                ingestionData.append('tags', tags || []);
+                ingestionData.append('status', status || 'draft');
+                ingestionData.append('contentType', contentType || 'snippet');
+                ingestionData.append('folderId', validFolderId);
+                ingestionData.append('user_id', validUserId);
+                ingestionData.append('workspace_id', validWorkspaceId);
+                ingestionData.append('original_id', data.id);
+                ingestionData.append('chatbots', JSON.stringify(chatbots));
                 let config = {
                     method: 'post',
                     maxBodyLength: Infinity,
-                    url: 'https://prodai.pullseai.com/ingest/',
+                    url: 'http://localhost:8000/ingest/',
                     headers: { 
                         'x-api-key': 'letmein123', 
-                        'Content-Type': 'application/json'
+                        ...ingestionData.getHeaders()
                     },
                     data: ingestionData
                 };
@@ -127,9 +126,10 @@ class ChatbotDocumentService extends BaseService {
                         console.log(error);
                     });
 
-            } catch (ingestionError) {
-                console.error('Failed to send data to ingestion service:', ingestionError.message);
+            } catch (ingestionError) {      
+                console.log("ingestionErrorXXXXXXXXXXXXXXXXXXXXX", ingestionError)
             }
+
 
             return {
                 id: data.id,
@@ -218,67 +218,32 @@ class ChatbotDocumentService extends BaseService {
         }
     }
 
-    async addCreateDocument({ title, file, tags, isLive, description, status, contentType, folderId }, userId, clientId, workspaceId) {
+    async addCreateDocument({ title, file, tags, isLive, description, status, contentType, folderId, chatbots }, userId, clientId, workspaceId) {
         try {
-            // Enhanced file validation
-            if (!file) {
-                throw new errors.BadRequest('File is required for document creation');
+            // File validation
+            if (!file || !file.name || !file.size || !file.mimetype || !file.tempFilePath) {
+                throw new errors.BadRequest('File object is invalid or incomplete.');
             }
-
-            // Check if file object has all required properties
-            if (!file.name || !file.size || !file.mimetype || !file.tempFilePath) {
-                console.error('Invalid file object received:', {
-                    hasName: !!file.name,
-                    hasSize: !!file.size,
-                    hasMimeType: !!file.mimetype,
-                    hasTempFilePath: !!file.tempFilePath,
-                    fileObject: file
-                });
-                throw new errors.BadRequest('Invalid file object - missing required properties (name, size, mimetype, or tempFilePath)');
-            }
-
-            // Validate UUID parameters
+    
+            // Validate UUID helper
             const validateUUID = (value, fieldName) => {
-                if (!value || value === 'all' || value === 'null' || value === 'undefined') {
-                    return null;
-                }
-                // Basic UUID validation regex
+                if (!value || ['all', 'null', 'undefined'].includes(value)) return null;
                 const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
                 if (!uuidRegex.test(value)) {
-                    throw new errors.BadRequest(`${fieldName} must be a valid UUID format, received: ${value}`);
+                    throw new errors.BadRequest(`${fieldName} invalid UUID: ${value}`);
                 }
                 return value;
             };
-
-            // Validate required UUID fields
+    
             const validUserId = validateUUID(userId, 'userId');
             const validClientId = validateUUID(clientId, 'clientId');
             const validWorkspaceId = validateUUID(workspaceId, 'workspaceId');
-            
-            // folderId can be null, but if provided must be valid UUID
             const validFolderId = folderId === 'all' ? null : validateUUID(folderId, 'folderId');
-
-            // Read file data with error handling
-            let fileBuffer;
-            try {
-                fileBuffer = await fsPromises.readFile(file.tempFilePath);
-                console.log('File read successfully:', {
-                    fileName: file.name,
-                    fileSize: file.size,
-                    bufferSize: fileBuffer.length,
-                    mimeType: file.mimetype
-                });
-            } catch (fileReadError) {
-                console.error('Failed to read file:', fileReadError);
-                throw new errors.BadRequest(`Failed to read file: ${fileReadError.message}`);
-            }
-
-            // Validate file buffer
-            if (!fileBuffer || fileBuffer.length === 0) {
-                throw new errors.BadRequest('File buffer is empty or invalid');
-            }
-            
-            // Store document data directly in ingestion_events table
+    
+            // Read file data as a stream for ingestion service (matches Postman behavior)
+            const fileStream = fs.createReadStream(file.tempFilePath);
+    
+            // Store document metadata into Supabase
             const documentData = {
                 id: uuidv4(),
                 user_id: validUserId,
@@ -297,84 +262,62 @@ class ChatbotDocumentService extends BaseService {
                 folder_id: validFolderId,
                 error_msg: null,
                 content: description,
-                file_data: fileBuffer,
+                file_data: await fsPromises.readFile(file.tempFilePath), // Still store buffer here
                 file_name: file.name,
                 file_size: file.size,
                 file_mime_type: file.mimetype,
-                metadata: JSON.stringify({
-                    tags,
-                    isLive,
-                    contentType,
-                    folderId: validFolderId
-                })
+                metadata: JSON.stringify({ tags, isLive, contentType, folderId: validFolderId })
             };
-
+    
             const { data, error } = await supabase
                 .from('ingestion_events')
                 .insert(documentData)
                 .select()
                 .single();
-
+    
             if (error) throw error;
+    
+            // Prepare data for external ingestion service
+            const ingestionData = new FormData();
+            ingestionData.append('title', title || '');
+            ingestionData.append('description', description || '');
+            ingestionData.append('status', status || 'draft');
+            ingestionData.append('contentType', contentType || 'document');
+            ingestionData.append('original_id', data.id);
+            ingestionData.append('chatbots', JSON.stringify(chatbots));
+            // add tags (optional)
+            (tags || []).forEach(tag => ingestionData.append('tags[]', tag));
 
-            // Send POST request to external ingestion service
-            console.log('Sending data to ingestion service', {
-                fileName: file.name,
-                fileSize: file.size,
-                bufferSize: fileBuffer.length,
-                mimeType: file.mimetype
+            // append file correctly
+            ingestionData.append('file', fileStream, {
+                filename: file.name,
+                contentType: file.mimetype
             });
-            
+
+            // ✅ FIX: Only append UUID params if valid
+            if(validFolderId) ingestionData.append('folderId', validFolderId);
+            if(validUserId) ingestionData.append('user_id', validUserId);
+            if(validWorkspaceId) ingestionData.append('workspace_id', validWorkspaceId);
+
+            const config = {
+                method: 'post',
+                maxBodyLength: Infinity,
+                url: 'http://localhost:8000/ingest/',
+                headers: { 
+                    'x-api-key': 'letmein123', 
+                    'Authorization': 'Bearer 3cfad8ef-7853-436b-86ca-f540ac07fdfc', 
+                    ...ingestionData.getHeaders()
+                },
+                data: ingestionData
+            };
+
             try {
-                const ingestionData = {
-                    "title": title,
-                    "description": description,
-                    "tags": tags || [],
-                    "status": status || 'draft',
-                    "contentType": contentType || 'document',
-                    "folderId": validFolderId,
-                    "user_id": validUserId,
-                    "workspace_id": validWorkspaceId,
-                    "original_id": data.id,
-                    "file": true
-                }
-
-                let config = {
-                    method: 'post',
-                    maxBodyLength: Infinity,
-                    url: 'https://prodai.pullseai.com/ingest/',
-                    headers: { 
-                        'x-api-key': 'letmein123', 
-                        'Content-Type': 'application/json'
-                    },
-                    data: ingestionData
-                };
-
-                axios.request(config)
-                    .then((response) => {
-                        console.log('Ingestion service success:', JSON.stringify(response.data));
-                    })
-                    .catch((error) => {
-                        console.error('Ingestion service error:', {
-                            message: error.message,
-                            status: error.response?.status,
-                            statusText: error.response?.statusText,
-                            data: error.response?.data
-                        });
-                    });
-
-            } catch (ingestionError) {
-                console.error('Failed to send data to ingestion service:', {
-                    error: ingestionError.message,
-                    stack: ingestionError.stack,
-                    fileInfo: {
-                        name: file?.name,
-                        size: file?.size,
-                        mimeType: file?.mimetype
-                    }
-                });
+                const response = await axios.request(config);
+                console.log('Ingestion service success:', response.data);
+            } catch (error) {
+                console.error('Ingestion service error:', error.response.data);
             }
-
+    
             return {
                 id: data.id,
                 title: data.doc_title,
@@ -383,13 +326,15 @@ class ChatbotDocumentService extends BaseService {
                 status: 'success',
                 message: 'Document uploaded successfully'
             };
-
+    
         } catch (err) {
+            console.error('Error:', err);
             return this.handleError(err);
         }
     }
+    
 
-    async addCreateLink({ title, content, tags, isLive, description, status, contentType, folderId }, userId, clientId, workspaceId) {
+    async addCreateLink({ title, content, tags, isLive, description, status, contentType, folderId, chatbots }, userId, clientId, workspaceId) {
         try {
             // Validate UUID parameters
             const validateUUID = (value, fieldName) => {
@@ -411,7 +356,6 @@ class ChatbotDocumentService extends BaseService {
             
             // folderId can be null, but if provided must be valid UUID
             const validFolderId = folderId === 'all' ? null : validateUUID(folderId, 'folderId');
-
             // Store link data directly in ingestion_events table
             const documentData = {
                 id: uuidv4(),
@@ -450,7 +394,23 @@ class ChatbotDocumentService extends BaseService {
                 .single();
 
             if (error) throw error;
-
+            if(chatbots){
+                chatbots.forEach(async chatbot => {
+                    try{
+                    await supabase
+                        .from('chatbotdocuments')
+                        .insert({
+                            document_id: data.id,
+                            chatbot_ids: chatbot,
+                            workspace_id: validWorkspaceId,
+                            client_id: validClientId,
+                            created_by: validUserId,
+                        });
+                    }catch(e){
+                        console.log("ChatbotDocumentService addCreateLink error", e)
+                    }
+                });
+            }
             // Send POST request to external ingestion service
             try {
                 let ingestionData = new FormData();
@@ -460,11 +420,12 @@ class ChatbotDocumentService extends BaseService {
                 ingestionData.append('user_id', validUserId);
                 ingestionData.append('workspace_id', validWorkspaceId);
                 ingestionData.append('original_id', data.id);
+                ingestionData.append('chatbots', JSON.stringify(chatbots));
 
                 let config = {
                     method: 'post',
                     maxBodyLength: Infinity,
-                    url: 'https://prodai.pullseai.com/ingest/',
+                    url: 'http://localhost:8000/ingest/',
                     headers: { 
                         'x-api-key': 'letmein123', 
                         ...ingestionData.getHeaders()

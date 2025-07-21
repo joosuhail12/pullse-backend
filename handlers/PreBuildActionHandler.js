@@ -26,7 +26,6 @@ class PreBuildActionHandler extends BaseHandler {
 
     async getPrebuildSelectedApps(req, reply) {
         const inst = new PreBuildActionService();
-        console.log(req.authUser, "req.authUser---");
         const query = {
             clientId: req.authUser.clientId,
             workspaceId: req.authUser.defaultWorkspaceId,

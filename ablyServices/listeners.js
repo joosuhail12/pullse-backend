@@ -77,7 +77,7 @@ exports.subscribeToTicketChannels = async function subscribeToTicketChannels(tic
 };
 
 // Updated to use new chatbot channel pattern
-exports.subscribeToChatbotPrimary = async function subscribeToChatbotPrimary(chatbotProfileId, ticket_id) {
+exports.subscribeToChatbotPrimary = async function subscribeToChatbotPrimary(chatbotProfileId, ticket_id, title) {
   try {
     // Get ticket details for context
     const { data: ticket, error: ticketError } = await supabase
@@ -100,7 +100,7 @@ exports.subscribeToChatbotPrimary = async function subscribeToChatbotPrimary(cha
       workspaceId: ticket.workspaceId,
       clientId: ticket.clientId,
       chatbotProfileId,
-      metadata: { chatbotProfile: chatbotProfileId }
+      metadata: { chatbotProfile: chatbotProfileId, title: title }
     });
   } catch (error) {
     console.error('Error subscribing to chatbot channel:', error);

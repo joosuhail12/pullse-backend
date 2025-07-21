@@ -28,6 +28,7 @@ class ChatBotProfileHandler extends BaseHandler {
       customInstructions: req.body.customInstructions,
       persona: req.body.persona,
       avatarUrl: req.body.avatarUrl,
+      actionIds: req.body.actionIds,
       workspaceId,
       clientId,
       createdBy,

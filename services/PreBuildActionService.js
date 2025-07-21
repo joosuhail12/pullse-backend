@@ -76,8 +76,10 @@ class PreBuildActionService extends BaseService {
             if (prebuildAppError) throw prebuildAppError;
             const prebuildAppId = preBuildSelectedApps.id;
             const integrationId = preBuildSelectedApps.pre_build_apps.integration_id;
-            const baseUrl = 'https://app.pullse.ai';
-            const pythonBaseUrl = 'https://prodai.pullseai.com';
+            // const baseUrl = 'https://app.pullse.ai';
+            // const pythonBaseUrl = 'https://prodai.pullseai.com';
+            const baseUrl = 'http://localhost:8080';
+            const pythonBaseUrl = 'http://localhost:8000';
             console.log(integrationId, "integrationId---", userId, "userId---", baseUrl, "baseUrl---", pythonBaseUrl, "pythonBaseUrl---");
             const response = await axios.post(`${pythonBaseUrl}/connections/create-oauth-connection`, {
                 "user_id":      userId,
@@ -134,6 +136,7 @@ class PreBuildActionService extends BaseService {
                     lastUsed: prebuildAppConnections.find(connection => connection.pre_build_selected_apps_id === app.id)?.created_at,
                     totalActions: 0,
                     activeActions: 0,
+                    id: app.id,
                 }
             });
             return prebuildSelectedAppsData;

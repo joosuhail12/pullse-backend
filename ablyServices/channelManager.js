@@ -283,7 +283,7 @@ class ChannelManager {
    */
   async establishSubscription(subscriptionRecord) {
     try {
-      const { channel_name, channel_type, subscriber_id, subscriber_type, chatbotProfile } = subscriptionRecord;
+      const { channel_name, channel_type, subscriber_id, subscriber_type, chatbotProfile, metadata } = subscriptionRecord;
       
       // Create unique key for this subscription
       const subscriptionKey = `${channel_name}:${subscriber_id}:${subscriber_type}`;
@@ -296,7 +296,7 @@ class ChannelManager {
       const channel = ably.channels.get(channel_name);
       
       // Set up appropriate event handlers based on channel type
-      const subscription = this.setupChannelHandlers(channel, channel_type, subscriptionRecord, channel_name, chatbotProfile);
+      const subscription = this.setupChannelHandlers(channel, channel_type, subscriptionRecord, channel_name, chatbotProfile, metadata);
       
       // Store in memory cache
       this.activeSubscriptions.set(subscriptionKey, {
@@ -314,7 +314,7 @@ class ChannelManager {
   /**
    * Setup channel event handlers based on channel type
    */
-  async setupChannelHandlers(channel, channelType, subscriptionRecord, channel_name, chatbotProfile) {
+  async setupChannelHandlers(channel, channelType, subscriptionRecord, channel_name, chatbotProfile, metadata) {
     const { ticket_id, session_id } = subscriptionRecord;
 
     switch (channelType) {
@@ -359,20 +359,27 @@ class ChannelManager {
 
       case 'chatbot':
         const chatbotCh = ably.channels.get(channel_name);
-        
+        console.log("ChatbotProfile ChXXXXXXXXXXXXXXXXXXXXX", chatbotProfile)
         console.log(`[ChannelManager] Setting up chatbot bidirectional communication for ticket ${ticket_id}`);
         // save the conversationId in the database using internalService
         const internalService = require('./internalService');
         const IS = new internalService();
-        
+
+        chatbotCh.publish('user-message', {
+          content: metadata.title,
+          ticketId: ticket_id,
+          sessionId: session_id
+        });
+        let conversation = null;
         const botResponseSubscription = chatbotCh.subscribe('bot-response', async msg => {
           const message = msg.data;
-          const { data: conversation, error: conversationError } = await supabase
+          if(chatbotProfile){
+          const { data: conversationData, error: conversationError } = await supabase
             .from('conversations').insert({
                 message: message,
                 type: 'chat',
                 ticketId: ticket_id,
-                senderName: chatbotProfile.name,
+                senderName: chatbotProfile?.name,
                 clientId: chatbotProfile.clientId,
                 userType: "bot",
                 workspaceId: chatbotProfile.workspaceId,
@@ -380,20 +387,22 @@ class ChannelManager {
                 senderType: "agent",
                 workflowActionId: null
             }).select('id').single();
+            conversation = conversationData;
           if (conversationError) {
             console.error('Error saving conversation:', conversationError);
           }
-
+        }
+        if(conversation){
           const widgetConversationCh = ably.channels.get(`widget:conversation:ticket-${ticket_id}`);
           const payload = {
             ticketId: ticket_id,
-            id: conversation.id,
+            id: conversation?.id,
             message: message,
             messageType: "text",
             senderType: "ai",
             type: "ai",
             sessionId: session_id,
-            conversationId: conversation.id,
+            conversationId: conversation?.id,
           };
           widgetConversationCh.publish('message_reply', payload, err => {
             if (err) {
@@ -402,6 +411,9 @@ class ChannelManager {
               console.log(`[ChannelManager] Successfully published bot response to widget conversation for ticket ${ticket_id}`);
             }
           });
+        }else{
+          console.log("Conversation not found for ticket", ticket_id)
+        }
         });
 
         // Subscribe to messages from widget conversation to forward to chatbot

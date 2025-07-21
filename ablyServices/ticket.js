@@ -94,7 +94,6 @@ exports.handleNewTicket = async function handleNewTicket({ workspaceId, sessionI
     }
     ablyRest.channels.get(`notifications:client:${session.clients.id}`)
     .publish('new_ticket', newTicketPayload);
-
   // notifications for humans (skip if goes to bot inbox)
   // if (!aiEnabled) {
   //   let recipients = [];
