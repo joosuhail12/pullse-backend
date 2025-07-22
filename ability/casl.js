@@ -25,6 +25,7 @@ async function caslPlugin(fastify) {
       '/api/workflow/notify',
       '/api/pullse/create-new-user',
       '/api/workflow/cron/check-unresponsiveness',
+      '/api/clerk-sync/create-user-org', // Clerk user creation endpoint - public access
       // has seperate auth token for these routes
       '/api/user/set-password',
       '/api/user/verify-magic-link',

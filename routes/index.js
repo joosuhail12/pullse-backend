@@ -48,6 +48,8 @@ const copilotChatRoute = require('./copilotchatRoutes');
 const preBuildActionRoute = require('./preBuildActions/index');
 const channelRoute = require('./channelRoutes');
 const pullseCrmRoute = require('./pullseCrmRoutes');
+const clerkSyncRoute = require('./clerkSyncRoutes');
+const clerkAuthRoute = require('./clerkAuthRoutes');
 
 module.exports = {
   async activate(app) {
@@ -99,5 +101,7 @@ module.exports = {
     await preBuildActionRoute.activate(app);
     await channelRoute.activate(app);
     await pullseCrmRoute.activate(app);
+    await clerkSyncRoute.activate(app);
+    await clerkAuthRoute.activate(app);
   }
 };
