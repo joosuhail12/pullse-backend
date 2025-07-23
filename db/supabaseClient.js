@@ -1,11 +1,13 @@
 const { createClient } = require('@supabase/supabase-js');
 const WorkflowService = require("../services/WorkflowService");
+const NotificationService = require("../services/NotificationService");
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_KEY = process.env.SUPABASE_KEY;
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 const workflowService = new WorkflowService();
+const notificationService = NotificationService.getInstance();
 
 const newTicketChannel = supabase
     .channel('new-ticket-channel')
@@ -58,9 +60,11 @@ const updateTicketChannel = supabase
                 if (payload.new.channel === "chat") {
                     // Chat ticket is reassigned, so we need to update the conversation
                     workflowService.handleChatTicketReassigned(payload);
+                    notificationService.handleTicketAssignedToUser(payload.new.assignedTo);
                 }
             } else if (dataChanged.length > 1 && dataChanged.includes('assignedTo')) {
                 workflowService.handleTicketReassigned(payload);
+                notificationService.handleTicketAssignedToUser(payload.new.assignedTo);
                 workflowService.handleTicketDataChanged(payload);
             } else {
                 workflowService.handleTicketDataChanged(payload);

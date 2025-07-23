@@ -8,6 +8,7 @@ const { Engine, Rule, Operator } = require('json-rules-engine');
 const TemporalServerUtils = require("../Utils/TemporalServerUtils");
 const axios = require('axios');
 const { subscribeToChatbotPrimary } = require("../ablyServices/listeners");
+const Ably = require("ably");
 
 class WorkflowService extends BaseService {
     constructor() {
@@ -261,7 +262,7 @@ class WorkflowService extends BaseService {
                             }
                         }
                     }
-                }else{
+                } else {
                     console.log("No channel found for ticket:", ticket);
                 }
             }
@@ -274,7 +275,7 @@ class WorkflowService extends BaseService {
                     .select('teamId')
                     .eq('channelId', ticket.emailChannelId);
                 if (teamsChannelError) throw new Error(`Fetch failed: ${teamsChannelError.message}`);
-                    if (teamsChannel) {
+                if (teamsChannel) {
                     // create a row for each team in ticket_team table
                     for (const team of teamsChannel) {
                         //check if team and ticket are already in ticket_teams table
@@ -300,11 +301,11 @@ class WorkflowService extends BaseService {
                                     updated_at: new Date()
                                 });
 
-                            if (ticketTeamError) throw new Error(`Fetch failed: ${ticketTeamError.message}`);
-                            console.log("Ticket team created:", ticketTeam);
-                        }
+                        if (ticketTeamError) throw new Error(`Fetch failed: ${ticketTeamError.message}`);
+                        console.log("Ticket team created:", ticketTeam);
                     }
-                
+                }
+
             }
         } catch (e) {
             console.log("Error in handleTicketCompleted()", e);
