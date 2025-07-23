@@ -78,6 +78,43 @@ async function activate(app) {
             return handler.getUserOrganizations(req, reply);
         }
     });
+
+    // Invitation endpoint
+    app.route({
+        url: base_url + "/invite-admin",
+        method: 'POST',
+        name: 'InviteAdminUser',
+        schema: {
+            tags: ['ClerkSync'],
+            summary: 'Invite Admin User',
+            description: 'Invite an admin user via Clerk invitations.',
+            body: {
+                type: 'object',
+                required: ['email', 'firstName', 'lastName', 'companyName'],
+                properties: {
+                    email: { type: 'string', format: 'email' },
+                    firstName: { type: 'string' },
+                    lastName: { type: 'string' },
+                    companyName: { type: 'string' },
+                    redirectUrl: { type: 'string' }
+                }
+            }
+        },
+        handler: async (req, reply) => handler.inviteAdmin(req, reply)
+    });
+
+    // Clerk webhook
+    app.route({
+        url: base_url + "/webhook",
+        method: 'POST',
+        name: 'ClerkWebhook',
+        schema: {
+            tags: ['ClerkSync'],
+            summary: 'Clerk Webhook',
+            description: 'Handles Clerk organization.created webhook events.'
+        },
+        handler: async (req, reply) => handler.clerkWebhook(req, reply)
+    });
 }
 
 module.exports = { activate }; 

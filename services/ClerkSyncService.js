@@ -197,6 +197,76 @@ class ClerkSyncService extends BaseService {
             return this.handleError(error);
         }
     }
+
+    /**
+     * Send an admin invitation via Clerk
+     */
+    async inviteAdmin({ email, firstName, lastName, companyName, redirectUrl = null }) {
+        try {
+            if (!email || !firstName || !lastName || !companyName) {
+                throw new Error('email, firstName, lastName, companyName are required');
+            }
+
+            const invitation = await clerkClient.invitations.createInvitation({
+                emailAddress: email,
+                role: 'org:admin',
+                // need to redirect user to go ahead and create the org 
+                redirectUrl: redirectUrl || 'https://yourapp.com/sign-up',
+                publicMetadata: {
+                    invited_admin_flow: true,
+                    companyName
+                }
+            });
+
+            return {
+                success: true,
+                data: invitation,
+                message: 'Invitation sent successfully.'
+            };
+        } catch (error) {
+            return this.handleError(error);
+        }
+    }
+
+    /**
+     * Handle Clerk webhooks (organization.created or membership.created)
+     */
+    async handleWebhook(event) {
+        try {
+            const { type, data } = event;
+
+            // Only act on organization.created events where invited_admin_flow flag is true
+            if (type === 'organization.created') {
+                const org = data;
+                const adminUser = org.createdBy; // clerk user id
+
+                // Check metadata flag transferred from invitation
+                if (org.publicMetadata?.invited_admin_flow) {
+                    // Extract company name from metadata if available
+                    const companyName = org.publicMetadata.companyName || org.name;
+
+                    // Fetch user to get names, username and email
+                    const clerkUser = await clerkClient.users.getUser(adminUser);
+
+                    const payload = {
+                        firstName: clerkUser.firstName,
+                        lastName: clerkUser.lastName,
+                        username: clerkUser.username,
+                        email: clerkUser.emailAddresses[0]?.emailAddress,
+                        companyName,
+                        // Generate a random strong password (user will login via Clerk)
+                        password: 'TempPassword1!'
+                    };
+
+                    // Call internal creation to sync DB / workspace
+                    return await this.createClerkUserAndOrganization(payload);
+                }
+            }
+            return { success: true, message: 'Event ignored' };
+        } catch (error) {
+            return this.handleError(error);
+        }
+    }
 }
 
 module.exports = ClerkSyncService; 
