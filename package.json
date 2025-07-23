@@ -25,6 +25,7 @@
     "@fastify/throttle": "^3.0.2",
     "@sendgrid/mail": "^8.1.0",
     "@supabase/supabase-js": "^2.49.1",
+    "@trycourier/courier": "^6.4.2",
     "ably": "^2.6.5",
     "ajv": "^8.17.1",
     "amqplib": "^0.10.3",
