@@ -1,5 +1,7 @@
 const { CourierClient } = require("@trycourier/courier");
 const BaseService = require("./BaseService");
+require('dotenv').config();  // if using .env for config
+
 
 // Using singleton pattern to just keep one instance of the NotificationService 
 class NotificationService extends BaseService {
@@ -134,7 +136,7 @@ class NotificationService extends BaseService {
             const response = await fetch('https://api.courier.com/auth/issue-token', {
                 method: 'POST',
                 headers: {
-                    'Authorization': `Bearer ${process.env.COURIER_API_KEY}`, // Secret key
+                    'Authorization': `Bearer ${process.env.COURIER_AUTH_TOKEN}`, // Secret key
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
@@ -142,6 +144,8 @@ class NotificationService extends BaseService {
                     expires_in: "24h"
                 })
             });
+
+            console.log("Response from courier", response);
 
             const data = await response.json();
             return data.token;
