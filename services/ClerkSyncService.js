@@ -201,6 +201,7 @@ class ClerkSyncService extends BaseService {
     /**
      * Send an admin invitation via Clerk
      */
+    // services/ClerkService.ts
     async inviteAdmin({ email, firstName, lastName, companyName, redirectUrl = null }) {
         try {
             if (!email || !firstName || !lastName || !companyName) {
@@ -210,23 +211,27 @@ class ClerkSyncService extends BaseService {
             const invitation = await clerkClient.invitations.createInvitation({
                 emailAddress: email,
                 role: 'org:admin',
-                // need to redirect user to go ahead and create the org 
-                redirectUrl: redirectUrl || 'https://yourapp.com/sign-up',
+                redirectUrl: redirectUrl || 'http://localhost:5173/sign-up/onboarding',
+                notify: true,
                 publicMetadata: {
                     invited_admin_flow: true,
-                    companyName
-                }
+                    companyName,
+                    fullName: `${firstName} ${lastName}`,
+                },
+                // only for testing purposes
+                // ignore_existing: false,
             });
 
             return {
                 success: true,
                 data: invitation,
-                message: 'Invitation sent successfully.'
+                message: 'Invitation sent successfully.',
             };
         } catch (error) {
             return this.handleError(error);
         }
     }
+
 
     /**
      * Handle Clerk webhooks (organization.created or membership.created)
@@ -265,6 +270,170 @@ class ClerkSyncService extends BaseService {
             return { success: true, message: 'Event ignored' };
         } catch (error) {
             return this.handleError(error);
+        }
+    }
+
+    /**
+     * More robust handler for organization.created webhook, designed for the invited admin flow.
+     * This logic is intended to be triggered after an invited admin signs up and creates an organization.
+     */
+    async handleOrgCreatedWebhook(event) {
+        try {
+            if (event.type !== "organization.created") {
+                return { success: true, message: `Event ignored: ${event.type}` };
+            }
+
+            const { id, created_by, public_metadata, name } = event.data;
+            const orgId = id;
+            const orgName = name;
+
+            // Add retry logic for user lookup
+            let clerkUser;
+            let attempts = 0;
+            const maxAttempts = 3;
+
+            while (attempts < maxAttempts) {
+                try {
+                    clerkUser = await clerkClient.users.getUser(created_by);
+                    break; // Success, exit retry loop
+                } catch (error) {
+                    attempts++;
+                    if (error.status === 404 && attempts < maxAttempts) {
+                        console.log(`User ${created_by} not found, retrying in 2 seconds... (attempt ${attempts}/${maxAttempts})`);
+                        await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2 seconds
+                        continue;
+                    } else {
+                        throw error; // Re-throw if not a 404 or max attempts reached
+                    }
+                }
+            }
+
+            console.log('🔄 Clerk user found:', clerkUser);
+
+
+            if (!clerkUser) {
+                throw new Error(`User ${created_by} not found after ${maxAttempts} attempts`);
+            }
+
+            const email = clerkUser.emailAddresses?.[0]?.emailAddress;
+            const companyName = clerkUser.publicMetadata?.companyName || orgName; // Fallback to org name
+            const fullName = clerkUser.publicMetadata?.fullName || `${clerkUser.firstName || ''} ${clerkUser.lastName || ''}`.trim();
+            const username = clerkUser.username || email?.split('@')[0]; // Fallback to email prefix
+
+            if (!email) {
+                const errorMessage = "No email address found for the user";
+                console.warn(errorMessage, { userId: clerkUser.id, user: clerkUser });
+                return this.handleError({
+                    error: true,
+                    message: errorMessage,
+                    httpCode: 400,
+                    code: "NO_EMAIL_ADDRESS_FOUND"
+                });
+            }
+
+            if (!fullName) {
+                const errorMessage = "No full name found for the user";
+                console.warn(errorMessage, { userId: clerkUser.id, metadata: clerkUser.publicMetadata });
+                return this.handleError({
+                    error: true,
+                    message: errorMessage,
+                    httpCode: 400,
+                    code: "NO_FULL_NAME_FOUND"
+                });
+            }
+
+            console.log('🔄 Processing organization.created webhook for:', { email, username, companyName, fullName });
+
+            const orgResult = await this.pullseCrmService.createNewUser({
+                name: fullName,
+                email: email,
+                company_name: companyName,
+            });
+
+            if (orgResult.error) {
+                console.error('Error creating internal user/org structure:', orgResult);
+                // Only cleanup if we're sure the Clerk entities exist
+                try {
+                    await clerkClient.users.deleteUser(clerkUser.id);
+                    await clerkClient.organizations.deleteOrganization(orgId);
+                } catch (cleanupError) {
+                    console.error('Error during cleanup:', cleanupError);
+                }
+                throw new Error(orgResult.message || 'Internal organization creation failed, rolling back Clerk entities.');
+            }
+
+            console.log('✅ Internal user/org structure created via PullseCrmService.');
+
+            const { data: updatedUser, error: updateError } = await this.supabase
+                .from("users")
+                .update({
+                    clerkUserId: clerkUser.id,
+                    clerkOrgId: orgId,
+                    name: fullName,
+                    password: null,
+                })
+                .eq("email", email)
+                .select()
+                .single();
+
+            if (updateError) {
+                console.error("Failed to update user in Supabase with Clerk IDs:", updateError);
+                // Cleanup with error handling
+                try {
+                    await clerkClient.users.deleteUser(clerkUser.id);
+                    await clerkClient.organizations.deleteOrganization(orgId);
+                } catch (cleanupError) {
+                    console.error('Error during cleanup:', cleanupError);
+                }
+                return this.handleError({
+                    error: true,
+                    message: "Error syncing user/org to DB. Clerk entities have been rolled back.",
+                    data: updateError,
+                    httpCode: 500,
+                    code: "DB_SYNC_ERROR"
+                });
+            }
+
+            // Update Clerk metadata
+            try {
+                await clerkClient.users.updateUser(clerkUser.id, {
+                    publicMetadata: {
+                        ...clerkUser.publicMetadata,
+                        internalUserId: updatedUser.id,
+                        clientId: updatedUser.clientId,
+                        workspaceId: updatedUser.defaultWorkspaceId,
+                        setupComplete: true
+                    }
+                });
+
+                await clerkClient.organizations.updateOrganization(orgId, {
+                    publicMetadata: {
+                        ...public_metadata,
+                        internalClientId: updatedUser.clientId,
+                        internalWorkspaceId: updatedUser.defaultWorkspaceId
+                    }
+                });
+
+                console.log('✅ Clerk user and organization metadata updated with internal IDs.');
+            } catch (metadataError) {
+                console.error('Error updating Clerk metadata (non-critical):', metadataError);
+                // Don't fail the whole process for metadata updates
+            }
+
+            return {
+                success: true,
+                message: "User and Organization synced successfully."
+            };
+
+        } catch (error) {
+            console.error('❌ Error in handleOrgCreatedWebhook:', error);
+            return this.handleError({
+                error: true,
+                message: error.message || "Failed to handle organization created webhook",
+                data: error,
+                httpCode: 500,
+                code: "ORG_CREATED_WEBHOOK_ERROR"
+            });
         }
     }
 }

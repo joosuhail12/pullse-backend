@@ -45,7 +45,7 @@ class ClerkSyncHandler extends BaseHandler {
      */
     async clerkWebhook(req, reply) {
         // For simplicity, skip signature verification here
-        return this.responder(req, reply, this.syncService.handleWebhook(req.body));
+        return this.responder(req, reply, this.syncService.handleOrgCreatedWebhook(req.body));
     }
 }
 
