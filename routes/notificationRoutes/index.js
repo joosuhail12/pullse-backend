@@ -14,7 +14,7 @@ async function activate(app) {
     url: base_url,
     method: 'GET',
     name: "GetNotifications",
-    preHandler: authorize('read','Notifications'),
+    preHandler: authMiddlewares.checkToken(AuthType.user),
     schema: {
       tags: ['Notifications'],
       summary: 'Get Notifications',
@@ -24,6 +24,28 @@ async function activate(app) {
 
     handler: async (req, reply) => {
       return handler.getNotifications(req, reply);
+    }
+  });
+
+
+  app.route({
+    url: base_url + '/courier/authenticate',
+    method: 'GET',
+    name: "AuthenticateCourier",
+    preHandler: authMiddlewares.checkToken(AuthType.user),
+    schema: {
+      tags: ['Notifications'],
+      summary: 'Authenticate Courier',
+      description: 'API to authenticate courier.',
+      query: {
+        type: 'object',
+        properties: {
+          workspaceId: { type: 'string' }
+        }
+      }
+    },
+    handler: async (req, reply) => {
+      return handler.authenticateCourier(req, reply);
     }
   });
 }
