@@ -29,7 +29,8 @@ async function caslPlugin(fastify) {
       // has seperate auth token for these routes
       '/api/user/set-password',
       '/api/user/verify-magic-link',
-      '/api/clerk-sync/webhook', // Clerk webhook - public
+      // '/api/clerk-sync/webhook', // Clerk webhook - public
+      '/api/clerk-sync/membership-webhook', // Clerk org membership webhook - public
       // TEMP: Remove this line when done with Swagger documentation
       // '/api-docs'
     ];
