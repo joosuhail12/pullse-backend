@@ -20,23 +20,29 @@ class TicketStatusHandler extends BaseHandler {
   async listTicketStatus(req, reply) {
     let workspaceId = req.query.workspace_id;
     let clientId = req.authUser.clientId;
-
-    let filters = {
-      name: req.query.name,
-      type: req.query.type,
-      archived: req.query.archived,
-      createdFrom: req.query.created_from,
-      createdTo: req.query.created_to,
-      skip: req.query.skip,
-      limit: req.query.limit,
-      page: req.query.page,
-      sort_by: req.query.sort_by,
-      sort_order: req.query.sort_order,
-      workspaceId,
-      clientId
-    };
     let inst = new TicketStatusService();
-    return this.responder(req, reply, inst.paginate(filters));
+    return this.responder(req, reply, inst.listAllType(workspaceId, clientId));
+  }
+
+  async listTicketStatusSecondary(req, reply) {
+    let workspaceId = req.query.workspace_id;
+    let clientId = req.authUser.clientId;
+    let inst = new TicketStatusService();
+    return this.responder(req, reply, inst.listAllSecondary(workspaceId, clientId));
+  }
+
+  async listTicketPriority(req, reply) {
+    let workspaceId = req.query.workspace_id;
+    let clientId = req.authUser.clientId;
+    let inst = new TicketStatusService();
+    return this.responder(req, reply, inst.listAllTicketPriority(workspaceId, clientId));
+  }
+
+  async getTicketVisibilitySettings(req, reply) {
+    let workspaceId = req.query.workspace_id;
+    let clientId = req.authUser.clientId;
+    let inst = new TicketStatusService();
+    return this.responder(req, reply, inst.getTicketVisibilitySettings(workspaceId, clientId));
   }
 
   async showTicketStatusDetail(req, reply) {

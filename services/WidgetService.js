@@ -526,6 +526,7 @@ class WidgetService extends BaseService {
 
                 const { data: updatedSessionData, error: updateSessionError } = await this.supabase.from("widgetsessions").update({ token: token }).eq("id", authUser.sessionId).select().single();
                 if (updateSessionError) {
+                    console.log("updateSessionErrorXXXXXXXXXXXXXXXXXXXXX", updateSessionError)
                     throw new errors.Internal(updateSessionError.message);
                 }
                 initializeWidgetSession(updatedSessionData.id, widgetData.clientId, widgetData.workspaceId)

@@ -9,11 +9,14 @@ const TemporalServerUtils = require("../Utils/TemporalServerUtils");
 const axios = require('axios');
 const { subscribeToChatbotPrimary } = require("../ablyServices/listeners");
 const Ably = require("ably");
+const TeamRouterService = require("./TeamRouterService").default;
+const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
 
 class WorkflowService extends BaseService {
     constructor() {
         super();
         this.entityName = 'Workflow';
+        this.supabase = supabase;
         this.listingFields = ["id", "name", "description", "status", "affectedTicketsCount"];
         this.updatableFields = ["name", "summary", "description", "status", "ruleIds", "actionIds", "lastUpdatedBy"];
     }
@@ -84,6 +87,8 @@ class WorkflowService extends BaseService {
             const workspaceId = payload.workspaceId;
             const clientId = payload?.clientId ?? null;
             // fetch the ticket
+            const ablyRest = new Ably.Rest(process.env.ABLY_API_KEY);
+            const teamRouter = new TeamRouterService(this.supabase, { workspaceId, clientId }, ablyRest);
             const { data: ticket, error: ticketError } = await this.supabase
                 .from('tickets')
                 .select('*')
@@ -98,7 +103,11 @@ class WorkflowService extends BaseService {
                 .eq('id', ticket.clientId)
                 .single();
             if (ticket.channel === "chat") {
-                if (!ticket.assigneeId) {
+                if (!ticket.assignedTo && !client.ticket_ai_enabled) {
+                    console.log("No assignee found for ticket and ticket_ai_enabled is false:", ticket);
+                    await teamRouter.route(ticket, 'chat');
+                }
+                if (!ticket.assignedTo) {
                     // then check from the client if the ticket_ai_enabled is true
                     if (client.ticket_ai_enabled) {
                         // fetch the customer data related to the ticket
@@ -183,128 +192,130 @@ class WorkflowService extends BaseService {
                                 console.log("Ticket update failed");
                             }
                         } else {
-                            const { data: channel, error: channelError } = await this.supabase
-                                .from('widget')
-                                .select('*')
-                                .eq('clientId', ticket.clientId)
-                                .eq('workspaceId', workspaceId)
-                            if (channelError) throw new Error(`Fetch failed: ${channelError.message}`);
+                            console.log("No matching chatbot found for ticket:", ticket);
+                            await teamRouter.route(ticket, 'chat');
+                        //     const { data: channel, error: channelError } = await this.supabase
+                        //         .from('widget')
+                        //         .select('*')
+                        //         .eq('clientId', ticket.clientId)
+                        //         .eq('workspaceId', workspaceId)
+                        //     if (channelError) throw new Error(`Fetch failed: ${channelError.message}`);
 
-                            if (channel) {
-                                console.log("Channel found:", channel);
-                            }
-                            // get teams from this channel
-                            const { data: teams, error: teamsError } = await this.supabase
-                                .from('teamChannels')
-                                .select('teamId')
-                                .in('widgetId', channel.map(c => c.id));
+                        //     if (channel) {
+                        //         console.log("Channel found:", channel);
+                        //     }
+                        //     // get teams from this channel
+                        //     const { data: teams, error: teamsError } = await this.supabase
+                        //         .from('teamChannels')
+                        //         .select('teamId')
+                        //         .in('widgetId', channel.map(c => c.id));
 
-                            if (teamsError) throw new Error(`Fetch failed: ${teamsError.message}`);
-                            if (teams && teams.length > 0) {
-                                // create a row for each team in ticket_team table
-                                for (const team of teams) {
-                                    const { data: ticketTeam, error: ticketTeamError } = await this.supabase
-                                        .from('ticket_teams')
-                                        .insert(
-                                            {
-                                                ticket_id: ticketId,
-                                                team_id: team.teamId,
-                                                client_id: ticket.clientId,
-                                                workspace_id: workspaceId,
-                                                created_at: new Date(),
-                                                updated_at: new Date()
-                                            });
+                        //     if (teamsError) throw new Error(`Fetch failed: ${teamsError.message}`);
+                        //     if (teams && teams.length > 0) {
+                        //         // create a row for each team in ticket_team table
+                        //         for (const team of teams) {
+                        //             const { data: ticketTeam, error: ticketTeamError } = await this.supabase
+                        //                 .from('ticket_teams')
+                        //                 .insert(
+                        //                     {
+                        //                         ticket_id: ticketId,
+                        //                         team_id: team.teamId,
+                        //                         client_id: ticket.clientId,
+                        //                         workspace_id: workspaceId,
+                        //                         created_at: new Date(),
+                        //                         updated_at: new Date()
+                        //                     });
 
-                                    if (ticketTeamError) throw new Error(`Fetch failed: ${ticketTeamError.message}`);
-                                    console.log("Ticket team created:", ticketTeam);
-                                }
-                            }
+                        //             if (ticketTeamError) throw new Error(`Fetch failed: ${ticketTeamError.message}`);
+                        //             console.log("Ticket team created:", ticketTeam);
+                        //         }
+                        //     }
                         }
                     }
 
-                    else {
+                    // else {
 
-                        // handle team level routing
-                        const { data: channel, error: channelError } = await this.supabase
-                            .from('widget')
-                            .select('*')
-                            .eq('clientId', ticket.clientId)
-                            .eq('workspaceId', workspaceId)
-                        if (channelError) throw new Error(`Fetch failed: ${channelError.message}`);
+                    //     // handle team level routing
+                    //     const { data: channel, error: channelError } = await this.supabase
+                    //         .from('widget')
+                    //         .select('*')
+                    //         .eq('clientId', ticket.clientId)
+                    //         .eq('workspaceId', workspaceId)
+                    //     if (channelError) throw new Error(`Fetch failed: ${channelError.message}`);
 
-                        if (channel) {
-                            console.log("Channel found:", channel);
-                        }
-                        // get teams from this channel
-                        const { data: teams, error: teamsError } = await this.supabase
-                            .from('teamChannels')
-                            .select('teamId')
-                            .in('widgetId', channel.map(c => c.id));
+                    //     if (channel) {
+                    //         console.log("Channel found:", channel);
+                    //     }
+                    //     // get teams from this channel
+                    //     const { data: teams, error: teamsError } = await this.supabase
+                    //         .from('teamChannels')
+                    //         .select('teamId')
+                    //         .in('widgetId', channel.map(c => c.id));
 
-                        if (teamsError) throw new Error(`Fetch failed: ${teamsError.message}`);
-                        if (teams && teams.length > 0) {
-                            // create a row for each team in ticket_team table
-                            for (const team of teams) {
-                                const { data: ticketTeam, error: ticketTeamError } = await this.supabase
-                                    .from('ticket_teams')
-                                    .insert(
-                                        {
-                                            ticket_id: ticketId,
-                                            team_id: team.teamId,
-                                            client_id: ticket.clientId,
-                                            workspace_id: workspaceId,
-                                            created_at: new Date(),
-                                            updated_at: new Date()
-                                        });
+                    //     if (teamsError) throw new Error(`Fetch failed: ${teamsError.message}`);
+                    //     if (teams && teams.length > 0) {
+                    //         // create a row for each team in ticket_team table
+                    //         for (const team of teams) {
+                    //             const { data: ticketTeam, error: ticketTeamError } = await this.supabase
+                    //                 .from('ticket_teams')
+                    //                 .insert(
+                    //                     {
+                    //                         ticket_id: ticketId,
+                    //                         team_id: team.teamId,
+                    //                         client_id: ticket.clientId,
+                    //                         workspace_id: workspaceId,
+                    //                         created_at: new Date(),
+                    //                         updated_at: new Date()
+                    //                     });
 
-                                if (ticketTeamError) throw new Error(`Fetch failed: ${ticketTeamError.message}`);
-                                console.log("Ticket team created:", ticketTeam);
-                            }
-                        }
-                    }
-                } else {
-                    console.log("No channel found for ticket:", ticket);
+                    //             if (ticketTeamError) throw new Error(`Fetch failed: ${ticketTeamError.message}`);
+                    //             console.log("Ticket team created:", ticketTeam);
+                    //         }
+                    //     }
+                    // }
                 }
             }
             else if (ticket.channel === "email") {
-                // handle email channel
                 console.log("Email channel found:", ticket);
-                // get teams channel where channelId is ticket.emailChannelId
-                const { data: teamsChannel, error: teamsChannelError } = await this.supabase
-                    .from('teamChannels')
-                    .select('teamId')
-                    .eq('channelId', ticket.emailChannelId);
-                if (teamsChannelError) throw new Error(`Fetch failed: ${teamsChannelError.message}`);
-                if (teamsChannel) {
-                    // create a row for each team in ticket_team table
-                    for (const team of teamsChannel) {
-                        //check if team and ticket are already in ticket_teams table
-                        const { data: ticketTeamCheck, error: ticketTeamCheckError } = await this.supabase
-                            .from('ticket_teams')
-                            .select('*')
-                            .eq('team_id', team.teamId)
-                            .eq('ticket_id', ticketId);
-                        if (ticketTeamCheckError) throw new Error(`Fetch failed: ${ticketTeamCheckError.message}`);
-                        if (ticketTeamCheck && ticketTeamCheck.length > 0) {
-                            // team and ticket are already in ticket_teams table
-                            continue;
-                        }
-                        const { data: ticketTeam, error: ticketTeamError } = await this.supabase
-                            .from('ticket_teams')
-                            .insert(
-                                {
-                                    ticket_id: ticketId,
-                                    team_id: team.teamId,
-                                    client_id: ticket.clientId,
-                                    workspace_id: workspaceId,
-                                    created_at: new Date(),
-                                    updated_at: new Date()
-                                });
+                await teamRouter.route(ticket, 'email');
+                // handle email channel
+                // console.log("Email channel found:", ticket);
+                // // get teams channel where channelId is ticket.emailChannelId
+                // const { data: teamsChannel, error: teamsChannelError } = await this.supabase
+                //     .from('teamChannels')
+                //     .select('teamId')
+                //     .eq('channelId', ticket.emailChannelId);
+                // if (teamsChannelError) throw new Error(`Fetch failed: ${teamsChannelError.message}`);
+                // if (teamsChannel) {
+                //     // create a row for each team in ticket_team table
+                //     for (const team of teamsChannel) {
+                //         //check if team and ticket are already in ticket_teams table
+                //         const { data: ticketTeamCheck, error: ticketTeamCheckError } = await this.supabase
+                //             .from('ticket_teams')
+                //             .select('*')
+                //             .eq('team_id', team.teamId)
+                //             .eq('ticket_id', ticketId);
+                //         if (ticketTeamCheckError) throw new Error(`Fetch failed: ${ticketTeamCheckError.message}`);
+                //         if (ticketTeamCheck && ticketTeamCheck.length > 0) {
+                //             // team and ticket are already in ticket_teams table
+                //             continue;
+                //         }
+                //         const { data: ticketTeam, error: ticketTeamError } = await this.supabase
+                //             .from('ticket_teams')
+                //             .insert(
+                //                 {
+                //                     ticket_id: ticketId,
+                //                     team_id: team.teamId,
+                //                     client_id: ticket.clientId,
+                //                     workspace_id: workspaceId,
+                //                     created_at: new Date(),
+                //                     updated_at: new Date()
+                //                 });
 
-                        if (ticketTeamError) throw new Error(`Fetch failed: ${ticketTeamError.message}`);
-                        console.log("Ticket team created:", ticketTeam);
-                    }
-                }
+                //         if (ticketTeamError) throw new Error(`Fetch failed: ${ticketTeamError.message}`);
+                //         console.log("Ticket team created:", ticketTeam);
+                //     }
+                // }
 
             }
         } catch (e) {

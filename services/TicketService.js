@@ -365,7 +365,7 @@ class TicketService {
 
                     status: ticket.status,
                     statusType: ticket.statusId,
-                    priority: ticket.priority === 2 ? 'high' : ticket.priority === 1 ? 'medium' : 'low',
+                    priority: ticket.priority,
                     priorityRaw: ticket.priority,
                     customerId: ticket.customerId,
                     customer: {
@@ -489,10 +489,33 @@ class TicketService {
             const { message, recipients, assignee, lastMessageBy, assigneeId, assignedTo, ...ticketUpdateData } = updateData;
 
             // Format priority
+            console.log(ticketUpdateData, "ticketUpdateData.priority")
             if (typeof ticketUpdateData.priority === 'string') {
-                const priorityMap = { high: 2, medium: 1, low: 0 };
-                ticketUpdateData.priority = priorityMap[ticketUpdateData.priority] ?? 0;
+
+                const {data : priority, error : priorityError} = await supabase.from("ticket_priority")
+                .select('*')
+                .eq('id', ticketUpdateData.priority)
+                .single()
+                if (priorityError){
+                    console.log(priorityError)
+                }
+                console.log(priority, "priority")
+                ticketUpdateData.priority = priority.name;
+                ticketUpdateData.priority_id = priority.id
             }
+            console.log(ticketUpdateData.status, "ticketUpdateData.status")
+            if(typeof ticketUpdateData.status === 'string'){
+                const {data:status, error:statusError} = await supabase.from("ticket_status")
+                .select('*')
+                .eq('id', ticketUpdateData.status)
+                .single()
+                if (statusError){
+                    console.log(statusError)
+                }
+                console.log(status, "status")
+                ticketUpdateData.status = status.name;
+                ticketUpdateData.statusId = status.id
+            }   
 
             // Map subject to title
             if (ticketUpdateData.subject) {
@@ -528,16 +551,16 @@ class TicketService {
             const previousTeamId = existingTicket.teamId;
 
             // Handle status transitions
-            if (ticketUpdateData.status === 'closed' && existingTicket.status !== 'closed') {
-                ticketUpdateData.closedAt = new Date().toISOString();
-            } else if (ticketUpdateData.status && ticketUpdateData.status !== 'closed' && existingTicket.status === 'closed') {
-                ticketUpdateData.reopen = {
-                    ...(existingTicket.reopen || {}),
-                    lastReopenedAt: new Date().toISOString(),
-                    reopenCount: (existingTicket.reopen?.reopenCount || 0) + 1
-                };
-                ticketUpdateData.closedAt = null;
-            }
+            // if (ticketUpdateData.status === 'closed' && existingTicket.status !== 'closed') {
+            //     ticketUpdateData.closedAt = new Date().toISOString();
+            // } else if (ticketUpdateData.status && ticketUpdateData.status !== 'closed' && existingTicket.status === 'closed') {
+            //     ticketUpdateData.reopen = {
+            //         ...(existingTicket.reopen || {}),
+            //         lastReopenedAt: new Date().toISOString(),
+            //         reopenCount: (existingTicket.reopen?.reopenCount || 0) + 1
+            //     };
+            //     ticketUpdateData.closedAt = null;
+            // }
 
             // Handle new message
             if (message) {
@@ -617,7 +640,7 @@ class TicketService {
                 subject: updatedTicket.title,
                 description: updatedTicket.description,
                 status: updatedTicket.status,
-                priority: updatedTicket.priority === 2 ? 'high' : updatedTicket.priority === 1 ? 'medium' : 'low',
+                priority: updatedTicket.priority,
                 createdAt: updatedTicket.createdAt,
                 updatedAt: updatedTicket.updatedAt,
                 language: updatedTicket.language || 'en',

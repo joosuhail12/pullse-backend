@@ -102,6 +102,36 @@ async function activate(app) {
   });
 
   app.route({
+    url: base_url + "/status",
+    method: 'GET',
+    name: "ListTicketStatusSecondary",
+    preHandler: authMiddlewares.checkToken(AuthType.user),
+    handler: async (req, reply) => {
+      return handler.listTicketStatusSecondary(req, reply);
+    }
+  });
+
+  app.route({
+    url: base_url + "/priority",
+    method: 'GET',
+    name: "ListTicketPriority",
+    preHandler: authMiddlewares.checkToken(AuthType.user),
+    handler: async (req, reply) => {
+      return handler.listTicketPriority(req, reply);
+    }
+  });
+
+  app.route({
+    url: base_url + "/visibility",
+    method: 'GET',
+    name: "GetTicketVisibilitySettings",
+    preHandler: authMiddlewares.checkToken(AuthType.user),
+    handler: async (req, reply) => {
+      return handler.getTicketVisibilitySettings(req, reply);
+    }
+  });
+
+  app.route({
     url: base_url + "/:ticket_status_id",
     method: 'GET',
     name: "ShowTicketStatusDetail",
