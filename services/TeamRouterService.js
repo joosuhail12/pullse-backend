@@ -1,4 +1,4 @@
-export default class TeamRouterService {
+class TeamRouterService {
     constructor(supabase, { workspaceId, clientId }, ablyRest) {
       this.sb = supabase;
       this.wsId = workspaceId;
@@ -383,4 +383,6 @@ export default class TeamRouterService {
         .eq('id', ticket.id);
     }
   }
+
+module.exports = TeamRouterService;
   
