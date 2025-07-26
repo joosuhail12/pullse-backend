@@ -103,6 +103,28 @@ async function activate(app) {
         handler: async (req, reply) => handler.inviteAdmin(req, reply)
     });
 
+    // Create org and invite user endpoint
+    app.route({
+        url: base_url + "/invite-to-org",
+        method: 'POST',
+        name: 'InviteToOrg',
+        schema: {
+            tags: ['ClerkSync'],
+            summary: 'Create Org and Invite User',
+            description: 'Create organization in Clerk and invite user as admin.',
+            body: {
+                type: 'object',
+                required: ['companyName', 'email'],
+                properties: {
+                    companyName: { type: 'string' },
+                    email: { type: 'string', format: 'email' },
+                    redirectUrl: { type: 'string' }
+                }
+            }
+        },
+        handler: async (req, reply) => handler.inviteToOrg(req, reply)
+    });
+
     // Clerk webhook
     app.route({
         url: base_url + "/webhook",
@@ -114,6 +136,19 @@ async function activate(app) {
             description: 'Handles Clerk organization.created webhook events.'
         },
         handler: async (req, reply) => handler.clerkWebhook(req, reply)
+    });
+
+    // Clerk membership webhook for B2B invitation flow
+    app.route({
+        url: base_url + "/membership-webhook",
+        method: 'POST',
+        name: 'ClerkMembershipWebhook',
+        schema: {
+            tags: ['ClerkSync'],
+            summary: 'Clerk Membership Webhook',
+            description: 'Handles Clerk organizationMembership.created webhook events for B2B invitation flow.'
+        },
+        handler: async (req, reply) => handler.clerkMembershipWebhook(req, reply)
     });
 }
 

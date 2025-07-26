@@ -232,6 +232,68 @@ class ClerkSyncService extends BaseService {
         }
     }
 
+    /**
+     * Create organization and invite user as admin
+     * B2B flow: org first, then invite
+     */
+    async inviteToOrg({ companyName, email, redirectUrl = null }) {
+        try {
+            if (!companyName || !email) {
+                throw new Error('companyName and email are required');
+            }
+
+            console.log('🔄 Creating organization and inviting user:', { companyName, email });
+
+            // 1. Create organization in Clerk first
+            const clerkOrg = await clerkClient.organizations.createOrganization({
+                name: companyName,
+                publicMetadata: {
+                    createdBy: 'pullse-backend',
+                    createdAt: new Date().toISOString(),
+                    companyName: companyName,
+                    invitation_flow: true
+                }
+            });
+
+            console.log('✅ Clerk organization created:', clerkOrg.id);
+
+            // 2. Invite user to the organization as admin
+            const invitation = await clerkClient.organizations.createOrganizationInvitation({
+                organizationId: clerkOrg.id,
+                emailAddress: email,
+                role: 'org:admin',
+                redirectUrl: redirectUrl || 'http://localhost:5173/sign-up/onboarding',
+                publicMetadata: {
+                    invitation_flow: true,
+                    companyName: companyName,
+                    orgId: clerkOrg.id
+                }
+            });
+
+            console.log('✅ Invitation sent to:', email);
+
+            return {
+                success: true,
+                data: {
+                    organization: {
+                        id: clerkOrg.id,
+                        name: clerkOrg.name
+                    },
+                    invitation: {
+                        id: invitation.id,
+                        email: invitation.emailAddress,
+                        status: invitation.status
+                    }
+                },
+                message: 'Organization created and invitation sent successfully.'
+            };
+
+        } catch (error) {
+            console.error('❌ Error in inviteToOrg:', error);
+            return this.handleError(error);
+        }
+    }
+
 
     /**
      * Handle Clerk webhooks (organization.created or membership.created)
@@ -316,8 +378,8 @@ class ClerkSyncService extends BaseService {
             }
 
             const email = clerkUser.emailAddresses?.[0]?.emailAddress;
-            const companyName = clerkUser.publicMetadata?.companyName || orgName; // Fallback to org name
-            const fullName = clerkUser.publicMetadata?.fullName || `${clerkUser.firstName || ''} ${clerkUser.lastName || ''}`.trim();
+            const companyName = orgName || clerkUser.publicMetadata?.companyName; // Fallback to metadata
+            const fullName = `${clerkUser.firstName || ''} ${clerkUser.lastName || ''}`.trim() || clerkUser.publicMetadata?.fullName; // Fallback to metadata
             const username = clerkUser.username || email?.split('@')[0]; // Fallback to email prefix
 
             if (!email) {
@@ -329,6 +391,21 @@ class ClerkSyncService extends BaseService {
                     httpCode: 400,
                     code: "NO_EMAIL_ADDRESS_FOUND"
                 });
+            }
+
+            // Check if user already exists with this clerkUserId to ensure idempotency
+            const { data: existingUserWithClerkId } = await this.supabase
+                .from('users')
+                .select('id, clerkUserId')
+                .eq('clerkUserId', clerkUser.id)
+                .single();
+
+            if (existingUserWithClerkId) {
+                console.log(`🔄 User with clerkUserId ${clerkUser.id} already exists. Skipping creation.`);
+                return {
+                    success: true,
+                    message: "Webhook already processed for this user."
+                };
             }
 
             if (!fullName) {
@@ -369,7 +446,7 @@ class ClerkSyncService extends BaseService {
                 .update({
                     clerkUserId: clerkUser.id,
                     clerkOrgId: orgId,
-                    name: fullName,
+                    name: username,
                     password: null,
                 })
                 .eq("email", email)
@@ -433,6 +510,135 @@ class ClerkSyncService extends BaseService {
                 data: error,
                 httpCode: 500,
                 code: "ORG_CREATED_WEBHOOK_ERROR"
+            });
+        }
+    }
+
+    /**
+     * Handle organizationMembership.created webhook for B2B invitation flow
+     * More reliable than organization.created for invitation-based onboarding
+     */
+    async handleOrgMembershipCreatedWebhook(event) {
+        try {
+            if (event.type !== "organizationMembership.created") {
+                return { success: true, message: `Event ignored: ${event.type}` };
+            }
+
+            const { public_user_data, organization, public_metadata } = event.data;
+            const userId = public_user_data.user_id;
+            const orgId = organization.id;
+            const orgName = organization.name;
+
+            console.log('🔄 Processing organizationMembership.created webhook for user:', userId);
+
+            // Check if this is from our invitation flow
+            if (!public_metadata?.invitation_flow) {
+                console.log('🔄 Not from invitation flow, skipping processing');
+                return { success: true, message: "Not from invitation flow, skipping" };
+            }
+
+            // Get user details from Clerk
+            const clerkUser = await clerkClient.users.getUser(userId);
+            console.log('🔄 Clerk user found:', clerkUser);
+
+            const email = clerkUser.emailAddresses?.[0]?.emailAddress;
+            const companyName = public_metadata?.companyName || orgName;
+            const fullName = `${clerkUser.firstName || ''} ${clerkUser.lastName || ''}`.trim();
+
+            if (!email) {
+                return this.handleError({
+                    error: true,
+                    message: "No email address found for the user",
+                    httpCode: 400,
+                    code: "NO_EMAIL_ADDRESS_FOUND"
+                });
+            }
+
+            // Check if user already exists with this clerkUserId
+            const { data: existingUserWithClerkId } = await this.supabase
+                .from('users')
+                .select('id, clerkUserId')
+                .eq('clerkUserId', clerkUser.id)
+                .single();
+
+            if (existingUserWithClerkId) {
+                console.log(`🔄 User with clerkUserId ${clerkUser.id} already exists. Skipping creation.`);
+                return {
+                    success: true,
+                    message: "Webhook already processed for this user."
+                };
+            }
+
+            console.log('🔄 Processing invitation flow membership for:', { email, companyName, fullName });
+
+            // Create internal user/org structure
+            const orgResult = await this.pullseCrmService.createNewUser({
+                name: fullName,
+                email: email,
+                company_name: companyName,
+            });
+
+            if (orgResult.error) {
+                console.error('Error creating internal user/org structure:', orgResult);
+                throw new Error(orgResult.message || 'Internal organization creation failed');
+            }
+
+            console.log('✅ Internal user/org structure created via PullseCrmService.');
+
+            // Update user with Clerk IDs
+            const { data: updatedUser, error: updateError } = await this.supabase
+                .from("users")
+                .update({
+                    clerkUserId: clerkUser.id,
+                    clerkOrgId: orgId,
+                    name: fullName,
+                    password: null,
+                })
+                .eq("email", email)
+                .select()
+                .single();
+
+            if (updateError) {
+                console.error("Failed to update user in Supabase with Clerk IDs:", updateError);
+                return this.handleError({
+                    error: true,
+                    message: "Error syncing user/org to DB",
+                    data: updateError,
+                    httpCode: 500,
+                    code: "DB_SYNC_ERROR"
+                });
+            }
+
+            // Update Clerk metadata
+            try {
+                await clerkClient.users.updateUser(clerkUser.id, {
+                    publicMetadata: {
+                        ...clerkUser.publicMetadata,
+                        internalUserId: updatedUser.id,
+                        clientId: updatedUser.clientId,
+                        workspaceId: updatedUser.defaultWorkspaceId,
+                        setupComplete: true
+                    }
+                });
+
+                console.log('✅ Clerk user metadata updated with internal IDs.');
+            } catch (metadataError) {
+                console.error('Error updating Clerk metadata (non-critical):', metadataError);
+            }
+
+            return {
+                success: true,
+                message: "User and Organization synced successfully via invitation flow."
+            };
+
+        } catch (error) {
+            console.error('❌ Error in handleOrgMembershipCreatedWebhook:', error);
+            return this.handleError({
+                error: true,
+                message: error.message || "Failed to handle organization membership created webhook",
+                data: error,
+                httpCode: 500,
+                code: "ORG_MEMBERSHIP_CREATED_WEBHOOK_ERROR"
             });
         }
     }

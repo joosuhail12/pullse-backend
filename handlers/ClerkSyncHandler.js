@@ -41,11 +41,25 @@ class ClerkSyncHandler extends BaseHandler {
     }
 
     /**
+     * Create org and invite user as admin
+     */
+    async inviteToOrg(req, reply) {
+        return this.responder(req, reply, this.syncService.inviteToOrg(req.body));
+    }
+
+    /**
      * Clerk webhook endpoint
      */
     async clerkWebhook(req, reply) {
         // For simplicity, skip signature verification here
         return this.responder(req, reply, this.syncService.handleOrgCreatedWebhook(req.body));
+    }
+
+    /**
+     * Clerk membership webhook endpoint for B2B invitation flow
+     */
+    async clerkMembershipWebhook(req, reply) {
+        return this.responder(req, reply, this.syncService.handleOrgMembershipCreatedWebhook(req.body));
     }
 }
 

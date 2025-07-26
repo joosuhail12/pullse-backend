@@ -3,6 +3,7 @@ const fp = require('fastify-plugin');
 const { defineAbilityFor } = require('./defineAbility');
 const { ForbiddenError } = require('@casl/ability');
 const authMiddlewares = require('../middlewares/auth');
+const { verifyUserToken } = require('../middlewares/clerkAuth');
 
 async function caslPlugin(fastify) {
   fastify.decorateRequest('ability', null);
@@ -29,7 +30,8 @@ async function caslPlugin(fastify) {
       // has seperate auth token for these routes
       '/api/user/set-password',
       '/api/user/verify-magic-link',
-      '/api/clerk-sync/webhook', // Clerk webhook - public
+      // '/api/clerk-sync/webhook', // Clerk webhook - public
+      '/api/clerk-sync/membership-webhook', // Clerk org membership webhook - public
       // TEMP: Remove this line when done with Swagger documentation
       // '/api-docs'
     ];
@@ -39,6 +41,7 @@ async function caslPlugin(fastify) {
     // Original authentication logic below
     let token = request?.headers?.authorization?.split("Bearer ")[1]
     let user = await authMiddlewares.verifyUserToken(token);
+    // let user = await verifyUserToken(token);
     // console.log('workspaceUser',user)
     request.user = user;
     request.authUser = user;
