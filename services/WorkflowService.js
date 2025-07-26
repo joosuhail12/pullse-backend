@@ -9,7 +9,7 @@ const TemporalServerUtils = require("../Utils/TemporalServerUtils");
 const axios = require('axios');
 const { subscribeToChatbotPrimary } = require("../ablyServices/listeners");
 const Ably = require("ably");
-const TeamRouterService = require("./TeamRouterService").default;
+const TeamRouterService = require("./TeamRouterService");
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
 
 class WorkflowService extends BaseService {
