@@ -57,7 +57,7 @@ const Config = {
 const BASE_URL = 'http://127.0.0.1:4000';
 // const BASE_URL = 'https://dev.pullseai.com';
 // const BASE_URL = 'http://api.pullse.ai';
-const LOGIN_ENDPOINT = '/api/auth/login';
+const LOGIN_ENDPOINT = '/api/clerk-auth/login';
 const CLIENT_CREATION_ENDPOINT = '/api/client';
 const USER_CREATION_ENDPOINT = '/api/user';
 const WORKSPACE_CREATION_ENDPOINT = '/api/workspace';
@@ -90,8 +90,7 @@ describe('Create Organization by Global Admin', () => {
   let accessToken;
 
   before(async () => {
-    // Log in as the global admin to get the access token
-    const loginData = { username: Config.globalAdmin.username, password: Config.globalAdmin.password };
+    const loginData = { clerkSessionToken: process.env.CLERK_SESSION_TOKEN || 'dummy' };
     const loginConfig = getConfig(LOGIN_ENDPOINT, 'post', loginData);
 
     const loginResponse = await axios.request(loginConfig);
@@ -132,7 +131,7 @@ describe('Client Owner Login', async () => {
   let ownerToken, tagId, ticketTypeId, companyId, customerId, ticketId, workspaceId;
 
   it('Should able to login and get access token', async () => {
-    let data = { username: Config.client.owner.email, password };
+    let data = { clerkSessionToken: process.env.CLERK_SESSION_TOKEN || 'dummy' };
     let config = getConfig(LOGIN_ENDPOINT, 'post', data);
 
     let startTime = Date.now(); // Start the timer

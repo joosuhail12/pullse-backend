@@ -3,6 +3,7 @@ const EventHandler = require('./EventHandler');
 const AuthType = require("../constants/AuthType");
 const errors = require('../errors');
 const authMiddlewares = require('../middlewares/auth');
+const { verifyUserToken } = require('../middlewares/clerkAuth');
 const logger = require('../logger');
 class Socket {
 
@@ -50,8 +51,10 @@ class Socket {
           case AuthType.agent:
           case AuthType.user:
           default:
-            user = await authMiddlewares.verifyUserToken(token);
-            user.workspaceId = socket.handshake.query.workspace_id;
+            user = await verifyUserToken(token);
+            if (user) {
+              user.workspaceId = socket.handshake.query.workspace_id;
+            }
             break;
 
         }
