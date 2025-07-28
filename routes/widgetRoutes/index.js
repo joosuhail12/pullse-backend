@@ -301,7 +301,7 @@ async function activate(app) {
         url: base_url + "/getContactDeviceTickets",
         method: "GET",
         name: "GetContactDeviceTickets",
-        preHandler: authMiddlewares.verifyJWTToken(),
+        preHandler: authMiddlewares.verifyAuthToken(),
         schema: {
             tags: ["Widgets"],
             summary: "Get Contact Device Tickets",
@@ -315,7 +315,7 @@ async function activate(app) {
         url: base_url + "/getConversationWithTicketId/:ticket_id",
         method: "GET",
         name: "GetConversationWithTicketId",
-        preHandler: authMiddlewares.verifyJWTToken(),
+        preHandler: authMiddlewares.verifyAuthToken(),
         schema: {
             tags: ["Widgets"],
             summary: "Get Conversation With Ticket Id",
@@ -403,7 +403,7 @@ async function activate(app) {
         url: base_url + "/updateTicketRating/:api_key",
         method: "PATCH",
         name: "UpdateTicketRating",
-        preHandler: authMiddlewares.verifyJWTToken(),
+        preHandler: authMiddlewares.verifyAuthToken(),
         schema: {
             tags: ['Ticket'],
             summary: 'Update Ticket Rating',
@@ -438,7 +438,7 @@ async function activate(app) {
         url: base_url + "/uploadWidgetFileAttachment/:api_key",
         method: "POST",
         name: "UploadWidgetFileAttachment",
-        preHandler: authMiddlewares.verifyJWTToken(),
+        preHandler: authMiddlewares.verifyAuthToken(),
         schema: {
             tags: ["Widgets"],
             summary: "Upload Widget File Attachment",

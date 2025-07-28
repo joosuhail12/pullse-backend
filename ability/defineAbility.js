@@ -1,5 +1,6 @@
 const { AbilityBuilder, PureAbility } = require('@casl/ability');
 const UserRoles = require('../constants/UserRoles');
+const roleAbilities = require('./abilities');
 
 const customConditionsMatcher = (conditions, resource) => {
   return Object.keys(conditions).every(key => conditions[key] === resource[key]);
@@ -405,4 +406,4 @@ function defineAbilityFor(user) {
   return build({ conditionsMatcher: customConditionsMatcher });
 }
 
-module.exports = { defineAbilityFor };
+module.exports = { defineAbilityFor, roleAbilities };

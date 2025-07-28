@@ -1,7 +1,7 @@
 const BaseHandler = require('./BaseHandler');
 const WidgetService = require('../services/WidgetService');
 const parser = require('ua-parser-js');
-const { verifyJWTToken } = require('../Utils/commonUtils');
+const { verifyAuthToken } = require('../Utils/commonUtils');
 class WidgetHandler extends BaseHandler {
 
     constructor() {
@@ -61,7 +61,7 @@ class WidgetHandler extends BaseHandler {
         let timezone = req.body.timezone;
         let domain = req.headers['host'];
 
-        let authUser = await verifyJWTToken(req.headers.authorization);
+        let authUser = await verifyAuthToken(req.headers.authorization);
         console.log(authUser);
         let inst = new WidgetService();
         return this.responder(req, reply, inst.getWidgetConfig({ apiKey, workspaceId, publicIpAddress, timezone, domain, authUser }));

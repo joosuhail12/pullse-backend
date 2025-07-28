@@ -10,7 +10,7 @@ async function activate(app) {
         url: base_url + "/widgetToken",
         method: "GET",
         name: "GenerateWidgetAblyToken",
-        preHandler: authMiddlewares.verifyJWTToken(),
+        preHandler: authMiddlewares.verifyAuthToken(),
         consumes: ["application/json", "application/x-www-form-urlencoded"],
         schema: {
             tags: ["Ably"],

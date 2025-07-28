@@ -26,7 +26,7 @@ const authMiddlewares = {
       }
     };
   },
-  verifyJWTToken() {
+  verifyAuthToken() {
     return async (req, reply, next) => {
       try {
         const token = extractToken(req);

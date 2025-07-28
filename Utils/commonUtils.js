@@ -102,7 +102,7 @@ async function getAttributeOptions(entity, { workspaceId, clientId }, filters = 
     return options;
 }
 
-async function verifyJWTToken(authHeader) {
+async function verifyAuthToken(authHeader) {
     if (!authHeader) {
         return false;
     }
@@ -116,5 +116,5 @@ async function verifyJWTToken(authHeader) {
 
 module.exports = {
     getAttributeOptions,
-    verifyJWTToken
+    verifyAuthToken
 }
