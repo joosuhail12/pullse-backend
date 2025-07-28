@@ -1,7 +1,6 @@
 
 const BaseFileSystem = require('../FileManagement/BaseFileSystem');
 const BaseHandler = require('./BaseHandler');
-const AuthService = require('../services/AuthService');
 const WorkspaceService = require('../services/WorkspaceService');
 const ConversationService = require('../services/ConversationService');
 const CustomerService = require('../services/CustomerService');
@@ -14,7 +13,7 @@ class WebhookHandler extends BaseHandler {
 
   constructor() {
     super();
-    this.workspaceServiceInst = new WorkspaceService(null, {AuthService});
+    this.workspaceServiceInst = new WorkspaceService();
     this.conversationServiceInst = new ConversationService();
     this.customerServiceInst = new CustomerService(null, { TagService });
   }

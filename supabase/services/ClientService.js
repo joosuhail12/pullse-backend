@@ -1,7 +1,6 @@
 const { createClient } = require('@supabase/supabase-js');
 const errors = require("../errors");
 const BaseService = require("./BaseService");
-const AuthService = require("./AuthService");
 const WorkspaceService = require("./WorkspaceService");
 const WorkspacePermissionService = require("./WorkspacePermissionService");
 const UserService = require("./UserService");
@@ -28,7 +27,6 @@ class ClientService extends BaseService {
                 return Promise.reject(new errors.AlreadyExist(`${this.entityName} with name "${name}" already exists.`));
             }
 
-            const authService = new AuthService();
             const workspaceService = new WorkspaceService();
             const userService = new UserService();
 

@@ -1,7 +1,7 @@
 const errors = require("../errors");
 const BaseService = require("./BaseService");
 const _ = require("lodash");
-const AuthService = require("./AuthService");
+const jwt = require('jsonwebtoken');
 const ConversationEventPublisher = require("../Events/ConversationEvent/ConversationEventPublisher");
 const { initializeWidgetSession, subscribeToConversationChannels, subscribeToChatbotPrimary } = require("../ablyServices/listeners");
 const { S3Client, PutObjectCommand } = require("@aws-sdk/client-s3");
@@ -11,7 +11,6 @@ class WidgetService extends BaseService {
     constructor() {
         super();
         this.entityName = "widget";
-        this.authService = new AuthService();
 
         this.s3Client = new S3Client({
             region: 'auto',
@@ -522,7 +521,10 @@ class WidgetService extends BaseService {
             if (authUser) {
                 // Create a token here! JWT
                 // Expiry time is 10 hours
-                const token = this.authService.generateJWTToken({ widgetId: data.widgetId, ipAddress: publicIpAddress, timezone, workspaceId, clientId: widgetData.clientId, domain, sessionId: authUser.sessionId, exp: Date.now() + (48 * 60 * 60 * 1000) }); // 48 hours
+                const token = jwt.sign(
+                    { widgetId: data.widgetId, ipAddress: publicIpAddress, timezone, workspaceId, clientId: widgetData.clientId, domain, sessionId: authUser.sessionId, exp: Date.now() + (48 * 60 * 60 * 1000) },
+                    process.env.JWT_SECRET || '$$SUPER_SECRET_JWT_SECRET!@#$%5'
+                );
 
                 const { data: updatedSessionData, error: updateSessionError } = await this.supabase.from("widgetsessions").update({ token: token }).eq("id", authUser.sessionId).select().single();
                 if (updateSessionError) {
@@ -720,7 +722,10 @@ class WidgetService extends BaseService {
                     throw new errors.Internal(widgetSessionError.message);
                 }
 
-                const token = this.authService.generateJWTToken({ widgetId: widgetApiKeyData.widgetId, ipAddress: publicIpAddress, workspaceId: widgetData.workspaceId, clientId: widgetData.clientId, sessionId: widgetSession.id, exp: Date.now() + (48 * 60 * 60 * 1000) }); // 48 hours
+                const token = jwt.sign(
+                    { widgetId: widgetApiKeyData.widgetId, ipAddress: publicIpAddress, workspaceId: widgetData.workspaceId, clientId: widgetData.clientId, sessionId: widgetSession.id, exp: Date.now() + (48 * 60 * 60 * 1000) },
+                    process.env.JWT_SECRET || '$$SUPER_SECRET_JWT_SECRET!@#$%5'
+                );
 
                 initializeWidgetSession(widgetSession.id, widgetData.clientId, widgetData.workspaceId)
 

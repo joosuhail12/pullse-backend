@@ -2,6 +2,7 @@ const errors = require("../errors");
 const BaseService = require("./BaseService");
 const _ = require("lodash");
 const config = require("../config");
+const jwt = require('jsonwebtoken');
 const { createClient } = require("@supabase/supabase-js");
 const WorkspacePermissionService = require("./WorkspacePermissionService");
 
@@ -89,11 +90,10 @@ class WorkspaceService extends BaseService {
                 .eq("userId", userId);
 
             let email = `${workspace.id}@${config.app.email_domain}`;
-            const AuthService = require("./AuthService"); // Lazy loading
-            let authInst = new AuthService();
-            let clientToken = await authInst.generateJWTToken({
-                client: Buffer.from(`${workspace.id}:${clientId}`).toString("base64"),
-            });
+            const clientToken = jwt.sign(
+                { client: Buffer.from(`${workspace.id}:${clientId}`).toString('base64') },
+                process.env.JWT_SECRET || '$$SUPER_SECRET_JWT_SECRET!@#$%5'
+            );
 
             return { ...workspace, workspacePermissions, email, clientToken };
         } catch (err) {

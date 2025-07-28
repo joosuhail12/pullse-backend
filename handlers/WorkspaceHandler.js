@@ -1,6 +1,5 @@
 const BaseHandler = require('./BaseHandler');
 const WorkspaceService = require('../services/WorkspaceService');
-const AuthService = require('../services/AuthService');
 const UserService = require('../services/UserService');
 const WorkspacePermissionService = require('../services/WorkspacePermissionService');
 const ClientService = require('../services/ClientService');
@@ -10,7 +9,7 @@ class WorkspaceHandler extends BaseHandler {
 
   constructor() {
     super();
-    this.ServiceInst = new WorkspaceService(null, { AuthService, UserService, WorkspacePermissionService, ClientService });
+    this.ServiceInst = new WorkspaceService(null, { UserService, WorkspacePermissionService, ClientService });
   }
 
   async createWorkspace(req, reply) {

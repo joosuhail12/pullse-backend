@@ -2,7 +2,6 @@ const IO = require('socket.io')
 const EventHandler = require('./EventHandler');
 const AuthType = require("../constants/AuthType");
 const errors = require('../errors');
-const authMiddlewares = require('../middlewares/auth');
 const { verifyUserToken } = require('../middlewares/clerkAuth');
 const logger = require('../logger');
 class Socket {
@@ -36,11 +35,8 @@ class Socket {
       try {
         switch (userType) {
           case AuthType.client:
-            user = await authMiddlewares.verifyClientToken(token);
-            break;
-
           case AuthType.customer:
-            user = await authMiddlewares.verifyCustomerToken(token);
+            user = await verifyUserToken(token);
             break;
 
 
