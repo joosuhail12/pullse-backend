@@ -14,7 +14,7 @@ async function activate(app) {
     url: base_url,
     method: 'GET',
     name: "GetNotifications",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       tags: ['Notifications'],
       summary: 'Get Notifications',
@@ -32,7 +32,7 @@ async function activate(app) {
     url: base_url + '/courier/authenticate',
     method: 'GET',
     name: "AuthenticateCourier",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       tags: ['Notifications'],
       summary: 'Authenticate Courier',

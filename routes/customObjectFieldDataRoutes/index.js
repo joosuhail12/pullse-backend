@@ -13,7 +13,7 @@ async function activate(app) {
         url: base_url,
         method: "POST",
         name: "CreateCustomObjectFieldData",
-        preHandler: authMiddlewares.checkToken(AuthType.user),
+        preHandler: authMiddlewares.checkClerkToken(AuthType.user),
         schema: {
             tags: ["CustomObjectFieldData"],
             summary: "Create Custom Object Field Data",
@@ -54,7 +54,7 @@ async function activate(app) {
         url: base_url,
         method: "GET",
         name: "ListCustomObjectFieldData",
-        preHandler: authMiddlewares.checkToken(AuthType.user),
+        preHandler: authMiddlewares.checkClerkToken(AuthType.user),
         schema: {
             tags: ["CustomObjectFieldData"],
             summary: "List Custom Object Field Data",
@@ -103,7 +103,7 @@ async function activate(app) {
         url: base_url + "/entity/:entity_type/:entity_id",
         method: "GET",
         name: "GetCustomObjectFieldDataByEntity",
-        preHandler: authMiddlewares.checkToken(AuthType.user),
+        preHandler: authMiddlewares.checkClerkToken(AuthType.user),
         schema: {
             tags: ["CustomObjectFieldData"],
             summary: "Get Custom Object Field Data By Entity",
@@ -128,7 +128,7 @@ async function activate(app) {
         url: base_url + "/:custom_object_field_data_id",
         method: "GET",
         name: "ShowCustomObjectFieldDataDetail",
-        preHandler: authMiddlewares.checkToken(AuthType.user),
+        preHandler: authMiddlewares.checkClerkToken(AuthType.user),
         schema: {
             tags: ["CustomObjectFieldData"],
             summary: "Show Custom Object Field Data Detail",
@@ -144,7 +144,7 @@ async function activate(app) {
         url: base_url + "/:custom_object_field_data_id",
         method: "PUT",
         name: "UpdateCustomObjectFieldData",
-        preHandler: authMiddlewares.checkToken(AuthType.user),
+        preHandler: authMiddlewares.checkClerkToken(AuthType.user),
         schema: {
             tags: ["CustomObjectFieldData"],
             summary: "Update Custom Object Field Data",
@@ -185,7 +185,7 @@ async function activate(app) {
         url: base_url + "/:custom_object_field_data_id",
         method: "DELETE",
         name: "DeleteCustomObjectFieldData",
-        preHandler: authMiddlewares.checkToken(AuthType.user),
+        preHandler: authMiddlewares.checkClerkToken(AuthType.user),
         schema: {
             tags: ["CustomObjectFieldData"],
             summary: "Delete Custom Object Field Data",
@@ -201,7 +201,7 @@ async function activate(app) {
         url: base_url + "/entity/:entity_type/:entity_id",
         method: "DELETE",
         name: "DeleteCustomObjectFieldDataByEntity",
-        preHandler: authMiddlewares.checkToken(AuthType.user),
+        preHandler: authMiddlewares.checkClerkToken(AuthType.user),
         schema: {
             tags: ["CustomObjectFieldData"],
             summary: "Delete Custom Object Field Data By Entity",
@@ -226,7 +226,7 @@ async function activate(app) {
         url: base_url + "/batch",
         method: "POST",
         name: "GetCustomObjectFieldDataByIds",
-        preHandler: authMiddlewares.checkToken(AuthType.user),
+        preHandler: authMiddlewares.checkClerkToken(AuthType.user),
         schema: {
             tags: ["CustomObjectFieldData"],
             summary: "Get Custom Object Field Data By IDs",
@@ -256,7 +256,7 @@ async function activate(app) {
         url: base_url + "/batch/filter",
         method: "POST",
         name: "GetCustomObjectFieldDataBatch",
-        preHandler: authMiddlewares.checkToken(AuthType.user),
+        preHandler: authMiddlewares.checkClerkToken(AuthType.user),
         schema: {
             tags: ["CustomObjectFieldData"],
             summary: "Get Custom Object Field Data By IDs with Filtering",

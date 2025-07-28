@@ -12,7 +12,7 @@ async function activate(app) {
     url: base_url,
     method: 'POST',
     name: "CreateClient",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       tags: ['Client'],
       summary: 'Create Client',
@@ -62,7 +62,7 @@ async function activate(app) {
     url: base_url,
     method: 'GET',
     name: "ListClients",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       tags: ['Client'],
       summary: 'List Clients',
@@ -89,7 +89,7 @@ async function activate(app) {
     url: base_url + "/:client_id",
     method: 'GET',
     name: "ShowClientDetail",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       tags: ['Client'],
       summary: 'Show Client Detail',
@@ -105,7 +105,7 @@ async function activate(app) {
     url: base_url + "/:client_id",
     method: 'PUT',
     name: "UpdateClient",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       tags: ['Client'],
       summary: 'Update Client',
@@ -125,10 +125,10 @@ async function activate(app) {
 
 
   app.route({
-    url: base_url+ "/:client_id",
+    url: base_url + "/:client_id",
     method: 'DELETE',
     name: "DeleteClient",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       tags: ['Client'],
       summary: 'Delete Client',

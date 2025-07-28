@@ -13,14 +13,14 @@ async function activate(app) {
     url: base_url + '/message/new-ticket',
     method: 'POST',
     name: "AddMessage",
-    preHandler: authMiddlewares.checkToken(AuthType.customer),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.customer),
     schema: {
       operationIds: "AddMessage",
       tags: ['Conversation'],
       summary: 'Add message in a new conversation',
       description: 'API to add message in conversation.',
       body: {
-        required: [ "message_type", "message", ],
+        required: ["message_type", "message",],
         additionalProperties: false,
         type: 'object',
         properties: {
@@ -56,13 +56,13 @@ async function activate(app) {
     url: base_url + '/message',
     method: 'POST',
     name: "AddMessage",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       tags: ['Conversation'],
       summary: 'Add message in conversation',
       description: 'API to add message in conversation.',
       body: {
-        required: [ "ticketId", "message", ],
+        required: ["ticketId", "message",],
         additionalProperties: false,
         type: 'object',
         properties: {
@@ -98,7 +98,7 @@ async function activate(app) {
     url: base_url + '/:ticket_sno',
     method: 'GET',
     name: "TicketConversation",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       tags: ['Conversation'],
       summary: 'Get Ticket Conversation',
@@ -128,7 +128,7 @@ async function activate(app) {
   app.route(listTicketConversationRouteConfig);
 
   listTicketConversationRouteConfig.url = base_url + "/:ticket_sno/customer";
-  listTicketConversationRouteConfig.preHandler = authMiddlewares.checkToken(AuthType.customer);
+  listTicketConversationRouteConfig.preHandler = authMiddlewares.checkClerkToken(AuthType.customer);
   listTicketConversationRouteConfig.schema.required = [];
   listTicketConversationRouteConfig.handler = async (req, reply) => {
     req.query.workspace_id = req.authUser.workspaceId;
@@ -141,7 +141,7 @@ async function activate(app) {
     url: base_url + '/:ticket_id/:message_id',
     method: 'GET',
     name: "GetTicketMessage",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       tags: ['Conversation'],
       summary: 'Get Ticket Individual Message',
@@ -157,7 +157,7 @@ async function activate(app) {
   //   url: base_url + "/:ticket_id/:message_id",
   //   method: 'PUT',
   //   name: "UpdateTicketMessage",
-  //   preHandler: authMiddlewares.checkToken(AuthType.user),
+  //   preHandler: authMiddlewares.checkClerkToken(AuthType.user),
   //   schema: {
   //     tags: ['Conversation'],
   //     summary: 'Update Message',
@@ -178,7 +178,7 @@ async function activate(app) {
   //   url: base_url + "/:ticket_id/:message_id",
   //   method: 'DELETE',
   //   name: "DeleteTicketMessage",
-  //   preHandler: authMiddlewares.checkToken(AuthType.user),
+  //   preHandler: authMiddlewares.checkClerkToken(AuthType.user),
   //   schema: {
   //     tags: ['Conversation'],
   //     summary: 'Delete Ticket Message',

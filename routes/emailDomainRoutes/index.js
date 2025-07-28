@@ -12,7 +12,7 @@ async function activate(app) {
     url: base_url,
     method: 'POST',
     name: "CreateEmailDomain",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       operationId: "CreateEmailDomain",
       tags: ['EmailDomain'],
@@ -53,7 +53,7 @@ async function activate(app) {
     url: base_url,
     method: 'GET',
     name: "ListEmailDomains",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       operationId: "ListEmailDomains",
       tags: ['EmailDomain'],
@@ -94,7 +94,7 @@ async function activate(app) {
     url: base_url + "/:email_domain_id",
     method: 'GET',
     name: "ShowEmailDomainDetail",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       operationId: "ShowEmailDomainDetail",
       tags: ['EmailDomain'],
@@ -116,7 +116,7 @@ async function activate(app) {
     url: base_url + "/:email_domain_id",
     method: 'PUT',
     name: "UpdateEmailDomain",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       operationId: "UpdateEmailDomain",
       tags: ['EmailDomain'],
@@ -150,7 +150,7 @@ async function activate(app) {
     url: base_url + "/:email_domain_id",
     method: 'DELETE',
     name: "DeleteEmailDomain",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       operationId: "DeleteEmailDomain",
       tags: ['EmailDomain'],
@@ -174,7 +174,7 @@ async function activate(app) {
     url: base_url + "/:email_domain_id/keys",
     method: 'GET',
     name: "GetEmailDomainKeys",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       operationId: "GetEmailDomainKeys",
       tags: ['EmailDomain'],
@@ -190,7 +190,7 @@ async function activate(app) {
     url: base_url + "/send-email",
     method: 'POST',
     name: "SendEmail",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       operationId: "SendEmail",
       tags: ['EmailDomain'],
@@ -235,7 +235,7 @@ async function activate(app) {
     url: base_url + "/:email_domain_id",
     method: 'POST',
     name: "VerifyEmailDomainKeys",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       operationId: "VerifyEmailDomainKeys",
       tags: ['EmailDomain'],

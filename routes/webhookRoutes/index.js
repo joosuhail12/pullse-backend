@@ -13,7 +13,7 @@ async function activate(app) {
     url: base_url + '/email/send-grid',
     method: 'POST',
     name: "WebhookSendGridEmail",
-    // preHandler: authMiddlewares.checkToken(AuthType.user),
+    // preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       tags: ['Webhook', "SendGrid", "Email"],
       summary: 'API to receive Emails from SendGrid',

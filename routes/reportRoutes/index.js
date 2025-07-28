@@ -12,7 +12,7 @@ async function activate(app) {
     url: base_url,
     method: 'POST',
     name: "CreateReport",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       operationId: "CreateReport",
       tags: ['Report'],
@@ -23,17 +23,17 @@ async function activate(app) {
         additionalProperties: false,
         type: 'object',
         properties: {
-          name:  {
+          name: {
             type: 'string',
             minLength: 2
           },
-          description:  {
+          description: {
             type: 'string',
           },
         }
       },
       query: {
-        workspace_id:  {
+        workspace_id: {
           type: 'string',
         },
       }
@@ -47,7 +47,7 @@ async function activate(app) {
     url: base_url,
     method: 'GET',
     name: "ListReports",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       operationId: "ListReports",
       tags: ['Report'],
@@ -55,11 +55,11 @@ async function activate(app) {
       description: 'API to list all Reports.',
       required: ['workspace_id'],
       query: {
-        name:  {
+        name: {
           type: 'string',
           minLength: 2
         },
-        workspace_id:  {
+        workspace_id: {
           type: 'string',
         },
         page: {
@@ -88,7 +88,7 @@ async function activate(app) {
     url: base_url + "/retrieved/:report_id",
     method: 'GET',
     name: "RenderReport",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       operationId: "RenderReport",
       tags: ['Report'],
@@ -96,7 +96,7 @@ async function activate(app) {
       description: 'API to Render Report Data.',
       required: ['workspace_id'],
       query: {
-        workspace_id:  {
+        workspace_id: {
           type: 'string',
         },
       }
@@ -110,7 +110,7 @@ async function activate(app) {
     url: base_url + "/:report_id",
     method: 'GET',
     name: "ShowReportDetail",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       operationId: "ShowReportDetail",
       tags: ['Report'],
@@ -118,7 +118,7 @@ async function activate(app) {
       description: 'API to show detail of a Report.',
       required: ['workspace_id'],
       query: {
-        workspace_id:  {
+        workspace_id: {
           type: 'string',
         },
       }
@@ -132,7 +132,7 @@ async function activate(app) {
     url: base_url + "/:report_id",
     method: 'PUT',
     name: "UpdateReport",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       operationId: "UpdateReport",
       tags: ['Report'],
@@ -140,16 +140,16 @@ async function activate(app) {
       description: 'API to update a Report.',
       required: ['workspace_id'],
       body: {
-        name:  {
+        name: {
           type: 'string',
           minLength: 2
         },
-        description:  {
+        description: {
           type: 'string',
         },
       },
       query: {
-        workspace_id:  {
+        workspace_id: {
           type: 'string',
         },
       }
@@ -160,10 +160,10 @@ async function activate(app) {
   });
 
   app.route({
-    url: base_url+ "/:report_id",
+    url: base_url + "/:report_id",
     method: 'DELETE',
     name: "DeleteReport",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       operationId: "DeleteReport",
       tags: ['Report'],
@@ -173,7 +173,7 @@ async function activate(app) {
       body: {
       },
       query: {
-        workspace_id:  {
+        workspace_id: {
           type: 'string',
         },
       }

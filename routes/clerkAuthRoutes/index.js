@@ -99,7 +99,7 @@ async function activate(app) {
             }
         },
         handler: async (req, reply) => {
-            return handler.checkToken(req, reply);
+            return handler.checkClerkToken(req, reply);
         }
     });
 }

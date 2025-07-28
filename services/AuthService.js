@@ -105,7 +105,7 @@ class AuthService extends UserService {
         }
     }
 
-    async checkToken(token) {
+    async checkClerkToken(token) {
         try {
             // Fetch user based on the token
             let { data: session, error: sessionError } = await supabase

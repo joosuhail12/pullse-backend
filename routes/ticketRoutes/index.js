@@ -12,7 +12,7 @@ async function activate(app) {
     url: base_url,
     method: 'POST',
     name: "CreateTicket",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       tags: ['Ticket'],
       summary: 'Create Ticket',
@@ -43,7 +43,7 @@ async function activate(app) {
     url: base_url,
     method: 'GET',
     name: "ListTickets",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       tags: ['Ticket'],
       summary: 'List Tickets',
@@ -78,7 +78,7 @@ async function activate(app) {
 
   app.route(ticketListRouteConfig);
   ticketListRouteConfig.url = base_url + "/customer";
-  ticketListRouteConfig.preHandler = authMiddlewares.checkToken(AuthType.customer);
+  ticketListRouteConfig.preHandler = authMiddlewares.checkClerkToken(AuthType.customer);
   ticketListRouteConfig.schema.required = [];
   ticketListRouteConfig.handler = async (req, reply) => {
     return handler.listCustomerTickets(req, reply);
@@ -89,7 +89,7 @@ async function activate(app) {
     url: base_url + "/:ticket_sno",
     method: 'GET',
     name: "ShowTicketDetail",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       tags: ['Ticket'],
       summary: 'Show Ticket Detail',
@@ -105,7 +105,7 @@ async function activate(app) {
     url: base_url + "/:ticket_sno",
     method: 'PUT',
     name: "UpdateTicket",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       tags: ['Ticket'],
       summary: 'Update Ticket',
@@ -133,7 +133,7 @@ async function activate(app) {
     url: base_url + "/:ticket_sno/:entity_type",
     method: 'PUT',
     name: "UpdateTicketTag",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       tags: ['Ticket'],
       summary: 'Update Ticket Tag',
@@ -153,7 +153,7 @@ async function activate(app) {
     url: base_url + "/:ticket_sno",
     method: 'DELETE',
     name: "DeleteTicket",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       tags: ['Ticket'],
       summary: 'Delete Ticket',
@@ -169,7 +169,7 @@ async function activate(app) {
     url: base_url + "/id/:ticket_id",
     method: 'PUT',
     name: "UpdateTicketById",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       tags: ['Ticket'],
       summary: 'Update Ticket by ID',
@@ -198,7 +198,7 @@ async function activate(app) {
     url: base_url + "/:ticket_sno/assign",
     method: 'POST',
     name: "AssignTicket",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       tags: ['Ticket'],
       summary: 'Assign Ticket to User',
@@ -223,7 +223,7 @@ async function activate(app) {
     url: base_url + "/id/:ticket_id/assign",
     method: 'POST',
     name: "AssignTicketById",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       tags: ['Ticket'],
       summary: 'Assign Ticket to User by ID',
@@ -255,7 +255,7 @@ async function activate(app) {
     url: base_url + "/user/:user_id/assigned",
     method: 'GET',
     name: "GetAssignedTickets",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       tags: ['Ticket'],
       summary: 'Get User Assigned Tickets',
@@ -297,7 +297,7 @@ async function activate(app) {
     url: base_url + "/unassigned",
     method: 'GET',
     name: "GetUnassignedTickets",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       tags: ['Ticket'],
       summary: 'Get Unassigned Tickets',
@@ -328,7 +328,7 @@ async function activate(app) {
     url: base_url + "/:ticket_sno/conversation",
     method: 'GET',
     name: "GetConversationByTicketId",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       tags: ['Ticket'],
       summary: 'Get Conversation by Ticket ID',
@@ -347,7 +347,7 @@ async function activate(app) {
     url: base_url + "/:ticket_sno/assign-team",
     method: 'PUT',
     name: "AssignTicketToTeam",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       tags: ['Ticket'],
       summary: 'Assign Ticket to Team',
@@ -372,7 +372,7 @@ async function activate(app) {
     url: base_url + "/id/:ticket_id/assign-team",
     method: 'PUT',
     name: "AssignTicketToTeamById",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       tags: ['Ticket'],
       summary: 'Assign Ticket to Team by ID',
@@ -397,7 +397,7 @@ async function activate(app) {
     url: base_url + "/bot",
     method: 'GET',
     name: "ListBotTickets",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       tags: ['Ticket'],
       summary: 'List Bot Tickets',
@@ -427,7 +427,7 @@ async function activate(app) {
     url: base_url + "/:ticket_id/tags",
     method: 'GET',
     name: "GetTicketTagsById",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       tags: ['Ticket'],
       summary: 'Get Ticket Tags by ID',
@@ -446,7 +446,7 @@ async function activate(app) {
     url: base_url + "/:ticket_id/tags",
     method: 'PUT',
     name: "UpdateTicketTagsById",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       tags: ['Ticket'],
       summary: 'Update Ticket Tags by ID',
@@ -473,7 +473,7 @@ async function activate(app) {
     url: base_url + "/:ticket_id/teams",
     method: 'GET',
     name: "GetTicketTeamsById",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       tags: ['Ticket'],
       summary: 'Get Ticket Teams by ID',
@@ -489,7 +489,7 @@ async function activate(app) {
     url: base_url + "/:ticket_id/teams",
     method: 'POST',
     name: "UpdateTicketTeamsById",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       tags: ['Ticket'],
       summary: 'Update Ticket Teams by ID',
@@ -514,7 +514,7 @@ async function activate(app) {
     url: base_url + "/:ticket_id/rewrite-text",
     method: 'POST',
     name: "RewriteTicketText",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       tags: ['Ticket'],
       summary: 'Rewrite Ticket Text',

@@ -12,7 +12,7 @@ async function activate(app) {
     url: base_url,
     method: 'POST',
     name: "CreateRole",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       tags: ['Role'],
       summary: 'Create User Role',
@@ -44,7 +44,7 @@ async function activate(app) {
     url: base_url,
     method: 'GET',
     name: "ListRoles",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       tags: ['Role'],
       summary: 'List Roles',
@@ -71,7 +71,7 @@ async function activate(app) {
     url: base_url + "/:role_id",
     method: 'GET',
     name: "ShowRoleDetail",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       tags: ['Role'],
       summary: 'Show Role Detail',
@@ -87,7 +87,7 @@ async function activate(app) {
     url: base_url + "/:role_id",
     method: 'PUT',
     name: "UpdateRole",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       tags: ['Role'],
       summary: 'Update Role',
@@ -115,7 +115,7 @@ async function activate(app) {
     url: base_url + "/:role_id",
     method: 'DELETE',
     name: "DeleteRole",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       tags: ['Role'],
       summary: 'Delete Role',

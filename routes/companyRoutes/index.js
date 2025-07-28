@@ -10,7 +10,7 @@ async function activate(app) {
     url: base_url,
     method: 'POST',
     name: "CreateCompany",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       tags: ['Company'],
       summary: 'Create Company',
@@ -63,7 +63,7 @@ async function activate(app) {
     url: base_url,
     method: 'GET',
     name: "ListCompanies",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       tags: ['Company'],
       summary: 'List Companies',
@@ -97,7 +97,7 @@ async function activate(app) {
     url: base_url + "/:company_id",
     method: 'GET',
     name: "ShowCompanyDetail",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       tags: ['Company'],
       summary: 'Show Company Detail',
@@ -114,7 +114,7 @@ async function activate(app) {
     url: base_url + "/:company_id",
     method: 'PUT',
     name: "UpdateCompany",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       tags: ['Company'],
       summary: 'Update Company',
@@ -167,7 +167,7 @@ async function activate(app) {
     url: base_url + "/:company_id",
     method: 'DELETE',
     name: "DeleteCompany",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       tags: ['Company'],
       summary: 'Delete Company',
@@ -184,7 +184,7 @@ async function activate(app) {
     url: base_url + "/:company_id/related-data",
     method: 'GET',
     name: "GetCompanyRelatedData",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       tags: ['Company'],
       summary: 'Get Company Related Tickets and Customers',

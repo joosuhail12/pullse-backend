@@ -12,7 +12,7 @@ async function activate(app) {
     url: base_url,
     method: 'POST',
     name: "CreateTicketTopic",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       operationId: "CreateTicketTopic",
       tags: ['TicketTopic'],
@@ -23,14 +23,14 @@ async function activate(app) {
         additionalProperties: false,
         type: 'object',
         properties: {
-          name:  {
+          name: {
             type: 'string',
             minLength: 2
           },
-          description:  {
+          description: {
             type: 'string',
           },
-          workspaceId:  {
+          workspaceId: {
             type: 'string',
           },
         }
@@ -45,7 +45,7 @@ async function activate(app) {
     url: base_url,
     method: 'GET',
     name: "ListTicketTopics",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       operationId: "ListTicketTopics",
       tags: ['TicketTopic'],
@@ -84,7 +84,7 @@ async function activate(app) {
     url: base_url + "/:ticket_topic_id",
     method: 'GET',
     name: "ShowTicketTopicDetail",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       operationId: "ShowTicketTopicDetail",
       tags: ['TicketTopic'],
@@ -101,7 +101,7 @@ async function activate(app) {
     url: base_url + "/:ticket_topic_id",
     method: 'PUT',
     name: "UpdateTicketTopic",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       operationId: "UpdateTicketTopic",
       tags: ['TicketTopic'],
@@ -109,11 +109,11 @@ async function activate(app) {
       description: 'API to update a TicketTopic.',
       required: [],
       body: {
-        name:  {
+        name: {
           type: 'string',
           minLength: 2
         },
-        description:  {
+        description: {
           type: 'string',
         },
       }
@@ -124,10 +124,10 @@ async function activate(app) {
   });
 
   app.route({
-    url: base_url+ "/:ticket_topic_id",
+    url: base_url + "/:ticket_topic_id",
     method: 'DELETE',
     name: "DeleteTicketTopic",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       operationId: "DeleteTicketTopic",
       tags: ['TicketTopic'],

@@ -26,7 +26,7 @@ async function activate(app) {
         url: base_url + "/agentToken",
         method: "GET",
         name: "GenerateAgentAblyToken",
-        preHandler: authMiddlewares.checkToken(AuthType.user),
+        preHandler: authMiddlewares.checkClerkToken(AuthType.user),
         consumes: ["application/json", "application/x-www-form-urlencoded"],
         schema: {
             tags: ["Ably"],

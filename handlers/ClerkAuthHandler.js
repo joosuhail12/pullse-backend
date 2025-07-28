@@ -57,7 +57,7 @@ class ClerkAuthHandler extends BaseHandler {
     /**
      * Check token validity (for middleware compatibility)
      */
-    async checkToken(req, reply) {
+    async checkClerkToken(req, reply) {
         try {
             const token = req.headers.authorization?.replace('Bearer ', '') || req.body.token;
             const result = await this.authService.checkClerkToken(token);

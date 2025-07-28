@@ -2,7 +2,7 @@
 const fp = require('fastify-plugin');
 const { defineAbilityFor } = require('./defineAbility');
 const { ForbiddenError } = require('@casl/ability');
-const authMiddlewares = require('../middlewares/auth');
+// const authMiddlewares = require('../middlewares/auth');
 const { verifyUserToken } = require('../middlewares/clerkAuth');
 
 async function caslPlugin(fastify) {
@@ -40,8 +40,8 @@ async function caslPlugin(fastify) {
 
     // Original authentication logic below
     let token = request?.headers?.authorization?.split("Bearer ")[1]
-    let user = await authMiddlewares.verifyUserToken(token);
-    // let user = await verifyUserToken(token);
+    // let user = await authMiddlewares.verifyUserToken(token);
+    let user = await verifyUserToken(token);
     // console.log('workspaceUser',user)
     request.user = user;
     request.authUser = user;

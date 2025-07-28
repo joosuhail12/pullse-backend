@@ -11,7 +11,7 @@ async function activate(app) {
     url: base_url,
     method: "POST",
     name: "CreateCustomField",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       tags: ["CustomField"],
       summary: "Create CustomField",
@@ -81,7 +81,7 @@ async function activate(app) {
     url: base_url,
     method: "GET",
     name: "ListCustomFields",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       tags: ["CustomField"],
       summary: "List CustomFields",
@@ -130,7 +130,7 @@ async function activate(app) {
     url: base_url + "/:custom_field_id",
     method: "GET",
     name: "ShowCustomFieldDetail",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       tags: ["CustomField"],
       summary: "Show CustomField Detail",
@@ -151,7 +151,7 @@ async function activate(app) {
     url: base_url + "/:custom_field_id",
     method: "PUT",
     name: "UpdateCustomField",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       tags: ["CustomField"],
       summary: "Update CustomField",
@@ -212,7 +212,7 @@ async function activate(app) {
     url: base_url + "/:custom_field_id/set-value",
     method: "PATCH",
     name: "SetCustomFieldValue",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       tags: ["CustomField"],
       summary: "Set CustomField Value",
@@ -240,7 +240,7 @@ async function activate(app) {
     url: base_url + "/:custom_field_id",
     method: "DELETE",
     name: "DeleteCustomField",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       tags: ["CustomField"],
       summary: "Delete CustomField",

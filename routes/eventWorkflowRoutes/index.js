@@ -12,7 +12,7 @@ async function activate(app) {
     url: base_url,
     method: 'POST',
     name: "AddEventWorkflow",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       operationId: "AddEventWorkflow",
       tags: ['EventWorkflow'],
@@ -39,7 +39,7 @@ async function activate(app) {
         }
       },
       query: {
-        workspace_id:  {
+        workspace_id: {
           type: 'string',
         },
       }
@@ -53,7 +53,7 @@ async function activate(app) {
     url: base_url,
     method: 'GET',
     name: "ListEventWorkflows",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       operationId: "ListEventWorkflows",
       tags: ['EventWorkflow'],
@@ -61,14 +61,14 @@ async function activate(app) {
       description: 'API to list all EventWorkflows.',
       required: ['workspace_id'],
       query: {
-        name:  {
+        name: {
           type: 'string',
           minLength: 2
         },
-        event_id:  {
+        event_id: {
           type: 'string',
         },
-        workflow_id:  {
+        workflow_id: {
           type: 'string',
         },
         archived: {
@@ -76,7 +76,7 @@ async function activate(app) {
           default: false,
           description: "To fetch archived records."
         },
-        workspace_id:  {
+        workspace_id: {
           type: 'string',
         },
         page: {
@@ -105,7 +105,7 @@ async function activate(app) {
     url: base_url + "/:event_workflow_id",
     method: 'GET',
     name: "ShowEventWorkflowDetail",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       operationId: "ShowEventWorkflowDetail",
       tags: ['EventWorkflow'],
@@ -113,7 +113,7 @@ async function activate(app) {
       description: 'API to show detail of a EventWorkflow.',
       required: ['workspace_id'],
       query: {
-        workspace_id:  {
+        workspace_id: {
           type: 'string',
         },
       }
@@ -127,7 +127,7 @@ async function activate(app) {
     url: base_url + "/:event_workflow_id",
     method: 'PUT',
     name: "UpdateEventWorkflow",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       operationId: "UpdateEventWorkflow",
       tags: ['EventWorkflow'],
@@ -135,16 +135,16 @@ async function activate(app) {
       description: 'API to update a EventWorkflow.',
       required: ['workspace_id'],
       body: {
-        name:  {
+        name: {
           type: 'string',
           minLength: 2
         },
-        description:  {
+        description: {
           type: 'string',
         },
       },
       query: {
-        workspace_id:  {
+        workspace_id: {
           type: 'string',
         },
       }
@@ -155,10 +155,10 @@ async function activate(app) {
   });
 
   app.route({
-    url: base_url+ "/:event_workflow_id",
+    url: base_url + "/:event_workflow_id",
     method: 'DELETE',
     name: "DeleteEventWorkflow",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       operationId: "DeleteEventWorkflow",
       tags: ['EventWorkflow'],
@@ -168,7 +168,7 @@ async function activate(app) {
       body: {
       },
       query: {
-        workspace_id:  {
+        workspace_id: {
           type: 'string',
         },
       }

@@ -13,7 +13,7 @@ async function activate(app) {
         url: base_url,
         method: "POST",
         name: "CreateCustomFieldData",
-        preHandler: authMiddlewares.checkToken(AuthType.user),
+        preHandler: authMiddlewares.checkClerkToken(AuthType.user),
         schema: {
             tags: ["CustomFieldData"],
             summary: "Create Custom Field Data",
@@ -54,7 +54,7 @@ async function activate(app) {
         url: base_url,
         method: "GET",
         name: "ListCustomFieldData",
-        preHandler: authMiddlewares.checkToken(AuthType.user),
+        preHandler: authMiddlewares.checkClerkToken(AuthType.user),
         schema: {
             tags: ["CustomFieldData"],
             summary: "List Custom Field Data",
@@ -103,7 +103,7 @@ async function activate(app) {
         url: base_url + "/entity/:entity_type/:entity_id",
         method: "GET",
         name: "GetCustomFieldDataByEntity",
-        preHandler: authMiddlewares.checkToken(AuthType.user),
+        preHandler: authMiddlewares.checkClerkToken(AuthType.user),
         schema: {
             tags: ["CustomFieldData"],
             summary: "Get Custom Field Data By Entity",
@@ -128,7 +128,7 @@ async function activate(app) {
         url: base_url + "/:custom_field_data_id",
         method: "GET",
         name: "ShowCustomFieldDataDetail",
-        preHandler: authMiddlewares.checkToken(AuthType.user),
+        preHandler: authMiddlewares.checkClerkToken(AuthType.user),
         schema: {
             tags: ["CustomFieldData"],
             summary: "Show Custom Field Data Detail",
@@ -144,7 +144,7 @@ async function activate(app) {
         url: base_url + "/:custom_field_data_id",
         method: "PUT",
         name: "UpdateCustomFieldData",
-        preHandler: authMiddlewares.checkToken(AuthType.user),
+        preHandler: authMiddlewares.checkClerkToken(AuthType.user),
         schema: {
             tags: ["CustomFieldData"],
             summary: "Update Custom Field Data",
@@ -185,7 +185,7 @@ async function activate(app) {
         url: base_url + "/:custom_field_data_id",
         method: "DELETE",
         name: "DeleteCustomFieldData",
-        preHandler: authMiddlewares.checkToken(AuthType.user),
+        preHandler: authMiddlewares.checkClerkToken(AuthType.user),
         schema: {
             tags: ["CustomFieldData"],
             summary: "Delete Custom Field Data",
@@ -201,7 +201,7 @@ async function activate(app) {
         url: base_url + "/entity/:entity_type/:entity_id",
         method: "DELETE",
         name: "DeleteCustomFieldDataByEntity",
-        preHandler: authMiddlewares.checkToken(AuthType.user),
+        preHandler: authMiddlewares.checkClerkToken(AuthType.user),
         schema: {
             tags: ["CustomFieldData"],
             summary: "Delete Custom Field Data By Entity",
@@ -226,7 +226,7 @@ async function activate(app) {
         url: base_url + "/batch",
         method: "POST",
         name: "GetCustomFieldDataByIds",
-        preHandler: authMiddlewares.checkToken(AuthType.user),
+        preHandler: authMiddlewares.checkClerkToken(AuthType.user),
         schema: {
             tags: ["CustomFieldData"],
             summary: "Get Custom Field Data By IDs",
@@ -256,7 +256,7 @@ async function activate(app) {
         url: base_url + "/batch/filter",
         method: "POST",
         name: "GetCustomFieldDataBatch",
-        preHandler: authMiddlewares.checkToken(AuthType.user),
+        preHandler: authMiddlewares.checkClerkToken(AuthType.user),
         schema: {
             tags: ["CustomFieldData"],
             summary: "Get Custom Field Data By IDs with Filtering",

@@ -12,7 +12,7 @@ async function activate(app) {
         url: base_url,
         method: "GET",
         name: "GetWidget",
-        preHandler: authMiddlewares.checkToken(AuthType.user),
+        preHandler: authMiddlewares.checkClerkToken(AuthType.user),
         schema: {
             tags: ["Widgets"],
             summary: "Get Widgets",
@@ -33,7 +33,7 @@ async function activate(app) {
         url: base_url,
         method: "POST",
         name: "CreateWidget",
-        preHandler: authMiddlewares.checkToken(AuthType.user),
+        preHandler: authMiddlewares.checkClerkToken(AuthType.user),
         schema: {
             tags: ["EmailChannels"],
             summary: "Create Email Channel",
@@ -85,7 +85,7 @@ async function activate(app) {
         url: base_url,
         method: "PATCH",
         name: "UpdateWidget",
-        preHandler: authMiddlewares.checkToken(AuthType.user),
+        preHandler: authMiddlewares.checkClerkToken(AuthType.user),
         schema: {
             tags: ["Widgets"],
             summary: "Update Widget",
@@ -188,7 +188,7 @@ async function activate(app) {
         url: base_url + "/:widget_id",
         method: "DELETE",
         name: "DeleteWidget",
-        preHandler: authMiddlewares.checkToken(AuthType.user),
+        preHandler: authMiddlewares.checkClerkToken(AuthType.user),
         schema: {
             tags: ["Widgets"],
             summary: "Delete Widget",
@@ -210,7 +210,7 @@ async function activate(app) {
         url: base_url + "/:widget_id",
         method: "GET",
         name: "GetWidgetById",
-        preHandler: authMiddlewares.checkToken(AuthType.user),
+        preHandler: authMiddlewares.checkClerkToken(AuthType.user),
         schema: {
             tags: ["Widgets"],
             summary: "Get Widget By Id",
@@ -337,7 +337,7 @@ async function activate(app) {
         method: "POST",
         name: "UploadWidgetAssets",
         preHandler: [
-            authMiddlewares.checkToken(AuthType.user)
+            authMiddlewares.checkClerkToken(AuthType.user)
         ],
         schema: {
             tags: ["Widgets"],
@@ -386,7 +386,7 @@ async function activate(app) {
         url: base_url + "/getWidgetFieldOptions",
         method: "GET",
         name: "GetWidgetFieldOptions",
-        preHandler: authMiddlewares.checkToken(AuthType.user),
+        preHandler: authMiddlewares.checkClerkToken(AuthType.user),
         schema: {
             tags: ["Widgets"],
             summary: "Get Widget Field Options",

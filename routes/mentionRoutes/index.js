@@ -11,7 +11,7 @@ async function activate(app) {
         url: base_url,
         method: 'GET',
         name: "GetUserMentions",
-        preHandler: authMiddlewares.checkToken(AuthType.user),
+        preHandler: authMiddlewares.checkClerkToken(AuthType.user),
         schema: {
             tags: ['mentions'],
             summary: 'Get User Mentions',
@@ -50,7 +50,7 @@ async function activate(app) {
         url: base_url + '/:mention_id/read',
         method: 'PUT',
         name: "MarkMentionAsRead",
-        preHandler: authMiddlewares.checkToken(AuthType.user),
+        preHandler: authMiddlewares.checkClerkToken(AuthType.user),
         schema: {
             tags: ['mentions'],
             summary: 'Mark Mention as Read',
@@ -74,7 +74,7 @@ async function activate(app) {
         url: base_url,
         method: 'POST',
         name: "CreateMention",
-        preHandler: authMiddlewares.checkToken(AuthType.user),
+        preHandler: authMiddlewares.checkClerkToken(AuthType.user),
         schema: {
             tags: ['mentions'],
             summary: 'Create Mention',
@@ -118,7 +118,7 @@ async function activate(app) {
         url: base_url + '/:mention_id',
         method: 'PUT',
         name: "UpdateMention",
-        preHandler: authMiddlewares.checkToken(AuthType.user),
+        preHandler: authMiddlewares.checkClerkToken(AuthType.user),
         schema: {
             tags: ['mentions'],
             summary: 'Update Mention',

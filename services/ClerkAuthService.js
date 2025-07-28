@@ -153,7 +153,7 @@ class ClerkAuthService extends BaseService {
     }
 
     /**
-     * Check token validity (same as AuthService.checkToken but for Clerk users)
+     * Check token validity (same as AuthService.checkClerkToken but for Clerk users)
      */
     async checkClerkToken(token) {
         try {

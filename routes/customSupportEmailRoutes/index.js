@@ -12,7 +12,7 @@ async function activate(app) {
     url: base_url,
     method: 'POST',
     name: "CreateCustomSupportEmail",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       operationId: "CreateCustomSupportEmail",
       tags: ['CustomSupportEmail'],
@@ -23,21 +23,21 @@ async function activate(app) {
         additionalProperties: false,
         type: 'object',
         properties: {
-          name:  {
+          name: {
             type: 'string',
             minLength: 2
           },
-          email:  {
+          email: {
             type: 'string',
             format: "email"
           },
-          description:  {
+          description: {
             type: 'string',
           },
         }
       },
       query: {
-        workspace_id:  {
+        workspace_id: {
           type: 'string',
         },
       }
@@ -51,7 +51,7 @@ async function activate(app) {
     url: base_url,
     method: 'GET',
     name: "ListCustomSupportEmails",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       operationId: "ListCustomSupportEmails",
       tags: ['CustomSupportEmail'],
@@ -59,15 +59,15 @@ async function activate(app) {
       description: 'API to list all CustomSupportEmails.',
       required: ['workspace_id'],
       query: {
-        name:  {
+        name: {
           type: 'string',
           minLength: 2
         },
-        email:  {
+        email: {
           type: 'string',
           format: "email"
         },
-        workspace_id:  {
+        workspace_id: {
           type: 'string',
         },
         page: {
@@ -96,7 +96,7 @@ async function activate(app) {
     url: base_url + "/:custom_support_email_id",
     method: 'GET',
     name: "ShowCustomSupportEmailDetail",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       operationId: "ShowCustomSupportEmailDetail",
       tags: ['CustomSupportEmail'],
@@ -104,7 +104,7 @@ async function activate(app) {
       description: 'API to show detail of a CustomSupportEmail.',
       required: ['workspace_id'],
       query: {
-        workspace_id:  {
+        workspace_id: {
           type: 'string',
         },
       }
@@ -118,7 +118,7 @@ async function activate(app) {
     url: base_url + "/:custom_support_email_id",
     method: 'PUT',
     name: "UpdateCustomSupportEmail",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       operationId: "UpdateCustomSupportEmail",
       tags: ['CustomSupportEmail'],
@@ -126,20 +126,20 @@ async function activate(app) {
       description: 'API to update a CustomSupportEmail.',
       required: ['workspace_id'],
       body: {
-        name:  {
+        name: {
           type: 'string',
           minLength: 2
         },
-        email:  {
+        email: {
           type: 'string',
           format: "email"
         },
-        description:  {
+        description: {
           type: 'string',
         },
       },
       query: {
-        workspace_id:  {
+        workspace_id: {
           type: 'string',
         },
       }
@@ -150,10 +150,10 @@ async function activate(app) {
   });
 
   app.route({
-    url: base_url+ "/:custom_support_email_id",
+    url: base_url + "/:custom_support_email_id",
     method: 'DELETE',
     name: "DeleteCustomSupportEmail",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       operationId: "DeleteCustomSupportEmail",
       tags: ['CustomSupportEmail'],
@@ -163,7 +163,7 @@ async function activate(app) {
       body: {
       },
       query: {
-        workspace_id:  {
+        workspace_id: {
           type: 'string',
         },
       }

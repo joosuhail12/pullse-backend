@@ -12,7 +12,7 @@ async function activate(app) {
     url: base_url,
     method: 'POST',
     name: "CreatePermission",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       tags: ['Permission'],
       summary: 'Create User Permission',
@@ -25,11 +25,11 @@ async function activate(app) {
           id: {
             type: 'string',
           },
-          name:  {
+          name: {
             type: 'string',
             minLength: 2
           },
-          description:  {
+          description: {
             type: 'string',
           },
         }
@@ -44,7 +44,7 @@ async function activate(app) {
     url: base_url,
     method: 'GET',
     name: "ListPermissions",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       tags: ['Permission'],
       summary: 'List Permissions',
@@ -71,7 +71,7 @@ async function activate(app) {
     url: base_url + "/:permission_id",
     method: 'GET',
     name: "ShowPermissionDetail",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       tags: ['Permission'],
       summary: 'Show Permission Detail',
@@ -87,7 +87,7 @@ async function activate(app) {
     url: base_url + "/:permission_id",
     method: 'PUT',
     name: "UpdatePermission",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       tags: ['Permission'],
       summary: 'Update Permission',
@@ -97,11 +97,11 @@ async function activate(app) {
         id: {
           type: 'string',
         },
-        name:  {
+        name: {
           type: 'string',
           minLength: 2
         },
-        description:  {
+        description: {
           type: 'string',
         },
       }
@@ -112,10 +112,10 @@ async function activate(app) {
   });
 
   app.route({
-    url: base_url+ "/:permission_id",
+    url: base_url + "/:permission_id",
     method: 'DELETE',
     name: "DeletePermission",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       tags: ['Permission'],
       summary: 'Delete Permission',

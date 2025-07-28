@@ -13,10 +13,10 @@ async function activate(app) {
     url: base_url,
     method: 'POST',
     name: "UploadChatbotDocument",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       operationId: "UploadChatbotDocument",
-      tags: [ 'ChatbotDocument' ],
+      tags: ['ChatbotDocument'],
       summary: 'Upload Chatbot Document',
       description: 'API to Upload Chatbot Document.',
       consumes: ['multipart/form-data'],
@@ -58,7 +58,7 @@ async function activate(app) {
         }
       },
       query: {
-        workspace_id:  {
+        workspace_id: {
           type: 'string',
         },
       }
@@ -72,7 +72,7 @@ async function activate(app) {
     url: base_url + "/snippet",
     method: 'POST',
     name: "CreateSnippet",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     handler: async (req, reply) => {
       return handler.createSnippet(req, reply);
     }
@@ -82,7 +82,7 @@ async function activate(app) {
     url: "/api/action-center/create",
     method: 'POST',
     name: "CreateActionCenter",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     handler: async (req, reply) => {
       return handler.createActionCenter(req, reply);
     }
@@ -92,7 +92,7 @@ async function activate(app) {
     url: base_url + "/content",
     method: 'GET',
     name: "FetchContents",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     handler: async (req, reply) => {
       return handler.fetchContents(req, reply);
     }
@@ -102,7 +102,7 @@ async function activate(app) {
     url: base_url + "/link",
     method: 'POST',
     name: "CreateLink",
-    preHandler: authMiddlewares.checkToken(AuthType.user),  
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     handler: async (req, reply) => {
       return handler.createLink(req, reply);
     }
@@ -112,7 +112,7 @@ async function activate(app) {
     url: base_url + "/document",
     method: 'POST',
     name: "CreateDocument",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     handler: async (req, reply) => {
       return handler.createDocument(req, reply);
     }
@@ -122,7 +122,7 @@ async function activate(app) {
     url: base_url,
     method: 'GET',
     name: "ListChatbotDocuments",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       operationId: "ListChatbotDocuments",
       tags: ['ChatbotDocument'],
@@ -130,20 +130,20 @@ async function activate(app) {
       description: 'API to list all ChatbotDocuments.',
       required: ['workspace_id'],
       query: {
-        workspace_id:  {
+        workspace_id: {
           type: 'string',
         },
-        title:  {
+        title: {
           type: 'string',
           minLength: 2
         },
-        doc_type:  {
+        doc_type: {
           type: 'string',
         },
-        chatbot_id:  {
+        chatbot_id: {
           type: 'string',
         },
-        exclude_chatbot_id:  {
+        exclude_chatbot_id: {
           type: 'string',
         },
         page: {
@@ -172,7 +172,7 @@ async function activate(app) {
     url: base_url + "/:chatbot_document_id",
     method: 'GET',
     name: "ShowChatbotDocumentDetail",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       operationId: "ShowChatbotDocumentDetail",
       tags: ['ChatbotDocument'],
@@ -189,7 +189,7 @@ async function activate(app) {
     url: base_url + "/:chatbot_document_id",
     method: 'PUT',
     name: "UpdateChatbotDocument",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       operationId: "UpdateChatbotDocument",
       tags: ['ChatbotDocument'],
@@ -197,11 +197,11 @@ async function activate(app) {
       description: 'API to update a ChatbotDocument.',
       required: [],
       body: {
-        name:  {
+        name: {
           type: 'string',
           minLength: 2
         },
-        description:  {
+        description: {
           type: 'string',
         },
       }
@@ -216,7 +216,7 @@ async function activate(app) {
     url: base_url + "/bulk-action",
     method: 'PUT',
     name: "BulkActionChatbotDocument",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       operationId: "BulkActionChatbotDocument",
       tags: ['ChatbotDocument'],
@@ -252,10 +252,10 @@ async function activate(app) {
 
 
   app.route({
-    url: base_url+ "/:chatbot_document_id",
+    url: base_url + "/:chatbot_document_id",
     method: 'DELETE',
     name: "DeleteChatbotDocument",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       operationId: "DeleteChatbotDocument",
       tags: ['ChatbotDocument'],
@@ -271,10 +271,10 @@ async function activate(app) {
   });
 
   app.route({
-    url: base_url+ "/status/:chatbot_document_id",
+    url: base_url + "/status/:chatbot_document_id",
     method: 'POST',
     name: "ChatbotDocumentCallBack",
-    // preHandler: authMiddlewares.checkToken(AuthType.user),
+    // preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       operationId: "ChatbotDocumentCallBack",
       tags: ['ChatbotDocument'],

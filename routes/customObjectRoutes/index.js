@@ -12,7 +12,7 @@ async function activate(app) {
         url: base_url,
         method: "POST",
         name: "CreateCustomObject",
-        preHandler: authMiddlewares.checkToken(AuthType.user),
+        preHandler: authMiddlewares.checkClerkToken(AuthType.user),
         schema: {
             tags: ["CustomObject"],
             summary: "Create CustomObject",
@@ -56,7 +56,7 @@ async function activate(app) {
         url: base_url,
         method: "GET",
         name: "ListCustomObjects",
-        preHandler: authMiddlewares.checkToken(AuthType.user),
+        preHandler: authMiddlewares.checkClerkToken(AuthType.user),
         schema: {
             tags: ["CustomObject"],
             summary: "List CustomObjects",
@@ -105,7 +105,7 @@ async function activate(app) {
         url: base_url + "/:custom_object_id",
         method: "GET",
         name: "ShowCustomObjectDetail",
-        preHandler: authMiddlewares.checkToken(AuthType.user),
+        preHandler: authMiddlewares.checkClerkToken(AuthType.user),
         schema: {
             tags: ["CustomObject"],
             summary: "Show CustomObject Detail",
@@ -126,7 +126,7 @@ async function activate(app) {
         url: base_url + "/:custom_object_id",
         method: "PATCH",
         name: "UpdateCustomObject",
-        preHandler: authMiddlewares.checkToken(AuthType.user),
+        preHandler: authMiddlewares.checkClerkToken(AuthType.user),
         schema: {
             tags: ["CustomObject"],
             summary: "Update CustomObject",
@@ -185,7 +185,7 @@ async function activate(app) {
         url: base_url + "/:custom_object_id",
         method: "DELETE",
         name: "DeleteCustomObject",
-        preHandler: authMiddlewares.checkToken(AuthType.user),
+        preHandler: authMiddlewares.checkClerkToken(AuthType.user),
         schema: {
             tags: ["CustomObject"],
             summary: "Delete CustomObject",
@@ -207,7 +207,7 @@ async function activate(app) {
         url: base_url + "/:custom_object_id/add-new-field",
         method: "PUT",
         name: "AddNewField",
-        preHandler: authMiddlewares.checkToken(AuthType.user),
+        preHandler: authMiddlewares.checkClerkToken(AuthType.user),
         schema: {
             tags: ["CustomObject"],
             summary: "Add New Field",
@@ -259,7 +259,7 @@ async function activate(app) {
         url: base_url + "/:custom_object_id/update-field",
         method: "PATCH",
         name: "UpdataNewField",
-        preHandler: authMiddlewares.checkToken(AuthType.user),
+        preHandler: authMiddlewares.checkClerkToken(AuthType.user),
         schema: {
             tags: ["CustomObject"],
             summary: "Update Field",
@@ -303,7 +303,7 @@ async function activate(app) {
         url: base_url + "/:custom_object_id/delete-field",
         method: "DELETE",
         name: "DeleteField",
-        preHandler: authMiddlewares.checkToken(AuthType.user),
+        preHandler: authMiddlewares.checkClerkToken(AuthType.user),
         schema: {
             tags: ["CustomObject"],
             summary: "Delete Field",

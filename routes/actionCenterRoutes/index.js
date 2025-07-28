@@ -1,10 +1,10 @@
 // routes/actionCenter.js
-const ActionCenterHandler  = require('../../handlers/actionCenterHandler');
-const authMiddlewares      = require('../../middlewares/auth');
-const AuthType             = require('../../constants/AuthType');
+const ActionCenterHandler = require('../../handlers/actionCenterHandler');
+const authMiddlewares = require('../../middlewares/auth');
+const AuthType = require('../../constants/AuthType');
 
 async function activate(app) {
-  const handler  = new ActionCenterHandler();
+  const handler = new ActionCenterHandler();
   const base_url = '/api/action-center';
 
   /* ─────────────────────────────────────────────
@@ -14,7 +14,7 @@ async function activate(app) {
     url: base_url,
     method: 'POST',
     name: 'CreateAction',
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       operationId: 'CreateAction',
       tags: ['ActionCenter'],
@@ -24,41 +24,41 @@ async function activate(app) {
         additionalProperties: false,
         type: 'object',
         properties: {
-          name:   { type: 'string', minLength: 2 },
-          toolName:        { type: 'string' },
-          endpoint:        { type: 'string', format: 'uri' },
-          method:          { type: 'string', enum: ['GET','POST','PUT','PATCH','DELETE','HEAD','OPTIONS'] },
-          description:     { type: 'string' },
-          headers:         { type: 'string' },         // raw JSON/string from UI
+          name: { type: 'string', minLength: 2 },
+          toolName: { type: 'string' },
+          endpoint: { type: 'string', format: 'uri' },
+          method: { type: 'string', enum: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'] },
+          description: { type: 'string' },
+          headers: { type: 'string' },         // raw JSON/string from UI
           parameters: {
             type: 'array',
             items: {
               type: 'object',
               additionalProperties: false,
               properties: {
-                name:        { type: 'string' },
+                name: { type: 'string' },
                 description: { type: 'string' },
-                type:        { type: 'string' },
-                required:    { type: 'boolean' },
-                default:     { type: ['string','number','boolean','null'] },
-                options:     { type: 'array', items: { type: 'string' } }
+                type: { type: 'string' },
+                required: { type: 'boolean' },
+                default: { type: ['string', 'number', 'boolean', 'null'] },
+                options: { type: 'array', items: { type: 'string' } }
               }
             }
           },
           connectedChatbots: {
             type: 'array',
-            items: { 
+            items: {
               type: 'object',
               required: ['id'],
               additionalProperties: false,
               properties: {
-                id:   { type: 'string' },
+                id: { type: 'string' },
                 name: { type: 'string' }
               }
             }
           },
-          category:  { type: 'string' },
-          folderId:  { type: ['string','null'] }
+          category: { type: 'string' },
+          folderId: { type: ['string', 'null'] }
         }
       },
       query: {
@@ -75,7 +75,7 @@ async function activate(app) {
     url: base_url,
     method: 'GET',
     name: 'ListActions',
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       operationId: 'ListActions',
       tags: ['ActionCenter'],
@@ -98,7 +98,7 @@ async function activate(app) {
     url: `${base_url}/:action_id`,
     method: 'GET',
     name: 'ShowActionDetail',
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       operationId: 'ShowActionDetail',
       tags: ['ActionCenter'],
@@ -114,7 +114,7 @@ async function activate(app) {
     url: `${base_url}/:action_id`,
     method: 'PATCH',
     name: 'UpdateAction',
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       operationId: 'UpdateAction',
       tags: ['ActionCenter'],
@@ -134,7 +134,7 @@ async function activate(app) {
     url: `${base_url}/:action_id`,
     method: 'DELETE',
     name: 'DeleteAction',
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       operationId: 'DeleteAction',
       tags: ['ActionCenter'],

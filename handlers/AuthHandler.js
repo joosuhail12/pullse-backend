@@ -20,7 +20,7 @@ class AuthHandler extends BaseHandler {
     try {
       const clientIp = requestIp.getClientIp(req);
       const userAgent = req.headers['user-agent'];
-       res = await inst.login(username, password, userAgent, clientIp);
+      res = await inst.login(username, password, userAgent, clientIp);
       reply.setCookie('customerToken', res?.accessToken?.token, {
         maxAge: res.accessToken?.expiry,
         expires: res.accessToken?.expiry,
@@ -55,12 +55,12 @@ class AuthHandler extends BaseHandler {
     return this.responder(req, reply, inst.resetPassword(token, password));
   }
 
-  async checkToken(req, reply) {
+  async checkClerkToken(req, reply) {
     let token = req.headers.authorization;
-    token = token.split(" ")[1] ;
+    token = token.split(" ")[1];
 
     let inst = new AuthService();
-    return this.responder(req, reply, inst.checkToken(token));
+    return this.responder(req, reply, inst.checkClerkToken(token));
   }
 
   async logoutUser(req, reply) {

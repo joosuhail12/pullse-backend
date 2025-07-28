@@ -11,7 +11,7 @@ async function activate(app) {
         url: base_url + '/contacts/:contact_id/timeline',
         method: 'GET',
         name: 'GetContactTimeline',
-        preHandler: authMiddlewares.checkToken(AuthType.user),
+        preHandler: authMiddlewares.checkClerkToken(AuthType.user),
         schema: {
             tags: ['Timeline'],
             summary: 'Get Contact Timeline',
@@ -42,7 +42,7 @@ async function activate(app) {
         url: base_url + '/contacts/:contact_id/timeline/stats',
         method: 'GET',
         name: 'GetContactTimelineStats',
-        preHandler: authMiddlewares.checkToken(AuthType.user),
+        preHandler: authMiddlewares.checkClerkToken(AuthType.user),
         schema: {
             tags: ['Timeline'],
             summary: 'Get Contact Timeline Statistics',
@@ -71,7 +71,7 @@ async function activate(app) {
         url: base_url + '/companies/:company_id/timeline',
         method: 'GET',
         name: 'GetCompanyTimeline',
-        preHandler: authMiddlewares.checkToken(AuthType.user),
+        preHandler: authMiddlewares.checkClerkToken(AuthType.user),
         schema: {
             tags: ['Timeline'],
             summary: 'Get Company Timeline',
@@ -102,7 +102,7 @@ async function activate(app) {
         url: base_url + '/companies/:company_id/timeline/stats',
         method: 'GET',
         name: 'GetCompanyTimelineStats',
-        preHandler: authMiddlewares.checkToken(AuthType.user),
+        preHandler: authMiddlewares.checkClerkToken(AuthType.user),
         schema: {
             tags: ['Timeline'],
             summary: 'Get Company Timeline Statistics',
@@ -131,7 +131,7 @@ async function activate(app) {
         url: base_url + '/timeline/note',
         method: 'POST',
         name: 'AddTimelineNote',
-        preHandler: authMiddlewares.checkToken(AuthType.user),
+        preHandler: authMiddlewares.checkClerkToken(AuthType.user),
         schema: {
             tags: ['Timeline'],
             summary: 'Add Timeline Note',
@@ -162,7 +162,7 @@ async function activate(app) {
         url: base_url + '/timeline/activities',
         method: 'GET',
         name: 'GetWorkspaceTimeline',
-        preHandler: authMiddlewares.checkToken(AuthType.user),
+        preHandler: authMiddlewares.checkClerkToken(AuthType.user),
         schema: {
             tags: ['Timeline'],
             summary: 'Get Workspace Timeline',
@@ -189,7 +189,7 @@ async function activate(app) {
         url: base_url + '/timeline/:timeline_id',
         method: 'DELETE',
         name: 'DeleteTimelineEntry',
-        preHandler: authMiddlewares.checkToken(AuthType.user),
+        preHandler: authMiddlewares.checkClerkToken(AuthType.user),
         schema: {
             tags: ['Timeline'],
             summary: 'Delete Timeline Entry',
@@ -216,7 +216,7 @@ async function activate(app) {
         url: base_url + '/timeline/fix-null-tickets',
         method: 'POST',
         name: 'FixNullTicketTimelineEntries',
-        preHandler: authMiddlewares.checkToken(AuthType.user),
+        preHandler: authMiddlewares.checkClerkToken(AuthType.user),
         schema: {
             tags: ['Timeline'],
             summary: 'Fix Null Ticket Timeline Entries',
@@ -236,7 +236,7 @@ async function activate(app) {
         url: base_url + '/tickets/:ticket_id/timeline',
         method: 'GET',
         name: 'GetTicketTimeline',
-        preHandler: authMiddlewares.checkToken(AuthType.user),
+        preHandler: authMiddlewares.checkClerkToken(AuthType.user),
         schema: {
             tags: ['Timeline'],
             summary: 'Get Ticket Timeline',
@@ -267,7 +267,7 @@ async function activate(app) {
         url: base_url + '/tickets/:ticket_id/timeline/stats',
         method: 'GET',
         name: 'GetTicketTimelineStats',
-        preHandler: authMiddlewares.checkToken(AuthType.user),
+        preHandler: authMiddlewares.checkClerkToken(AuthType.user),
         schema: {
             tags: ['Timeline'],
             summary: 'Get Ticket Timeline Statistics',

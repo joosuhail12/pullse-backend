@@ -13,7 +13,7 @@ async function activate(app) {
     url: base_url + '/text/summarize',
     method: 'POST',
     name: "SummarizeText",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       tags: ['AI Tool', "Summarize Text"],
       summary: 'Summarize Text',
@@ -23,14 +23,14 @@ async function activate(app) {
         additionalProperties: false,
         type: 'object',
         properties: {
-          text:  {
+          text: {
             type: 'string',
             minLength: 25
           },
         }
       },
       query: {
-        workspace_id:  {
+        workspace_id: {
           type: 'string',
         },
       }
@@ -45,7 +45,7 @@ async function activate(app) {
     url: base_url + '/text/expand',
     method: 'POST',
     name: "ExpandText",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       tags: ['AI Tool', "Expand Text"],
       summary: 'Expand Text',
@@ -55,14 +55,14 @@ async function activate(app) {
         additionalProperties: false,
         type: 'object',
         properties: {
-          text:  {
+          text: {
             type: 'string',
             minLength: 15
           },
         }
       },
       query: {
-        workspace_id:  {
+        workspace_id: {
           type: 'string',
         },
       }
@@ -77,7 +77,7 @@ async function activate(app) {
     url: base_url + '/text/rephrase',
     method: 'POST',
     name: "RephraseText",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       tags: ['AI Tool', "Rephrase Text"],
       summary: 'Rephrase Text',
@@ -87,14 +87,14 @@ async function activate(app) {
         additionalProperties: false,
         type: 'object',
         properties: {
-          text:  {
+          text: {
             type: 'string',
             minLength: 15
           },
         }
       },
       query: {
-        workspace_id:  {
+        workspace_id: {
           type: 'string',
         },
       }
@@ -109,7 +109,7 @@ async function activate(app) {
     url: base_url + '/query',
     method: 'POST',
     name: "AskQuery",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       tags: ['AI Tool', "Ask Query"],
       summary: 'Ask Query',
@@ -119,14 +119,14 @@ async function activate(app) {
         additionalProperties: false,
         type: 'object',
         properties: {
-          query:  {
+          query: {
             type: 'string',
             minLength: 15
           },
         }
       },
       query: {
-        workspace_id:  {
+        workspace_id: {
           type: 'string',
         },
       }
@@ -140,7 +140,7 @@ async function activate(app) {
     url: base_url + '/summarize/ticket-conversation',
     method: 'POST',
     name: "SummarizeTicketConversation",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       tags: ['AI Tool', "Summarize Ticket Conversation"],
       summary: 'Summarize Ticket Conversation',
@@ -150,13 +150,13 @@ async function activate(app) {
         additionalProperties: false,
         type: 'object',
         properties: {
-          ticket_sno:  {
+          ticket_sno: {
             type: 'number',
           },
         }
       },
       query: {
-        workspace_id:  {
+        workspace_id: {
           type: 'string',
         },
       }

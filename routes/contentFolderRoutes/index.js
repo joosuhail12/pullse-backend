@@ -13,7 +13,7 @@ async function activate(app) {
     url: base_url,
     method: 'POST',
     name: "CreateFolder",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     handler: async (req, reply) => {
       return handler.createFolder(req, reply);
     }
@@ -23,7 +23,7 @@ async function activate(app) {
     url: base_url + "/list",
     method: 'GET',
     name: "ListFolders",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     handler: async (req, reply) => {
       return handler.listFolders(req, reply);
     }

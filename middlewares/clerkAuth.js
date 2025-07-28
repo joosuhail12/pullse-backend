@@ -126,6 +126,32 @@ const verifyUserToken = async (token) => {
     };
 };
 
+const checkClerkToken = async (req) => {
+    try {
+        const token = await _getToken(req);
+        const authUser = await verifyUserToken(token);
+
+        if (!authUser) {
+            return Promise.reject(new errors.Unauthorized());
+        }
+
+        return Promise.resolve(authUser);
+    } catch (err) {
+        console.error("Error token not found", err);
+        return Promise.reject(err);
+    }
+};
+
+// Helper function to extract token from request
+const _getToken = async (req) => {
+    const auth = req.headers.authorization;
+    if (!auth?.startsWith('Bearer ')) {
+        throw new errors.Unauthorized('No token provided.');
+    }
+    return auth.slice(7); // Remove 'Bearer '
+};
+
 module.exports = {
     verifyUserToken,
+    checkClerkToken,
 };

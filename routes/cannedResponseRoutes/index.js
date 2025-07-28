@@ -12,7 +12,7 @@ async function activate(app) {
     url: base_url,
     method: 'POST',
     name: "CreateCannedResponse",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       operationId: "CreateCannedResponse",
       tags: ['CannedResponse'],
@@ -68,7 +68,7 @@ async function activate(app) {
     url: base_url,
     method: 'GET',
     name: "ListCannedResponses",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       operationId: "ListCannedResponses",
       tags: ['CannedResponse'],
@@ -109,7 +109,7 @@ async function activate(app) {
     url: base_url + "/:canned_response_id",
     method: 'GET',
     name: "ShowCannedResponseDetail",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       operationId: "ShowCannedResponseDetail",
       tags: ['CannedResponse'],
@@ -131,7 +131,7 @@ async function activate(app) {
     url: base_url + "/:canned_response_id",
     method: 'PATCH',
     name: "UpdateCannedResponse",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       operationId: "UpdateCannedResponse",
       tags: ['CannedResponse'],
@@ -165,7 +165,7 @@ async function activate(app) {
     url: base_url + "/:canned_response_id",
     method: 'DELETE',
     name: "DeleteCannedResponse",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       operationId: "DeleteCannedResponse",
       tags: ['CannedResponse'],
@@ -190,7 +190,7 @@ async function activate(app) {
     url: base_url + "/:canned_response_id/teams",
     method: 'PUT',
     name: "UpdateCannedResponseTeams",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       tags: ['CannedResponse'],
       summary: 'Update Canned Response Teams',
@@ -223,7 +223,7 @@ async function activate(app) {
     url: base_url + "/:canned_response_id/teams",
     method: 'GET',
     name: "GetCannedResponseTeams",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       tags: ['CannedResponse'],
       summary: 'Get Canned Response Teams',
@@ -240,7 +240,7 @@ async function activate(app) {
     url: base_url + "/team-accessible",
     method: 'GET',
     name: "ListTeamAccessibleCannedResponses",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       tags: ['CannedResponse'],
       summary: 'List Team Accessible Canned Responses',

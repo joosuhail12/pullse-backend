@@ -159,7 +159,7 @@ async function activate(app) {
     url: base_url + "/profile",
     method: 'GET',
     name: "ShowUserProfile",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       tags: ['User'],
       summary: 'Show User Profile',
@@ -175,7 +175,7 @@ async function activate(app) {
     url: base_url + "/overview",
     method: 'GET',
     name: "GetUserTeamsAndRoles",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       tags: ['User'],
       summary: 'Get User Teams and Roles Overview',
@@ -196,7 +196,7 @@ async function activate(app) {
     url: base_url + "/:user_id",
     method: 'GET',
     name: "ShowUserDetail",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       tags: ['User'],
       summary: 'Show User Detail',
@@ -212,7 +212,7 @@ async function activate(app) {
     url: base_url + "/:user_id",
     method: 'PUT',
     name: "UpdateUser",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       tags: ['User'],
       summary: 'Update User',
@@ -259,7 +259,7 @@ async function activate(app) {
     url: base_url + "/:user_id",
     method: 'DELETE',
     name: "DeleteUser",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       tags: ['User'],
       summary: 'Delete User',

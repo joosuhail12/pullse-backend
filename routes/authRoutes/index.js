@@ -16,7 +16,7 @@ async function activate(app) {
   let base_url = '/api/auth'
 
   app.route({
-    url: base_url+ "/login",
+    url: base_url + "/login",
     method: 'POST',
     name: "UserLogin",
     schema: {
@@ -49,7 +49,7 @@ async function activate(app) {
             type: 'object',
             properties: {
               "id": { type: 'string', format: 'uuid' },
-              "role":  { type: 'string', format: 'uuid' },
+              "role": { type: 'string', format: 'uuid' },
               "accessToken": {
                 type: 'object',
                 properties: {
@@ -144,16 +144,16 @@ async function activate(app) {
   app.route({
     url: base_url + "/check-token",
     method: 'GET',
-    name: "CheckToken",
+    name: "checkClerkToken",
     schema: {
-      operationId: "CheckToken",
+      operationId: "checkClerkToken",
       tags: ['Authorization'],
       summary: 'Check Token',
       description: 'API to check token.',
       required: ["token"],
     },
     handler: async (req, reply) => {
-      return handler.checkToken(req, reply);
+      return handler.checkClerkToken(req, reply);
     }
   });
 

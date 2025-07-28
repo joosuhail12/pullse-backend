@@ -187,7 +187,7 @@ var _verifyService = (token) => {
   return Promise.resolve({});
 };
 
-var _checkToken = async (authUserType, req) => {
+var _checkClerkToken = async (authUserType, req) => {
   req.authUserType = authUserType;
   let token, sessionId;
   try {
@@ -242,9 +242,9 @@ const authMiddlewares = {
     return _verifyClient(token);
   },
 
-  checkToken(authUserType = null) {
+  checkClerkToken(authUserType = null) {
     return (req, reply, next) => {
-      _checkToken(authUserType, req)
+      _checkClerkToken(authUserType, req)
         .then((authUser) => {
           req.authUser = authUser;
           next();

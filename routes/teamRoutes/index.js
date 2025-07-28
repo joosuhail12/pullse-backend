@@ -13,7 +13,7 @@ async function activate(app) {
     url: base_url,
     method: 'POST',
     name: "CreateTeam",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       tags: ['teams'],
       summary: 'Create User Team',
@@ -96,7 +96,7 @@ async function activate(app) {
     url: base_url,
     method: 'GET',
     name: "ListTeams",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       tags: ['teams'],
       summary: 'List Teams',
@@ -129,7 +129,7 @@ async function activate(app) {
     url: base_url + "/:team_id",
     method: 'GET',
     name: "ShowTeamDetail",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       tags: ['teams'],
       summary: 'Show Team Detail',
@@ -145,7 +145,7 @@ async function activate(app) {
     url: base_url + "/:team_id",
     method: 'PUT',
     name: "UpdateTeam",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       tags: ['teams'],
       summary: 'Update Team',
@@ -227,7 +227,7 @@ async function activate(app) {
     url: base_url + "/:team_id",
     method: 'DELETE',
     name: "DeleteTeam",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       tags: ['teams'],
       summary: 'Delete Team',
@@ -246,7 +246,7 @@ async function activate(app) {
     url: base_url + "/:team_id/team-tickets",
     method: 'GET',
     name: "GetTeamTickets",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       tags: ['teams'],
       summary: 'Get Team Tickets',
@@ -287,7 +287,7 @@ async function activate(app) {
     url: base_url + "/user/tickets",
     method: 'GET',
     name: "GetUserTeamTickets",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       tags: ['teams'],
       summary: 'Get User Team Tickets',
@@ -320,7 +320,7 @@ async function activate(app) {
     url: base_url + "/user/:user_id",
     method: 'GET',
     name: "GetUserTeams",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       tags: ['teams'],
       summary: 'Get User Teams',
@@ -351,7 +351,7 @@ async function activate(app) {
     url: base_url + "/user/:user_id/teammates",
     method: 'GET',
     name: "GetUserTeammates",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       tags: ['teams'],
       summary: 'Get User Teammates',
@@ -387,7 +387,7 @@ async function activate(app) {
     url: base_url + "/:team_id/add-teammate",
     method: 'POST',
     name: "AddTeammateToTeam",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       tags: ['teams'],
       summary: 'Add Teammate to Team',
@@ -429,7 +429,7 @@ async function activate(app) {
     url: base_url + "/:team_id/members",
     method: 'GET',
     name: "GetTeamMembersDetailed",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       tags: ['teams'],
       summary: 'Get Team Members with Details',
@@ -460,7 +460,7 @@ async function activate(app) {
     url: "/api/ticket/:ticket_id/assign-team",
     method: 'POST',
     name: "AssignTicketToTeam",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       tags: ['tickets'],
       summary: 'Assign Ticket to Team',
@@ -509,7 +509,7 @@ async function activate(app) {
     url: base_url + "/ticket/:ticket_id/teammates",
     method: 'GET',
     name: "GetTicketTeammates",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       tags: ['teams'],
       summary: 'Get teammates for ticket',

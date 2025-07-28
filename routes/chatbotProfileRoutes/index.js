@@ -12,13 +12,13 @@ async function activate(app) {
     url: base_url,
     method: 'POST',
     name: "CreateBotProfile",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       tags: ['Chatbot'],
       summary: 'Create User Chatbot',
       description: 'API to create user chatbot.',
       body: {
-        required: [ "name", "status", "channels", "audienceRules" ],
+        required: ["name", "status", "channels", "audienceRules"],
         additionalProperties: false,
         type: 'object',
         properties: {
@@ -96,7 +96,7 @@ async function activate(app) {
           customInstructions: {
             type: 'string'
           },
-          persona: {  
+          persona: {
             type: 'string'
           },
           avatarUrl: {
@@ -109,7 +109,7 @@ async function activate(app) {
         additionalProperties: false,
         type: 'object',
         properties: {
-          workspace_id:  {
+          workspace_id: {
             type: 'string',
           },
         }
@@ -118,13 +118,13 @@ async function activate(app) {
     handler: async (req, reply) => {
       return handler.createBotProfile(req, reply);
     }
-  }); 
+  });
 
   app.route({
     url: base_url,
     method: 'GET',
     name: "ListChatbotProfiles",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       tags: ['Chatbot'],
       summary: 'List Chatbot Profiles',
@@ -187,7 +187,7 @@ async function activate(app) {
     url: base_url + "/:profile_id",
     method: 'GET',
     name: "ShowChatbotProfileDetail",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       tags: ['Chatbot'],
       summary: 'Show Chatbot Profile Detail',
@@ -203,7 +203,7 @@ async function activate(app) {
     url: base_url + "/:profile_id",
     method: 'PUT',
     name: "UpdateChatbotProfile",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       tags: ['Chatbot'],
       summary: 'Update Chatbot Profile',
@@ -266,10 +266,10 @@ async function activate(app) {
   });
 
   app.route({
-    url: base_url+ "/:profile_id",
+    url: base_url + "/:profile_id",
     method: 'DELETE',
     name: "DeleteChatbotProfile",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       tags: ['Chatbot'],
       summary: 'Delete Chatbot Profile',
@@ -287,13 +287,13 @@ async function activate(app) {
     url: base_url + '/:profile_id/query',
     method: 'POST',
     name: "AskQueryToChatbotProfile",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
-      tags: [ 'Chatbot' ],
+      tags: ['Chatbot'],
       summary: 'Ask Query to Chatbot Profile',
       description: 'API to Ask Query to Chatbot Profile.',
       body: {
-        required: [ "query" ],
+        required: ["query"],
         additionalProperties: false,
         type: 'object',
         properties: {
@@ -313,7 +313,7 @@ async function activate(app) {
     url: base_url + '/rule-fields',
     method: 'GET',
     name: "GetChatbotRuleFields",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     handler: async (req, reply) => {
       return handler.getChatbotRuleFields(req, reply);
     }

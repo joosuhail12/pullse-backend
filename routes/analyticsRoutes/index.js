@@ -9,7 +9,7 @@ async function activate(app) {
         url: base_url + '/total-open-tickets-day-wise',
         method: 'GET',
         name: 'Total number of open tickets day wise',
-        preHandler: authMiddlewares.checkToken(AuthType.user),
+        preHandler: authMiddlewares.checkClerkToken(AuthType.user),
         schema: {
             tags: ['Analytics'],
             summary: 'Total number of open tickets day wise',

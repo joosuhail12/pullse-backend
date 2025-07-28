@@ -12,7 +12,7 @@ async function activate(app) {
     url: base_url,
     method: 'POST',
     name: "CreateTicketType",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       tags: ['TicketType'],
       summary: 'Create User TicketType',
@@ -49,7 +49,7 @@ async function activate(app) {
     url: base_url,
     method: 'GET',
     name: "ListTicketTypes",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       tags: ['TicketType'],
       summary: 'List TicketTypes',
@@ -100,7 +100,7 @@ async function activate(app) {
     url: base_url + "/:ticket_type_id",
     method: 'GET',
     name: "ShowTicketTypeDetail",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       tags: ['TicketType'],
       summary: 'Show TicketType Detail',
@@ -116,7 +116,7 @@ async function activate(app) {
     url: base_url + "/:ticket_type_id",
     method: 'PUT',
     name: "UpdateTicketType",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       tags: ['TicketType'],
       summary: 'Update TicketType',
@@ -125,11 +125,11 @@ async function activate(app) {
       body: {
         type: 'object',
         properties: {
-          name:  {
+          name: {
             type: 'string',
             minLength: 2
           },
-          description:  {
+          description: {
             type: 'string',
           },
           type: {
@@ -145,10 +145,10 @@ async function activate(app) {
   });
 
   app.route({
-    url: base_url+ "/:ticket_type_id",
+    url: base_url + "/:ticket_type_id",
     method: 'DELETE',
     name: "DeleteTicketType",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       tags: ['TicketType'],
       summary: 'Delete TicketType',

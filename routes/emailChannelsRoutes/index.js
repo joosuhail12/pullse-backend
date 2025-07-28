@@ -12,7 +12,7 @@ async function activate(app) {
         url: base_url,
         method: "GET",
         name: "GetEmailChannels",
-        preHandler: authMiddlewares.checkToken(AuthType.user),
+        preHandler: authMiddlewares.checkClerkToken(AuthType.user),
         schema: {
             tags: ["EmailChannels"],
             summary: "Get Email Channels",
@@ -33,7 +33,7 @@ async function activate(app) {
         url: base_url,
         method: "POST",
         name: "CreateEmailChannel",
-        preHandler: authMiddlewares.checkToken(AuthType.user),
+        preHandler: authMiddlewares.checkClerkToken(AuthType.user),
         schema: {
             tags: ["EmailChannels"],
             summary: "Create Email Channel",
@@ -60,7 +60,7 @@ async function activate(app) {
         url: base_url + "/:email_channel_id",
         method: "PATCH",
         name: "UpdateEmailChannel",
-        preHandler: authMiddlewares.checkToken(AuthType.user),
+        preHandler: authMiddlewares.checkClerkToken(AuthType.user),
         schema: {
             tags: ["EmailChannels"],
             summary: "Update Email Channel",
@@ -99,7 +99,7 @@ async function activate(app) {
         url: base_url + "/:email_channel_id",
         method: "DELETE",
         name: "DeleteEmailChannel",
-        preHandler: authMiddlewares.checkToken(AuthType.user),
+        preHandler: authMiddlewares.checkClerkToken(AuthType.user),
         schema: {
             tags: ["EmailChannels"],
             summary: "Delete Email Channel",
@@ -121,7 +121,7 @@ async function activate(app) {
         url: base_url + "/:email_channel_id",
         method: "GET",
         name: "GetEmailChannelDetails",
-        preHandler: authMiddlewares.checkToken(AuthType.user),
+        preHandler: authMiddlewares.checkClerkToken(AuthType.user),
         schema: {
             tags: ["EmailChannels"],
             summary: "Get Email Channel Details",

@@ -12,14 +12,14 @@ async function activate(app) {
     url: base_url + "/chatbot",
     method: 'GET',
     name: "GetChatbotSettingAgent",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       tags: ['ChatbotSetting', "Agent"],
       summary: 'Get Chatbot Setting',
       description: 'API to get  Chatbot Setting.',
       required: ['workspace_id'],
       query: {
-        workspace_id:  {
+        workspace_id: {
           type: 'string',
         },
       }
@@ -32,7 +32,7 @@ async function activate(app) {
   GetChatbotSettingRouteConfig.url = base_url + "/chatbot/customer";
   GetChatbotSettingRouteConfig.name = "GetChatbotSettingCustomer";
   GetChatbotSettingRouteConfig.schema.tags.push("Customer");
-  GetChatbotSettingRouteConfig.preHandler = authMiddlewares.checkToken(AuthType.customer);
+  GetChatbotSettingRouteConfig.preHandler = authMiddlewares.checkClerkToken(AuthType.customer);
   GetChatbotSettingRouteConfig.handler = async (req, reply) => {
     return handler.getCustomerChatbotSetting(req, reply);
   }
@@ -42,7 +42,7 @@ async function activate(app) {
     url: base_url + "/chatbot",
     method: 'PUT',
     name: "UpdateChatbotSetting",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       tags: ['ChatbotSetting'],
       summary: 'Update Chatbot Setting',
@@ -51,7 +51,7 @@ async function activate(app) {
       body: {
       },
       query: {
-        workspace_id:  {
+        workspace_id: {
           type: 'string',
         },
       }
@@ -65,14 +65,14 @@ async function activate(app) {
     url: base_url + "/sentiment",
     method: 'GET',
     name: "GetSentimentSetting",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       tags: ['SentimentSetting'],
       summary: 'Get Sentiment Setting',
       description: 'API to get Sentiment Setting.',
       required: ['workspace_id'],
       query: {
-        workspace_id:  {
+        workspace_id: {
           type: 'string',
         },
       }
@@ -86,7 +86,7 @@ async function activate(app) {
     url: base_url + "/sentiment",
     method: 'PUT',
     name: "UpdateSentimentSetting",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       tags: ['SentimentSetting'],
       summary: 'Update Sentiment Setting',
@@ -95,7 +95,7 @@ async function activate(app) {
       body: {
       },
       query: {
-        workspace_id:  {
+        workspace_id: {
           type: 'string',
         },
       }
@@ -109,14 +109,14 @@ async function activate(app) {
     url: base_url + "/quality-assurance",
     method: 'GET',
     name: "GetQualityAssuranceSetting",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       tags: ['QualityAssuranceSetting'],
       summary: 'Get Quality Assurance Setting',
       description: 'API to get Quality Assurance Setting.',
       required: ['workspace_id'],
       query: {
-        workspace_id:  {
+        workspace_id: {
           type: 'string',
         },
       }
@@ -130,7 +130,7 @@ async function activate(app) {
     url: base_url + "/quality-assurance",
     method: 'PUT',
     name: "UpdateQualityAssuranceSetting",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       tags: ['QualityAssuranceSetting'],
       summary: 'Update Quality Assurance Setting',
@@ -139,7 +139,7 @@ async function activate(app) {
       body: {
       },
       query: {
-        workspace_id:  {
+        workspace_id: {
           type: 'string',
         },
       }

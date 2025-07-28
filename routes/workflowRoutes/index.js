@@ -13,7 +13,7 @@ async function activate(app) {
     url: base_url + '/folder',
     method: 'POST',
     name: "CreateWorkflowFolder",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       tags: ['Workflow'],
       summary: 'Create Workflow Folder',
@@ -44,7 +44,7 @@ async function activate(app) {
     url: base_url + '/folder',
     method: 'GET',
     name: "GetWorkflowFolders",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       tags: ['Workflow'],
       summary: 'Get Workflow Folders',
@@ -67,7 +67,7 @@ async function activate(app) {
     url: base_url + '/folder/:id',
     method: 'DELETE',
     name: "DeleteWorkflowFolder",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       tags: ['Workflow'],
       summary: 'Delete Workflow Folder',
@@ -89,7 +89,7 @@ async function activate(app) {
     url: base_url + '/folder/:id',
     method: 'PATCH',
     name: "UpdateWorkflowFolder",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       tags: ['Workflow'],
       summary: 'Update Workflow Folder',
@@ -119,7 +119,7 @@ async function activate(app) {
     url: base_url,
     method: 'POST',
     name: "CreateWorkflow",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       tags: ['Workflow'],
       summary: 'Create Workflow',
@@ -157,7 +157,7 @@ async function activate(app) {
     url: base_url,
     method: 'GET',
     name: "GetAllWorkflows",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       tags: ['Workflow'],
       summary: 'Get All Workflows',
@@ -179,7 +179,7 @@ async function activate(app) {
     url: base_url + '/:id',
     method: 'GET',
     name: "GetWorkflowById",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       tags: ['Workflow'],
       summary: 'Get Workflow By Id',
@@ -208,7 +208,7 @@ async function activate(app) {
     url: base_url + '/:id',
     method: 'DELETE',
     name: "DeleteWorkflow",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       tags: ['Workflow'],
       summary: 'Delete Workflow',
@@ -238,7 +238,7 @@ async function activate(app) {
     url: base_url + '/tags/:id',
     method: 'PATCH',
     name: "UpdateWorkflowTags",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       tags: ['Workflow'],
       summary: 'Update Workflow Tags',
@@ -267,7 +267,7 @@ async function activate(app) {
     url: base_url + '/:id',
     method: 'POST',
     name: "UpdateWorkflow",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       tags: ['Workflow'],
       summary: 'Update Workflow',
@@ -335,7 +335,7 @@ async function activate(app) {
     url: base_url + '/:id/activate',
     method: 'POST',
     name: "ActivateWorkflow",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       query: {
         type: 'object',
@@ -363,7 +363,7 @@ async function activate(app) {
     url: base_url + '/:id/disable',
     method: 'POST',
     name: "DisableWorkflow",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       query: {
         type: 'object',
@@ -387,7 +387,7 @@ async function activate(app) {
     url: base_url + '/:id/update-configuration',
     method: 'POST',
     name: "UpdateWorkflowConfiguration",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       query: {
         type: 'object',
@@ -557,7 +557,7 @@ async function activate(app) {
     url: base_url + '/:id/workflow-configuration',
     method: 'GET',
     name: "GetWorkflowConfiguration",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       query: {
         type: 'object',
@@ -581,7 +581,7 @@ async function activate(app) {
     url: base_url + '/getWorkflowRuleFields',
     method: 'GET',
     name: "GetWorkflowRuleFields",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       query: {
         type: 'object',
@@ -600,7 +600,7 @@ async function activate(app) {
     url: base_url + '/getWorkflowReusableNodes',
     method: 'GET',
     name: "GetWorkflowReusableNodes",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       query: {
         type: 'object',

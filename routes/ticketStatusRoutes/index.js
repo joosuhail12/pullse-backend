@@ -13,7 +13,7 @@ async function activate(app) {
     url: base_url,
     method: 'POST',
     name: "CreateTicketStatus",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       operationId: "CreateTicketStatus",
       tags: ['TicketStatus'],
@@ -30,15 +30,15 @@ async function activate(app) {
           },
           type: {
             type: 'string',
-            enum:[ Status.open, Status.inProgress, Status.closed, ]
+            enum: [Status.open, Status.inProgress, Status.closed,]
           },
-          description:  {
+          description: {
             type: 'string',
           },
         }
       },
       query: {
-        workspace_id:  {
+        workspace_id: {
           type: 'string',
         },
       }
@@ -52,7 +52,7 @@ async function activate(app) {
     url: base_url,
     method: 'GET',
     name: "ListTicketStatuses",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       operationId: "ListTicketStatuses",
       tags: ['TicketStatus'],
@@ -62,20 +62,20 @@ async function activate(app) {
       query: {
         type: 'object',
         properties: {
-          name:  {
+          name: {
             type: 'string',
             minLength: 2
           },
           type: {
             type: 'string',
-            enum:[ Status.open, Status.inProgress, Status.closed, ]
+            enum: [Status.open, Status.inProgress, Status.closed,]
           },
           archived: {
             type: "boolean",
             default: false,
             description: "To fetch archived records."
           },
-          workspace_id:  {
+          workspace_id: {
             type: 'string',
           },
           page: {
@@ -105,7 +105,7 @@ async function activate(app) {
     url: base_url + "/status",
     method: 'GET',
     name: "ListTicketStatusSecondary",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     handler: async (req, reply) => {
       return handler.listTicketStatusSecondary(req, reply);
     }
@@ -115,7 +115,7 @@ async function activate(app) {
     url: base_url + "/priority",
     method: 'GET',
     name: "ListTicketPriority",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     handler: async (req, reply) => {
       return handler.listTicketPriority(req, reply);
     }
@@ -125,7 +125,7 @@ async function activate(app) {
     url: base_url + "/visibility",
     method: 'GET',
     name: "GetTicketVisibilitySettings",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     handler: async (req, reply) => {
       return handler.getTicketVisibilitySettings(req, reply);
     }
@@ -135,7 +135,7 @@ async function activate(app) {
     url: base_url + "/:ticket_status_id",
     method: 'GET',
     name: "ShowTicketStatusDetail",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       operationId: "ShowTicketStatusDetail",
       tags: ['TicketStatus'],
@@ -143,7 +143,7 @@ async function activate(app) {
       description: 'API to show detail of a TicketStatus.',
       required: ['workspace_id'],
       query: {
-        workspace_id:  {
+        workspace_id: {
           type: 'string',
         },
       }
@@ -157,7 +157,7 @@ async function activate(app) {
     url: base_url + "/:ticket_status_id",
     method: 'PUT',
     name: "UpdateTicketStatus",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       operationId: "UpdateTicketStatus",
       tags: ['TicketStatus'],
@@ -167,21 +167,21 @@ async function activate(app) {
       body: {
         type: 'object',
         properties: {
-          name:  {
+          name: {
             type: 'string',
             minLength: 2
           },
           type: {
             type: 'string',
-            enum:[ Status.open, Status.inProgress, Status.closed, ]
+            enum: [Status.open, Status.inProgress, Status.closed,]
           },
-          description:  {
+          description: {
             type: 'string',
           },
         },
       },
       query: {
-        workspace_id:  {
+        workspace_id: {
           type: 'string',
         },
       }
@@ -192,10 +192,10 @@ async function activate(app) {
   });
 
   app.route({
-    url: base_url+ "/:ticket_status_id",
+    url: base_url + "/:ticket_status_id",
     method: 'DELETE',
     name: "DeleteTicketStatus",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       operationId: "DeleteTicketStatus",
       tags: ['TicketStatus'],
@@ -205,7 +205,7 @@ async function activate(app) {
       body: {
       },
       query: {
-        workspace_id:  {
+        workspace_id: {
           type: 'string',
         },
       }

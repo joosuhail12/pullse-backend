@@ -10,7 +10,7 @@ async function activate(app) {
     url: base_url + "/import",
     method: "POST",
     name: "ImportCustomer",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       operationId: "ImportCustomer",
       tags: ["Customer"],
@@ -31,7 +31,7 @@ async function activate(app) {
     url: base_url,
     method: "POST",
     name: "CreateCustomer",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       operationId: "CreateCustomer",
       tags: ["Customer"],
@@ -87,7 +87,7 @@ async function activate(app) {
     url: base_url,
     method: "GET",
     name: "ListCustomers",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       operationId: "ListCustomers",
       tags: ["Customer"],
@@ -145,7 +145,7 @@ async function activate(app) {
     url: base_url + "/visitors",
     method: "GET",
     name: "ListVisitors",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       operationId: "ListVisitors",
       tags: ["Customer"],
@@ -203,7 +203,7 @@ async function activate(app) {
     url: base_url + "/customers",
     method: "GET",
     name: "ListCustomers",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       operationId: "ListContacts",
       tags: ["Customer"],
@@ -261,7 +261,7 @@ async function activate(app) {
     url: base_url + "/:customer_id",
     method: "GET",
     name: "ShowCustomerDetail",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       operationId: "ShowCustomerDetail",
       tags: ["Customer"],
@@ -284,7 +284,7 @@ async function activate(app) {
     url: base_url + "/:customer_id",
     method: "PUT",
     name: "UpdateCustomer",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       operationId: "UpdateCustomer",
       tags: ["Customer"],
@@ -346,7 +346,7 @@ async function activate(app) {
     url: base_url + "/:customer_id/related-data",
     method: 'GET',
     name: "GetCustomerRelatedData",
-    preHandler: authMiddlewares.checkToken(AuthType.user),
+    preHandler: authMiddlewares.checkClerkToken(AuthType.user),
     schema: {
       tags: ['Customer'],
       summary: 'Get Customer Related Tickets',
