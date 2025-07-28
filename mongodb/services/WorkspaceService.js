@@ -4,13 +4,13 @@ const WorkspaceUtility = require("../db/utilities/WorkspaceUtility");
 const BaseService = require("./BaseService");
 const _ = require("lodash");
 const config = require("../../config");
+const jwt = require('jsonwebtoken');
 // const ClientService = require('./ClientService')
 
 class WorkspaceService extends BaseService {
   constructor(fields = null, dependencies = {}) {
     super();
     this.utilityInst = new WorkspaceUtility();
-    this.AuthService = dependencies.AuthService;
     this.UserService = dependencies.UserService;
     this.WorkspacePermission = dependencies.WorkspacePermissionService;
     this.ClientService = dependencies.ClientService;
@@ -114,10 +114,10 @@ class WorkspaceService extends BaseService {
         },
       ]);
       let email = `${workspace.id}@${config.app.email_domain}`;
-      let authInst = new this.AuthService();
-      let clientToken = authInst.generateJWTToken({
-        client: new Buffer(`${workspace.id}:${clientId}`).toString("base64"),
-      });
+      const clientToken = jwt.sign(
+        { client: Buffer.from(`${workspace.id}:${clientId}`).toString('base64') },
+        process.env.JWT_SECRET || '$$SUPER_SECRET_JWT_SECRET!@#$%5'
+      );
       return { ...workspace1[0], email, clientToken };
     } catch (err) {
       return this.handleError(err);

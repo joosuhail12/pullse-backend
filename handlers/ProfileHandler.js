@@ -1,7 +1,10 @@
 const BaseHandler = require('./BaseHandler');
 const UserService = require('../services/UserService');
-const AuthService = require('../services/AuthService');
+const { createClient } = require('@supabase/supabase-js');
+const bcrypt = require('bcrypt');
+const errors = require('../errors');
 const { defineAbilityFor } = require('../ability/defineAbility');
+const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
 
 class ProfileHandler extends BaseHandler {
 
@@ -41,12 +44,27 @@ class ProfileHandler extends BaseHandler {
 
 
   async changePassword(req, reply) {
-    let email = req.authUser.email;
-    let inst = new AuthService();
-    let password = req.body.password;
-    let newPassword = req.body.new_password;
-    let logoutAll = req.body.logout_all;
-    return this.responder(req, reply, inst.changePassword(email, {password, newPassword}, logoutAll));
+    try {
+      const email = req.authUser.email;
+      const { password, new_password: newPassword, logout_all: logoutAll } = req.body;
+
+      const { data: user, error } = await supabase.from('users').select('*').eq('email', email).single();
+      if (error || !user) throw new errors.InvalidCredentials();
+
+      const match = await bcrypt.compare(password, user.password);
+      if (!match) throw new errors.InvalidCredentials();
+
+      const hash = await bcrypt.hash(newPassword, 10);
+      await supabase.from('users').update({ password: hash }).eq('id', user.id);
+
+      if (logoutAll) {
+        await supabase.from('userAccessTokens').delete().eq('user_id', user.id);
+      }
+
+      return this.responder(req, reply, Promise.resolve({ message: 'Password changed successfully.' }));
+    } catch (err) {
+      return this.responder(req, reply, Promise.reject(err));
+    }
   }
 
 }

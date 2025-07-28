@@ -1,5 +1,4 @@
 const demoRequestRoute = require('./demoRequestRoutes');
-const authRoute = require('./authRoutes');
 
 const rolePermissionRoute = require('./rolePermissionRoute');
 const roleRoute = require('./roleRoutes');
@@ -56,7 +55,6 @@ module.exports = {
     await demoRequestRoute.activate(app);
     await workspaceRoute.activate(app);
     await workspaceSettingRoute.activate(app);
-    await authRoute.activate(app);
     await rolePermissionRoute.activate(app);
     await roleRoute.activate(app);
     await profileRoute.activate(app);
