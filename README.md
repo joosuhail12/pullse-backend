@@ -20,3 +20,9 @@ Authentication now relies solely on Clerk session tokens. Configure your JWT tem
 - `permissions` (optional)
 
 These claims allow the backend to authorize requests without additional database lookups.
+
+### Token verification
+
+The `verifyUserToken` middleware simply calls `@clerk/backend`'s `verifyToken` and
+extracts the `internal_user_id`, `workspace_id` and `role` claims. If any of these
+are missing the request is rejected with a 401 error.
