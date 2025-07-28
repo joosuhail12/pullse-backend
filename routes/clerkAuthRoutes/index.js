@@ -4,7 +4,7 @@ async function activate(app) {
     let handler = new Handler();
     let base_url = '/api/clerk-auth';
 
-    // Clerk login - returns same format as /api/auth/login
+    // Clerk login
     app.route({
         url: base_url + "/login",
         method: 'POST',
@@ -12,7 +12,7 @@ async function activate(app) {
         schema: {
             tags: ['ClerkAuth'],
             summary: 'Login with Clerk',
-            description: 'Login using Clerk session token, returns same format as regular login.',
+            description: 'Validate a Clerk session token and return user claims.',
             body: {
                 type: 'object',
                 required: ['clerkSessionToken'],
@@ -54,7 +54,7 @@ async function activate(app) {
         }
     });
 
-    // Clerk logout
+    // Clerk logout (no-op on backend)
     app.route({
         url: base_url + "/logout",
         method: 'POST',
@@ -62,16 +62,10 @@ async function activate(app) {
         schema: {
             tags: ['ClerkAuth'],
             summary: 'Logout Clerk User',
-            description: 'Logout user and revoke access token.',
+            description: 'Placeholder endpoint for client side logout.',
             body: {
                 type: 'object',
-                required: ['accessToken'],
-                properties: {
-                    accessToken: {
-                        type: 'string',
-                        description: 'Access token to revoke'
-                    }
-                }
+                properties: {}
             }
         },
         handler: async (req, reply) => {
@@ -79,7 +73,7 @@ async function activate(app) {
         }
     });
 
-    // Check token (for middleware compatibility)
+    // Check token (validate Clerk session token)
     app.route({
         url: base_url + "/check-token",
         method: 'POST',
@@ -87,13 +81,13 @@ async function activate(app) {
         schema: {
             tags: ['ClerkAuth'],
             summary: 'Check Token Validity',
-            description: 'Check if access token is valid (for middleware use).',
+            description: 'Check if a Clerk session token is valid.',
             body: {
                 type: 'object',
                 properties: {
                     token: {
                         type: 'string',
-                        description: 'Access token to check'
+                        description: 'Clerk session token to verify'
                     }
                 }
             }
