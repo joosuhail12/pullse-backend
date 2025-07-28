@@ -21,6 +21,9 @@ async function getClerkJWKS() {
     return jwksCache;
 }
 
+// -- Clerk auth --
+// JWKS + JWT verification using token destructuring fron clerk token
+
 async function verifyUserClerkJWT(token) {
     try {
         // 2. Load Clerk JWKS for public keys
@@ -77,7 +80,7 @@ module.exports = {
 
 */
 
-// middlewares/auth.js
+// middlewares/auth.js - maintains the previous res of verifyUser legacy (directly checks clerk token)
 const { verifyToken } = require('@clerk/backend');
 const { createClient } = require('@supabase/supabase-js');
 const errors = require('../errors'); // Your error helpers
